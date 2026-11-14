@@ -1,4 +1,4 @@
-# 言及 Yanji
+# 言及 Yanji GEO-SaaS 
 
 **可以丢给AI智能体发送：帮我按 INSTALL.md 安装言及 <仓库地址>**
 
@@ -98,6 +98,8 @@ GEOFlow 更侧重企业官网与多站点的持续内容运营，将知识库、
 - **界面实测：** 新安装、登录与退出、三种真实模型连接、材料入库和检索、豆包监测、标题内容生成、报告下载、用量、未知结果不自动重发、窄屏模型表单。
 - **平台：** Apple 芯片 Mac / Linux arm64 容器已验证。CI 配置将验证 Linux amd64 和 arm64；首次 GitHub 运行前，amd64 仍标记为未验证。
 - **未验证：** 可选视觉模型、上表注明的真实渠道、正式公开发布与 GitHub 镜像发行。旧版工作台预览入口默认关闭。
+<img width="888" height="1191" alt="IMG_1408" src="https://github.com/user-attachments/assets/9da45d2f-baff-414d-ad0a-98959facd8f7" />
+
 
 ## 许可、来源与品牌
 
