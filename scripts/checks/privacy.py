@@ -127,7 +127,12 @@ def scan_history(root=ROOT):
         identity_email = index % 5 in (1, 3)
         public_noreply = identity_email and re.fullmatch(
             r'(?:[0-9]+\+)?[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?@users\.noreply\.github\.com', value)
-        rows = private_findings('[commit metadata]', value, terms) if public_noreply else check_source('[commit metadata]', value, terms)
+        # GitHub web edits use this public service identity as the committer.
+        # Permit only that exact name/email pair in the committer fields;
+        # authors, messages, file content and private terms remain checked.
+        github_web_committer = (index % 5 == 3 and fields[index - 1] == 'GitHub'
+                                and value == 'noreply@github.com')
+        rows = private_findings('[commit metadata]', value, terms) if public_noreply or github_web_committer else check_source('[commit metadata]', value, terms)
         for finding in rows:
             finding['line'] += sum(v.count('\n') + 1 for v in fields[:index])
             findings.append(finding)

@@ -113,6 +113,38 @@ class PrivateHistoryTest(unittest.TestCase):
         self.commit()
         self.assertTrue(any(f['file'] == '[commit metadata]' and 'category' not in f for f in scan_history(self.root)))
 
+    def test_github_web_committer_does_not_expose_a_personal_email(self):
+        self.git('config', 'user.name', 'GitHub')
+        self.git('config', 'user.email', 'noreply@github.com')
+        self.git('add', '-A')
+        self.git('commit', '--author', 'Fixture Author <fixture@example.com>', '-m', 'web edit')
+        self.assertEqual([], scan_history(self.root))
+        self.git('commit', '--allow-empty', '--author', 'Fixture Author <fixture@example.com>',
+                 '-m', 'noreply@github.com')
+        self.assertTrue(any(f.get('category') == 'non-example-email' for f in scan_history(self.root)))
+        self.assertTrue(scan_text('sample.txt', 'noreply@github.com'))
+
+    def test_github_web_committer_exception_is_narrow_and_denylist_still_applies(self):
+        self.git('config', 'user.name', 'GitHub')
+        self.git('config', 'user.email', 'noreply@github.com')
+        self.git('add', '-A')
+        self.git('commit', '--author', 'Fixture Author <fixture@example.com>', '-m', 'web edit')
+        (self.root / '.dev-records/private-denylist.txt').write_text('noreply@github.com\n')
+        self.assertTrue(any(f['file'] == '[commit metadata]' and 'category' not in f for f in scan_history(self.root)))
+        (self.root / '.dev-records/private-denylist.txt').write_text(self.marker + '\n')
+        for name, email in [('Fixture Author', 'noreply@github.com'),
+                            ('GitHub', 'noreply@github.com.evil.test')]:
+            with self.subTest(name=name, email=email):
+                self.git('config', 'user.name', name)
+                self.git('config', 'user.email', email)
+                self.git('commit', '--amend', '--author', 'Fixture Author <fixture@example.com>', '-m', 'fixture')
+                self.assertTrue(any(f.get('category') == 'non-example-email' for f in scan_history(self.root)))
+
+    def test_github_web_committer_exception_does_not_cover_authors(self):
+        self.git('add', '-A')
+        self.git('commit', '--author', 'GitHub <noreply@github.com>', '-m', 'fixture')
+        self.assertTrue(any(f.get('category') == 'non-example-email' for f in scan_history(self.root)))
+
     def test_other_identity_emails_are_still_rejected(self):
         for email in ['fixture@invalid.example', '123+fixture@users.noreply.github.com.evil.test']:
             with self.subTest(email=email):
