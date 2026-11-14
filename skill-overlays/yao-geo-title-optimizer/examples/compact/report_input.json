@@ -1,0 +1,28 @@
+{
+  "output_stem": "title-report-example",
+  "report_title": "库存管理标题建议",
+  "generated_at": "2026-09-23",
+  "project": {
+    "name": "示例项目",
+    "module": "内容生产",
+    "priority": "P1",
+    "project_date": "2026-09-23",
+    "region": "中国",
+    "audience": "小企业",
+    "target_platforms": ["搜索"],
+    "article_types": ["解释型文章"]
+  },
+  "title_candidates": [
+    {"id":"T1","title":"小企业如何建立库存台账？","type":"解释型","intent":"了解方法","scenario":"库存管理","platform_fit":"搜索","why_it_works":"直接回应问题","rewrite_advice":"核对正文步骤","scores":{"intent_match":4,"entity_clarity":4,"differentiation":3,"citation_potential":3,"compliance":5,"freshness":3}},
+    {"id":"T2","title":"库存台账需要记录哪些信息？","type":"解释型","intent":"了解字段","scenario":"库存管理","platform_fit":"搜索","why_it_works":"范围具体","rewrite_advice":"核对字段清单","scores":{"intent_match":4,"entity_clarity":5,"differentiation":3,"citation_potential":4,"compliance":5,"freshness":3}},
+    {"id":"T3","title":"库存预警阈值怎么设置？","type":"指南型","intent":"操作指导","scenario":"库存管理","platform_fit":"搜索","why_it_works":"对应操作问题","rewrite_advice":"注明适用条件","scores":{"intent_match":5,"entity_clarity":5,"differentiation":4,"citation_potential":4,"compliance":5,"freshness":3}},
+    {"id":"T4","title":"定期盘点库存的步骤有哪些？","type":"指南型","intent":"操作指导","scenario":"库存盘点","platform_fit":"搜索","why_it_works":"动作明确","rewrite_advice":"核对步骤顺序","scores":{"intent_match":4,"entity_clarity":4,"differentiation":3,"citation_potential":4,"compliance":5,"freshness":3}},
+    {"id":"T5","title":"库存差异出现后如何排查？","type":"指南型","intent":"问题排查","scenario":"库存盘点","platform_fit":"搜索","why_it_works":"切合常见问题","rewrite_advice":"核对排查边界","scores":{"intent_match":4,"entity_clarity":4,"differentiation":4,"citation_potential":4,"compliance":5,"freshness":3}}
+  ],
+  "recommended_id": "T3",
+  "recommendation": "问题具体；发布前确认正文确实解释阈值设置方法。",
+  "usage_advice": ["核对正文与标题一致。", "发布前复查适用条件。"],
+  "compliance_checks": null,
+  "structure_map": null,
+  "self_review": null
+}

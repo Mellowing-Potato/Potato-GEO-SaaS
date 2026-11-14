@@ -1,0 +1,551 @@
+/* ============================================================================
+   GEO 应用端共用零件层（geo-base.css）
+   ----------------------------------------------------------------------------
+   建立日期：2026-09-03
+   出处：design-specs/designs/geo-theme-package/（主题包页重做稿，B 稿选定）。
+         这一层不是新画的，是把那一稿里已经渲染、已经过审阅的共用零件
+         （按钮/表单/徽标/面板/表格/空态/提示/抽屉/对话框/菜单/toast）
+         从 .tp-* / .va-* 改名成 .md-* 提出来，供 9 个页面共用。
+
+   ── 为什么单独一个文件，而不是塞进 geo-tokens.css ─────────────────────
+   geo-tokens.css 的规矩第 3 条写得对：那个文件只放自定义属性，
+   真实声明会作用到元素上，搬进去等于给所有页面强加样式。
+   这个文件里全是真实声明，所以必须是**另一个文件、按页挂载**。
+
+   ── 挂载方式（三步，缺一步样式不生效）───────────────────────────────
+   1. blade 里排在 geo-tokens.css **之后**、页面自己的样式表**之前**：
+        <link rel="stylesheet" href="/geo-tokens.css?v=…">
+        <link rel="stylesheet" href="/geo-base.css?v=…">
+        <link rel="stylesheet" href="/geo-<页面>.css?v=…">
+      排错了取不到 var()（在 tokens 之前）或盖不掉基线（在页面样式之后）。
+   2. <body> 上加 class="md-app"。
+      **整份文件里所有规则都在 .md-app 之下**——包括 box-sizing、
+      焦点环、动效降级。所以只挂 <link> 不加这个 class，页面纹样不变；
+      反过来，加了 class 就是整页采用这套基线，不能只采用一半。
+   3. 页面自己的样式表里只写这一页独有的东西，不要重抄这里已有的零件。
+
+   ── 用它的规矩 ────────────────────────────────────────────────────────
+   · 颜色、间距、字号、字重、行高一律 var(--md-*)，本文件里不出现字面色值
+     （唯一例外是 rgba() 的透明度叠加，那是叠加不是取色）。
+   · 某一页要不一样，在**那一页自己的样式表**里覆盖，不要回来改这里加变体。
+     这里加一个变体就是 9 个页面一起承担风险。
+   · 断点只有 640 / 900 / 1200 / 1600（--md-bp-*）。CSS 变量在 @media 里
+     用不了，所以下面 @media 里的字面量必须与令牌逐字一致。
+
+   ── 第一个消费方 ──────────────────────────────────────────────────────
+   主题包页重做（geo-theme-package）。其余 8 页在各自重做时逐页搬，
+   不搬的页面完全不受影响——这是「改一页碰不到别页」这个现有优点的保留办法。
+   ============================================================================ */
+
+/* ══ 页面基线 ═══════════════════════════════════════════════════════════ */
+
+.md-app {
+  margin: 0;
+  background: var(--md-bg-page);
+  color: var(--md-text);
+  font-family: var(--md-font-sans);
+  font-size: var(--md-fs-base);
+  line-height: var(--md-leading-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.md-app, .md-app *, .md-app *::before, .md-app *::after { box-sizing: border-box; }
+
+/* hidden 属性复位。**这一条不能省，也不能靠页面自己补。**
+   浏览器给 [hidden] 的 display:none 来自 UA 样式表，任何一条作者写的
+   display 都盖得过它 —— 而这个文件里 40 多条零件都写了 display。
+   于是 el.hidden = true 在这些零件上是**无声失效**的：属性设上了、
+   DOM 对、JS 对，元素照样显示。已经踩过的：
+     · geo-theme-package.css 为此手写了三条补丁
+       （.ops-state[hidden] / .ob-spinner[hidden],.ob-icon[hidden] / .tp-preview-load[hidden]）；
+     · 同一页的 #guardLink 是 .md-btn，没人给它补，至今 hidden 关不掉。
+   geo-entry.css / geo-workbench.css / geo-platform-ops.css 三张表早就各写了
+   一条通杀的 [hidden]{display:none!important}，这里只是把那条共识收到零件层，
+   让后搬过来的页面不必再各踩一次。
+   作用域仍在 .md-app 之下，本文件「无一条裸选择器」的规矩不破。 */
+.md-app [hidden], .md-app[hidden] { display: none !important; }
+.md-app code, .md-app .md-code, .md-app .md-mono { font-family: var(--md-font-mono); }
+
+/* 焦点环 · 全站统一，键盘可见，对比度 ≥ 3:1。
+   实测：生产的 lead-form / theme-package 三张样式表里
+   :focus-visible 出现次数是 0，转化漏斗末端键盘用户没有任何焦点指示。 */
+.md-app :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--md-primary);
+  outline-offset: 2px;
+  border-radius: var(--md-radius-xs);
+}
+
+/* 动效降级 · 系统开了「减少动态效果」就全停 */
+@media (prefers-reduced-motion: reduce) {
+  .md-app *, .md-app *::before, .md-app *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ══ 排版零件 ═══════════════════════════════════════════════════════════ */
+
+.md-app .md-h1 { margin: 0; font-size: var(--md-fs-xl); font-weight: var(--md-weight-semibold); line-height: var(--md-leading-tight); }
+.md-app .md-h2 { margin: 0; font-size: var(--md-fs-md); font-weight: var(--md-weight-semibold); }
+
+/* 眉标：标题上方那行小字，回答「你现在在哪一类东西里」。
+   全站 20 个视图有 16 个在用，是最高频的排版件之一。
+   两款：默认灰款用于面板小标题；--lead 主色款用于页头引导区和卡片。
+   ⚠️ 刻意不给 margin —— 与页面层旧规则 1:1 对齐，保证迁移零视觉变化。
+      要不要统一给下边距，留到眉标全站收口那轮再定。 */
+.md-app .md-eyebrow {
+  display: block;
+  font-size: var(--md-fs-xs);
+  font-weight: var(--md-weight-bold);
+  color: var(--md-text-muted);
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+.md-app .md-eyebrow--lead {
+  color: var(--md-primary);
+  letter-spacing: .14em;
+}
+
+.md-app .md-lede { margin: var(--md-space-2) 0 0; font-size: var(--md-fs-sm); color: var(--md-text-muted); }
+.md-app .md-dim { color: var(--md-text-muted); }
+.md-app .md-code {
+  padding: var(--md-space-hair) var(--md-space-1); border-radius: var(--md-radius-xs);
+  background: var(--md-bg-subtle); border: 1px solid var(--md-border-subtle);
+  font-size: var(--md-fs-xs); color: var(--md-text-secondary);
+}
+.md-app .md-id { margin-left: var(--md-space-2); font-family: var(--md-font-mono); font-size: var(--md-fs-xs); color: var(--md-text-faint); }
+.md-app .md-ver { font-family: var(--md-font-mono); font-size: var(--md-fs-sm); color: var(--md-text-secondary); }
+.md-app .md-icon { flex: 0 0 auto; display: block; }
+
+/* ══ 顶栏与身份 ═════════════════════════════════════════════════════════ */
+
+.md-app .md-topbar {
+  display: flex; align-items: center; gap: var(--md-space-4);
+  padding: var(--md-space-3) var(--md-space-5);
+  background: var(--md-surface); border-bottom: 1px solid var(--md-border);
+}
+.md-app .md-brand { display: flex; align-items: center; gap: var(--md-space-2); }
+.md-app .md-mark {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: var(--md-radius-sm);
+  background: var(--md-primary); color: var(--md-on-primary);
+  font-size: var(--md-fs-sm); font-weight: var(--md-weight-bold);
+}
+.md-app .md-brand-text { font-size: var(--md-fs-md); font-weight: var(--md-weight-semibold); letter-spacing: .01em; }
+.md-app .md-brand-dot { margin: 0 var(--md-space-1); color: var(--md-text-faint); font-weight: var(--md-weight-normal); }
+.md-app .md-who {
+  display: flex; align-items: center; gap: var(--md-space-2); margin-left: auto;
+  font-size: var(--md-fs-sm); color: var(--md-text-secondary);
+}
+.md-app .md-avatar {
+  display: flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--md-primary-soft); color: var(--md-primary-pressed);
+  font-size: var(--md-fs-xs); font-weight: var(--md-weight-semibold);
+}
+
+/* ══ 按钮 ═══════════════════════════════════════════════════════════════ */
+/* 组件外观定义已迁至 geo-components.css；本页仅保留布局。 */
+/* 四级：主 / 软 / 幽灵 / 危险。生产现状是「四个同款 mini 按钮平铺」，
+   看不出哪个是主动作，这四级就是为了把主次说清楚。 */
+
+.md-app .md-btn{
+   align-items: center; justify-content: center; gap: var(--md-space-2);
+
+
+
+
+    white-space: nowrap;
+
+}
+
+
+
+
+.md-app .md-btn--full { width: 100%; }
+
+
+
+
+
+
+
+
+
+
+/* ⚠️ 价值金 --md-value 不做按钮。要标金额用 .md-amount，不要做成 CTA。
+   .md-amount 不定字号（交给调用方），所以颜色取 --md-value-ink：
+   它在卡片 / 纸面 / 浅面 / 金软底 四种底上都过 AA 4.5:1，
+   而 --md-value 在 14px 正文里只有 4.35。
+   要做 ≥20px 加粗的大号数字展示，可以就地覆盖成 --md-value（大字门槛 3:1）。 */
+.md-app .md-amount { color: var(--md-value-ink); font-weight: var(--md-weight-semibold); font-variant-numeric: tabular-nums; }
+
+.md-app .md-iconbtn{
+   align-items: center; justify-content: center;
+   width: 28px;  flex: 0 0 auto;
+
+
+
+
+}
+
+
+/* 操作列：主动作用定宽槽位，让各行的按钮纵向对齐（松墨青禾排版口味）。
+   槽位宽度按该列最长的主动作文案定，不要每行各自宽度。 */
+.md-app .md-acts { display: flex; align-items: center; gap: var(--md-space-2); justify-content: flex-end; }
+.md-app .md-act-slot { display: inline-block; width: 88px; }
+.md-app .md-namebtn {
+  padding: 0; border: 0; background: transparent;
+  color: var(--md-text); font: inherit; font-size: var(--md-fs-base);
+  font-weight: var(--md-weight-medium); cursor: pointer; text-align: left;
+}
+.md-app .md-namebtn:hover { color: var(--md-primary-pressed); text-decoration: underline; text-underline-offset: 2px; }
+
+/* ══ 状态徽标 ═══════════════════════════════════════════════════════════ */
+/* 组件外观定义已迁至 geo-components.css；本页仅保留布局。 */
+/* 5 个 tone。底色 + 描边 + 文字三件套，只给主色的徽标在暖米白纸面上立不住。
+   ⚠️ 文字用 --md-*-ink 不是 --md-*：徽标是 12px 小字，AA 要 4.5:1，
+      而 --md-success 在自己的软底上只有 3.26。描边是装饰不是控件边界，
+      1.4.11 的 3:1 不适用于它（徽标不可交互）。 */
+
+.md-app .md-badge{
+   align-items: center; gap: var(--md-space-1);
+
+
+
+
+   white-space: nowrap;
+}
+
+
+
+
+
+
+/* 「还在动」的呼吸点。只用在真的还在跑的状态上——
+   静态状态挂这个等于骗人说后台还在工作。 */
+.md-app .md-pulse {
+  width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%;
+  background: currentColor; animation: mdPulse 1.3s var(--md-ease-gentle) infinite;
+}
+@keyframes mdPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+
+/* ══ 表单 ═══════════════════════════════════════════════════════════════ */
+
+.md-app .md-field { display: flex; flex-direction: column; gap: var(--md-space-1); min-width: 0; }
+.md-app .md-field-label {
+  display: flex; align-items: center; gap: var(--md-space-2);
+  font-size: var(--md-fs-sm); font-weight: var(--md-weight-medium); color: var(--md-text-secondary);
+}
+.md-app .md-field-hint {
+  font-size: var(--md-fs-xs); color: var(--md-text-muted); line-height: var(--md-leading-snug);
+}
+.md-app .md-opt {
+  padding: 0 var(--md-space-1); border-radius: var(--md-radius-xs);
+  /* 这里原本用 --md-text-faint，实算对 --md-bg-subtle 只有 4.45，差 0.05
+     不达 AA；换成 muted 是 6.34。差这一点点肉眼看不出来，但它是 12px 正文。 */
+  background: var(--md-bg-subtle); color: var(--md-text-muted);
+  font-size: var(--md-fs-xs); font-weight: var(--md-weight-normal);
+}
+.md-app .md-input, .md-app .md-textarea, .md-app .md-select {
+  width: 100%; padding: var(--md-space-2) var(--md-space-3);
+  border: 1px solid var(--md-border); border-radius: var(--md-radius-sm);
+  background: var(--md-surface); color: var(--md-text);
+  font: inherit; font-size: var(--md-fs-base); line-height: var(--md-leading-snug);
+  transition: border-color .15s, box-shadow .15s;
+}
+.md-app .md-input:hover, .md-app .md-textarea:hover, .md-app .md-select:hover { border-color: var(--md-border-strong); }
+.md-app .md-input:focus, .md-app .md-textarea:focus, .md-app .md-select:focus {
+  outline: none; border-color: var(--md-primary);
+  box-shadow: var(--md-focus-shadow);
+}
+.md-app .md-input--mono { font-family: var(--md-font-mono); font-size: var(--md-fs-sm); }
+.md-app .md-input--search { font-size: var(--md-fs-sm); }
+.md-app .md-textarea { resize: vertical; line-height: var(--md-leading-body); }
+.md-app .md-textarea.is-over { border-color: var(--md-danger); }
+.md-app .md-count {
+  align-self: flex-end; font-family: var(--md-font-mono);
+  font-size: var(--md-fs-xs); color: var(--md-text-faint);
+}
+.md-app .md-count.is-over { color: var(--md-danger); font-weight: var(--md-weight-semibold); }
+.md-app .md-err { font-size: var(--md-fs-sm); color: var(--md-danger); font-weight: var(--md-weight-medium); }
+
+/* 多态内联状态文字：同一个位置，按 data-variant 换颜色。
+   JS 的 setMessage(node, message, variant) 只负责写 data-variant，
+   颜色全在这里 —— 两边不用对暗号，也就不会再出现「JS 传了 warning、
+   CSS 没定义 warning、于是警告静默显示成灰色」这种看不出来的故障
+   （2026-09-04 实测：页面层 .form-message 就缺 warning，10 处调用全是灰的）。
+   ⚠️ 四个变体必须齐：neutral（默认）/ success / warning / danger。
+      少写一个，那个变体就静默退回灰色，界面上看不出错。
+   ⚠️ 它和 .md-err 的分工：.md-err 恒为红字（校验错误），
+      .md-status 是同一槽位多态切换（操作结果播报）。 */
+.md-app .md-status {
+  margin: 0;
+  font-size: var(--md-fs-sm);
+  color: var(--md-text-muted);
+}
+.md-app .md-status[data-variant="success"] { color: var(--md-success-ink); }
+.md-app .md-status[data-variant="warning"] { color: var(--md-warning-ink); }
+.md-app .md-status[data-variant="danger"]  { color: var(--md-danger-ink); }
+
+.md-app .md-formgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--md-space-4); }
+.md-app .md-fieldset {
+  margin: 0; padding: var(--md-space-4);
+  border: 1px solid var(--md-border); border-radius: var(--md-radius-md);
+  background: var(--md-surface-soft);
+}
+.md-app .md-legend {
+  padding: 0 var(--md-space-2); font-size: var(--md-fs-sm);
+  font-weight: var(--md-weight-semibold); color: var(--md-text-secondary);
+}
+.md-app .md-formfoot { display: flex; align-items: center; gap: var(--md-space-4); flex-wrap: wrap; }
+.md-app .md-formfoot-hint { font-size: var(--md-fs-xs); color: var(--md-text-muted); }
+
+/* ══ 面板与表格 ═════════════════════════════════════════════════════════ */
+/* 组件外观定义已迁至 geo-components.css；本页仅保留布局。 */
+
+.md-app .md-panel{
+
+    overflow: hidden;
+}
+.md-app .md-panel-head{
+   align-items: center; gap: var(--md-space-3);
+
+
+}
+
+.md-app .md-panel-head .md-btn:first-of-type { margin-left: auto; }
+
+
+.md-app .md-tablewrap { overflow-x: auto; }
+.md-app .md-table { width: 100%; border-collapse: collapse; font-size: var(--md-fs-sm); }
+.md-app .md-table th {
+  text-align: left; padding: var(--md-space-2) var(--md-space-4);
+  border-bottom: 1px solid var(--md-border);
+  background: var(--md-surface-soft); color: var(--md-text-muted);
+  font-size: var(--md-fs-xs); font-weight: var(--md-weight-semibold); white-space: nowrap;
+}
+.md-app .md-table td {
+  padding: var(--md-space-3) var(--md-space-4);
+  border-bottom: 1px solid var(--md-border-subtle);
+  line-height: var(--md-leading-snug); vertical-align: middle;
+}
+.md-app .md-table tbody tr { transition: background .12s; }
+.md-app .md-table tbody tr:hover { background: var(--md-surface-hover); }
+.md-app .md-table tbody tr.is-sel { background: var(--md-primary-soft); }
+.md-app .md-col-act { width: 1%; }
+
+/* 骨架屏 · 列表首次加载。
+   ⚠️ 这一个零件不来自重做稿（那一稿数据是静态的），是把生产
+   geo-theme-package.css 的 .skeleton 换成暖色令牌搬过来的——
+   原实现的灰阶是冷灰 #eef0f3/#e2e6ea，在暖米白纸面上会发脏。 */
+.md-app .md-skeleton { display: flex; flex-direction: column; gap: var(--md-space-2); padding: var(--md-space-4); }
+.md-app .md-sk {
+  height: 10px; border-radius: var(--md-radius-xs);
+  background: linear-gradient(90deg, var(--md-bg-subtle), var(--md-surface-hover), var(--md-bg-subtle));
+  background-size: 200% 100%; animation: mdSk 1.1s var(--md-ease-gentle) infinite;
+}
+.md-app .md-sk--w80 { width: 80%; } .md-app .md-sk--w60 { width: 60%; } .md-app .md-sk--w40 { width: 40%; }
+@keyframes mdSk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* ══ 页签与分段控件 ═════════════════════════════════════════════════════ */
+/* 组件外观定义已迁至 geo-components.css；本页仅保留布局。 */
+/* 页签这一组来自试水稿的 A 稿。A 稿的信息架构作废，但这个零件本身
+   已经渲染审阅过，且工作台、可见性两页都在用页签，所以留在基线里。
+   ⚠️ 没有 position: sticky —— 粘不粘、粘在哪，取决于那一页的滚动容器，
+      是页面的事，不是零件的事。 */
+
+.md-app .md-tab{
+   align-items: center; gap: var(--md-space-2);
+
+
+
+
+
+}
+
+
+
+
+
+.md-app .md-segmented{
+   gap: var(--md-space-hair);
+
+}
+
+
+
+
+/* ══ 菜单 ═══════════════════════════════════════════════════════════════ */
+/* 破坏性操作（删除等）放这里，不要和常用操作同排同重量地摆在列表上。 */
+
+.md-app .md-menuhost { position: relative; }
+.md-app .md-menu {
+  position: absolute; top: calc(100% + var(--md-space-1)); right: 0; z-index: 20;
+  min-width: 168px; padding: var(--md-space-1);
+  border: 1px solid var(--md-border); border-radius: var(--md-radius-md);
+  background: var(--md-surface); box-shadow: var(--md-shadow-sm);
+}
+.md-app .md-menu button {
+  display: flex; align-items: center; gap: var(--md-space-2); width: 100%;
+  padding: var(--md-space-2) var(--md-space-3);
+  border: 0; border-radius: var(--md-radius-xs); background: transparent;
+  color: var(--md-text); font: inherit; font-size: var(--md-fs-sm);
+  font-weight: var(--md-weight-medium); text-align: left; cursor: pointer;
+  transition: background .12s;
+}
+.md-app .md-menu button:hover { background: var(--md-surface-hover); }
+.md-app .md-menu button.is-danger { color: var(--md-danger); }
+.md-app .md-menu button.is-danger:hover { background: var(--md-danger-soft); }
+.md-app .md-menu hr { margin: var(--md-space-1) 0; border: 0; border-top: 1px solid var(--md-border-subtle); }
+
+/* ══ 提示、空态、说明 ═══════════════════════════════════════════════════ */
+/* 组件外观定义已迁至 geo-components.css；本页仅保留布局。 */
+
+.md-app .md-alert{
+   gap: var(--md-space-3); align-items: flex-start;
+   margin-bottom: var(--md-space-5);
+
+
+}
+.md-app .md-alert strong{ display: block;   }
+.md-app .md-alert p{
+  margin: var(--md-space-1) 0 var(--md-space-3);
+
+
+}
+.md-app .md-alert p:last-child { margin-bottom: 0; }
+
+
+
+/* 解释性说明块。用来回答「为什么要我填这个」这类问题——
+   界面上凡是要用户做一件不明所以的事，就该有一块这个，而不是让人猜。 */
+.md-app .md-note {
+  margin: 0 0 var(--md-space-4); padding: var(--md-space-3) var(--md-space-4);
+  border: 1px solid var(--md-info-border); border-radius: var(--md-radius-md);
+  background: var(--md-info-soft); color: var(--md-text-secondary);
+  font-size: var(--md-fs-sm); line-height: var(--md-leading-body);
+}
+.md-app .md-note strong { color: var(--md-text); font-weight: var(--md-weight-semibold); }
+
+.md-app .md-empty{
+   text-align: center;
+
+
+}
+
+
+.md-app .md-empty p{ margin: var(--md-space-2) 0 0;   }
+
+/* ══ 轻提示 toast ═══════════════════════════════════════════════════════ */
+
+.md-app .md-toast {
+  position: fixed; left: 50%; bottom: var(--md-space-8); transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: var(--md-space-2);
+  padding: var(--md-space-3) var(--md-space-5);
+  border-radius: var(--md-radius-md); box-shadow: var(--md-shadow-modal);
+  background: var(--md-text); color: var(--md-surface);
+  font-size: var(--md-fs-sm); font-weight: var(--md-weight-medium); z-index: 60;
+  animation: mdToastIn .24s var(--md-ease-spring);
+}
+.md-app .md-toast.is-err { background: var(--md-danger); }
+@keyframes mdToastIn {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ══ 抽屉与对话框 ═══════════════════════════════════════════════════════ */
+/* 用来替掉 prompt() / confirm()。浏览器原生那两个不能带字数计数、
+   不能带上下文、不能带样式，且在 Safari 里可以被用户永久关掉。 */
+
+.md-app .md-scrim {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(29,27,28,.36);
+  display: flex; justify-content: flex-end;
+  animation: mdFade .18s var(--md-ease-gentle);
+}
+.md-app .md-scrim--center { align-items: center; justify-content: center; padding: var(--md-space-5); }
+@keyframes mdFade { from { opacity: 0; } to { opacity: 1; } }
+
+.md-app .md-sheet {
+  display: flex; flex-direction: column;
+  width: min(520px, 100%); height: 100%;
+  background: var(--md-surface); box-shadow: var(--md-shadow-modal);
+  animation: mdSlide .26s var(--md-ease-snappy);
+}
+@keyframes mdSlide { from { transform: translateX(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+.md-app .md-sheet-head {
+  display: flex; align-items: flex-start; gap: var(--md-space-3);
+  padding: var(--md-space-5); border-bottom: 1px solid var(--md-border-subtle);
+}
+.md-app .md-sheet-title { font-size: var(--md-fs-lg); font-weight: var(--md-weight-semibold); line-height: var(--md-leading-tight); }
+.md-app .md-sheet-sub { margin-top: var(--md-space-hair); font-size: var(--md-fs-sm); color: var(--md-text-muted); }
+.md-app .md-sheet-head .md-iconbtn { margin-left: auto; }
+.md-app .md-sheet-body {
+  flex: 1 1 auto; overflow-y: auto; padding: var(--md-space-5);
+  display: flex; flex-direction: column; gap: var(--md-space-6);
+}
+.md-app .md-sheet-foot {
+  display: flex; gap: var(--md-space-3); justify-content: flex-end;
+  padding: var(--md-space-4) var(--md-space-5);
+  border-top: 1px solid var(--md-border-subtle); background: var(--md-surface-soft);
+}
+
+.md-app .md-dialog {
+  width: min(420px, 100%); padding: var(--md-space-6);
+  border-radius: var(--md-radius-md); background: var(--md-surface);
+  box-shadow: var(--md-shadow-modal); text-align: center;
+  animation: mdPop .22s var(--md-ease-spring);
+}
+@keyframes mdPop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+.md-app .md-dialog-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; margin-bottom: var(--md-space-3);
+  border-radius: 50%; background: var(--md-danger-soft); color: var(--md-danger);
+}
+.md-app .md-dialog-title { font-size: var(--md-fs-md); font-weight: var(--md-weight-semibold); }
+.md-app .md-dialog-text {
+  margin: var(--md-space-2) 0 var(--md-space-5);
+  font-size: var(--md-fs-sm); color: var(--md-text-secondary); line-height: var(--md-leading-body);
+}
+.md-app .md-dialog-text strong { color: var(--md-danger); font-weight: var(--md-weight-semibold); }
+.md-app .md-dialog-acts { display: flex; gap: var(--md-space-3); justify-content: center; }
+
+/* 历史列表（版本、迭代、执行记录都用它）· 三列：标识 / 内容 / 时间 */
+.md-app .md-history {
+  border: 1px solid var(--md-border-subtle); border-radius: var(--md-radius-md);
+  background: var(--md-surface-soft); overflow: hidden;
+}
+.md-app .md-history-head {
+  padding: var(--md-space-2) var(--md-space-3);
+  border-bottom: 1px solid var(--md-border-subtle);
+  font-size: var(--md-fs-xs); font-weight: var(--md-weight-semibold); color: var(--md-text-muted);
+}
+.md-app .md-history-item {
+  display: grid; grid-template-columns: auto 1fr auto; gap: var(--md-space-3);
+  align-items: baseline; padding: var(--md-space-3);
+  border-bottom: 1px solid var(--md-border-subtle); font-size: var(--md-fs-sm);
+}
+.md-app .md-history-item:last-child { border-bottom: 0; }
+.md-app .md-history-key {
+  font-family: var(--md-font-mono); font-size: var(--md-fs-xs);
+  color: var(--md-primary-pressed); font-weight: var(--md-weight-semibold);
+}
+.md-app .md-history-text { color: var(--md-text-secondary); line-height: var(--md-leading-snug); }
+.md-app .md-history-at { font-size: var(--md-fs-xs); color: var(--md-text-faint); white-space: nowrap; }
+
+/* ══ 断点 · 全站只有这四个（--md-bp-sm/md/lg/xl）═══════════════════════ */
+/* 基线只收口那些「不分页面都一样」的塌陷：表单从两列变一列。
+   页面自己的栅格在页面样式表里写，但字面量必须还是这四个值。 */
+
+@media (max-width: 900px) {
+  .md-app .md-formgrid { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .md-app .md-panel-body,
+  .md-app .md-panel-head { padding-left: var(--md-space-4); padding-right: var(--md-space-4); }
+  .md-app .md-topbar { flex-wrap: wrap; }
+  .md-app .md-act-slot { width: auto; }
+}

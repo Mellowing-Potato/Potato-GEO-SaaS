@@ -1,0 +1,496 @@
+/* ============================================================================
+   GEO 主题包生成页 · 本页独有样式（geo-theme-package.css）
+   ----------------------------------------------------------------------------
+   2026-09-03 整份重写（B 稿 · 主从两栏）。出处：
+     design-specs/designs/geo-theme-package/{主题包生成 重做.html, SPEC.md}
+     geo-saas/docs/主题包页重做-工兵执行书-2026-09-03.md
+
+   ── 这一份里**只**放这一页独有的东西 ──────────────────────────────────
+   按钮 / 输入 / 徽标 / 面板 / 表格 / 空态 / 提示条 / 抽屉 / 对话框 / toast /
+   菜单 / 骨架屏 全部在 public/geo-base.css 里，类名 .md-*，不要在这里重抄。
+   本页要和零件层不一样时，**在这里覆盖**，不要回去改 geo-base.css ——
+   那里改一处是 9 个页面一起承担风险（执行书 §七 最后一条）。
+
+   重写掉了什么（原文件 65 行）：
+     · :root { --tp-bg / --tp-primary … } 整块 —— 那是 Tailwind 蓝，跟公司母色没关系
+       （原值不抄进注释：本页的机器判据之一是「文件里数不出字面色值」）；
+     · body.tp 的字体栈（PingFang / 微软雅黑写进栈）—— .md-app 已给全，
+       且字体栈只许开源字体，系统字体只作自然兜底不写进栈；
+     · .btn / .badge / .panel / .fld / .tbl / .state-tpl / .skeleton —— 进零件层了；
+     · 面板 12px 圆角 —— 应用端上限是 8px（--md-radius-md），12/16px 是官网大卡专用。
+
+   ── 本页的硬规矩 ──────────────────────────────────────────────────────
+   · 不许出现字面色值。唯一例外是 rgba() 的透明度叠加（那是叠加不是取色）。
+     预览里主题包自己提取到的配色由 JS 写成 inline style —— 那是数据不是设计。
+   · 字号一律 var(--md-fs-*)（8 档，下限 12px）。不许 10 / 11 / 0.5px。
+     ⚠️ 是 --md-fs-* 不是 --md-text-*：后者在权威源里是官网的 clamp 流体字号，
+        而 --md-text / --md-text-muted 这些无后缀的是**颜色**。
+   · 软底上的文字用 --md-*-ink，不要用 --md-success 等主色
+     （主色在自己的软底上只有 3.26，12px 小字不达 AA 4.5:1）。
+   · --md-space-hair(2px) 只许三处：行内小块的上下内边距、分段控件与开关的
+     内嵌槽位、图标点选区光学居中。不许当排布间距。
+   · 断点只有 640 / 900 / 1200 / 1600。CSS 变量在 @media 里用不了，
+     所以下面 @media 的字面量必须与 --md-bp-* 逐字一致。
+   · ⚠️ 上一条的机器判据是「max-width 的 px 字面量只允许这四个」，所以
+     内容宽度上限（表单可读行长之类）写成 rem，别写成 px —— 那是「行长」
+     不是「断点」，混在一起会让那条 grep 从此查不出真正的野断点。
+   ============================================================================ */
+
+/* ══ 页面外壳 ═══════════════════════════════════════════════════════════ */
+/* 应用外壳：整页不滚，左右两栏各自滚。
+   这样详情的粘性头部与底部操作条才有一个真正的滚动容器可以粘。 */
+html, body.tp { height: 100%; }
+body.tp { display: flex; flex-direction: column; overflow: hidden; }
+
+.tp-tagline { margin: 0; font-size: var(--md-fs-sm); color: var(--md-text-muted); }
+
+.tp-split {
+  flex: 1 1 auto; min-height: 0;
+  display: grid; grid-template-columns: 340px minmax(0, 1fr);
+}
+
+/* ══ 左栏 · 「现在在哪」═════════════════════════════════════════════════ */
+
+.tp-rail {
+  display: flex; flex-direction: column; min-height: 0;
+  border-right: 1px solid var(--md-border); background: var(--md-bg-subtle);
+}
+.tp-rail-head {
+  display: flex; flex-direction: column; gap: var(--md-space-3);
+  padding: var(--md-space-4); border-bottom: 1px solid var(--md-border); flex: 0 0 auto;
+}
+/* min-height:0 是必需的：列 flex 里 min-height 默认 auto 会阻止收缩，
+   于是 overflow-y:auto 永远不触发、列表把外层撑高。 */
+.tp-rail-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--md-space-3); }
+
+.tp-group { margin-bottom: var(--md-space-5); }
+.tp-group-head {
+  display: flex; align-items: center; gap: var(--md-space-2);
+  padding: 0 var(--md-space-2) var(--md-space-2);
+  font-size: var(--md-fs-xs); font-weight: var(--md-weight-bold);
+  letter-spacing: .04em; color: var(--md-text-secondary);
+}
+.tp-group-head.is-info { color: var(--md-info-ink); }
+.tp-group-head.is-danger { color: var(--md-danger-ink); }
+.tp-group-n {
+  padding: 0 var(--md-space-2); border-radius: var(--md-radius-pill);
+  background: var(--md-surface); border: 1px solid var(--md-border);
+  font-size: var(--md-fs-xs); font-weight: var(--md-weight-semibold); color: var(--md-text-muted);
+}
+
+.tp-row {
+  display: flex; flex-direction: column; gap: var(--md-space-2); width: 100%;
+  padding: var(--md-space-3); margin-bottom: var(--md-space-2);
+  border: 1px solid var(--md-border-subtle); border-radius: var(--md-radius-md);
+  background: var(--md-surface); font: inherit; text-align: left; cursor: pointer;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.tp-row:hover { border-color: var(--md-border-strong); box-shadow: var(--md-shadow-xs); }
+.tp-row.is-sel {
+  border-color: var(--md-primary); background: var(--md-primary-soft);
+  box-shadow: inset 3px 0 0 var(--md-primary);
+}
+.tp-row-top { display: flex; align-items: center; gap: var(--md-space-2); }
+.tp-row-name {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--md-fs-base); font-weight: var(--md-weight-semibold); color: var(--md-text);
+}
+.tp-row-mid {
+  display: flex; align-items: center; gap: var(--md-space-2); flex-wrap: wrap;
+  font-size: var(--md-fs-xs); color: var(--md-text-muted);
+}
+.tp-row-sep { color: var(--md-text-disabled); }
+
+/* 进度就在列表行里 —— 不必点进详情才知道跑到哪一步（缺陷 3 的修复）。
+   文字与进度条分行：叠在一起时字会压在进度边界上，而且 soft 级填充压在
+   bg-subtle 底上明度太近、等于看不见。这里用实色填充 + 浅轨道把对比拉开。 */
+.tp-progress { display: flex; flex-direction: column; gap: var(--md-space-1); }
+.tp-progress-txt {
+  font-size: var(--md-fs-xs); color: var(--md-info-ink); font-weight: var(--md-weight-medium);
+  line-height: var(--md-leading-tight);
+}
+.tp-progress-track {
+  height: 4px; border-radius: var(--md-radius-xs);
+  background: var(--md-border-subtle); overflow: hidden;
+}
+/* display:block 是必需的：轨道本身不是 flex 容器，
+   <span> 默认 inline 会**忽略 width%**，进度条就永远是空的。 */
+.tp-progress-fill {
+  display: block; height: 100%; background: var(--md-info);
+  transition: width .4s var(--md-ease-gentle);
+}
+/* 失败行只给一句「在『某一步』失败」；具体怎么办在右栏，不在列表里挤。 */
+.tp-rowerr {
+  padding: var(--md-space-2); border-radius: var(--md-radius-xs);
+  background: var(--md-danger-soft); color: var(--md-danger-ink);
+  font-size: var(--md-fs-xs); line-height: var(--md-leading-snug);
+}
+
+/* ══ 右栏 · 「正在做什么」═══════════════════════════════════════════════ */
+
+.tp-main { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+
+.tp-detail { display: flex; flex-direction: column; min-height: 100%; }
+.tp-detail-head {
+  display: flex; align-items: flex-start; gap: var(--md-space-3);
+  padding: var(--md-space-5) var(--md-space-6);
+  border-bottom: 1px solid var(--md-border-subtle); background: var(--md-surface);
+  position: sticky; top: 0; z-index: 10;
+}
+.tp-detail-id { flex: 1 1 auto; min-width: 0; }
+.tp-detail-meta {
+  display: flex; align-items: center; gap: var(--md-space-2); flex-wrap: wrap;
+  margin-top: var(--md-space-1); font-size: var(--md-fs-xs); color: var(--md-text-muted);
+}
+.tp-detail-body { flex: 1 1 auto; padding: var(--md-space-6); }
+
+/* 主动作固定在底部，滚到哪儿都点得到 */
+.tp-actionbar {
+  display: flex; align-items: center; gap: var(--md-space-3); flex-wrap: wrap;
+  padding: var(--md-space-4) var(--md-space-6);
+  border-top: 1px solid var(--md-border-subtle); background: var(--md-surface);
+  position: sticky; bottom: 0; z-index: 10;
+}
+.tp-actionbar-hint { font-size: var(--md-fs-xs); color: var(--md-text-muted); }
+
+/* ══ 阶段线 · 详情里的完整流水线 ════════════════════════════════════════ */
+/* 竖向时间线，不是横排四卡：服务端返回 8 段（迭代时 7 或 9 段），
+   横排四列塞不下，而且每段还带 time 与 message，竖线才摊得开。
+   段数、标签、说明、时间全部来自 progress.stages[]，前端不写中文字面量。 */
+.tp-track {
+  position: relative; margin: 0 0 var(--md-space-6);
+  padding: 0 0 0 var(--md-space-1); list-style: none;
+}
+/* 贯穿线：从第一个圆点中心到最后一个圆点中心。10px = 圆点半径 20/2。 */
+.tp-track::before {
+  content: ''; position: absolute; left: calc(var(--md-space-1) + 10px);
+  top: 10px; bottom: 10px; width: 1px; background: var(--md-border);
+}
+.tp-track-step {
+  position: relative; display: flex; gap: var(--md-space-3); align-items: flex-start;
+  padding: var(--md-space-2) 0;
+}
+/* 竖线版里只有「当前」和「失败」两步需要底色 —— 8 行全铺底会糊成一片。 */
+.tp-track-step.is-current,
+.tp-track-step.is-failed {
+  margin: 0 calc(var(--md-space-3) * -1);
+  padding-left: var(--md-space-3); padding-right: var(--md-space-3);
+  border-radius: var(--md-radius-md);
+}
+.tp-track-step.is-current { background: var(--md-info-soft); }
+.tp-track-step.is-failed { background: var(--md-danger-soft); }
+.tp-track-step.is-pending .tp-track-label { color: var(--md-text-muted); }
+.tp-track-step.is-pending .tp-track-hint { color: var(--md-text-faint); }
+.tp-track-mark {
+  position: relative; z-index: 1;   /* 压住贯穿线 */
+  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--md-surface); color: var(--md-text-faint);
+  border: 1px solid var(--md-border);
+}
+.is-done .tp-track-mark    { background: var(--md-primary); border-color: var(--md-primary); color: var(--md-on-primary); }
+.is-current .tp-track-mark { background: var(--md-surface); border-color: var(--md-info);    color: var(--md-info-ink); }
+.is-failed .tp-track-mark  { background: var(--md-danger);  border-color: var(--md-danger);  color: var(--md-on-primary); }
+.tp-track-num { font-size: var(--md-fs-xs); font-weight: var(--md-weight-semibold); line-height: var(--md-leading-none); }
+.tp-track-body { display: flex; flex-direction: column; gap: var(--md-space-hair); min-width: 0; }
+.tp-track-label {
+  font-size: var(--md-fs-sm); font-weight: var(--md-weight-semibold);
+  line-height: var(--md-leading-tight); color: var(--md-text);
+}
+.tp-track-time {
+  margin-left: var(--md-space-2); font-family: var(--md-font-mono);
+  font-size: var(--md-fs-xs); font-weight: var(--md-weight-normal); color: var(--md-text-faint);
+}
+.tp-track-hint {
+  font-size: var(--md-fs-xs); color: var(--md-text-muted); line-height: var(--md-leading-snug);
+}
+
+/* 已完成 / 已归档收成一行摘要：铺 8 行全绿说不出「待确认」徽标没说过的事，
+   只会把纵向空间从真正要看的预览那里抢走。 */
+.tp-trackdone {
+  display: flex; align-items: center; gap: var(--md-space-3);
+  padding: var(--md-space-3) var(--md-space-4); margin-bottom: var(--md-space-5);
+  border: 1px solid var(--md-primary-border); border-radius: var(--md-radius-md);
+  background: var(--md-primary-soft); color: var(--md-primary-pressed);
+  font-size: var(--md-fs-sm);
+}
+.tp-trackdone-mark {
+  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--md-primary); color: var(--md-on-primary);
+}
+.tp-trackdone-steps {
+  margin-left: auto; display: flex; gap: var(--md-space-3); flex-wrap: wrap;
+  font-size: var(--md-fs-xs); color: var(--md-text-muted);
+}
+
+/* ══ 失败说明 ═══════════════════════════════════════════════════════════ */
+/* 外框用零件层的 .md-alert；这里只补它内部两块本页独有的排版。 */
+
+/* 三条能动手的办法。用序号列表不用小圆点：它们是有先后的排查顺序。 */
+.tp-fixlist {
+  margin: 0 0 var(--md-space-3); padding-left: var(--md-space-5);
+  color: var(--md-text-secondary); font-size: var(--md-fs-sm);
+  line-height: var(--md-leading-body);
+}
+.tp-fixlist li { margin-bottom: var(--md-space-hair); }
+/* 原始报错常常是英文，属于细节不属于主文案，压到最弱一级。 */
+.tp-rawerr {
+  margin: 0 0 var(--md-space-3); padding: var(--md-space-2) var(--md-space-3);
+  border-radius: var(--md-radius-xs); background: var(--md-surface-soft);
+  color: var(--md-text-muted); font-size: var(--md-fs-xs);
+  line-height: var(--md-leading-snug); word-break: break-all;
+}
+
+/* ══ 提取产物 · 这个功能真正的产出物 ════════════════════════════════════ */
+
+.tp-extracted {
+  display: flex; flex-direction: column; gap: var(--md-space-3);
+  padding: var(--md-space-4); margin-bottom: var(--md-space-5);
+  border: 1px solid var(--md-border-subtle); border-radius: var(--md-radius-md);
+  background: var(--md-surface-soft);
+}
+.tp-extracted-row { display: flex; align-items: center; gap: var(--md-space-4); flex-wrap: wrap; }
+.tp-extracted-key {
+  flex: 0 0 96px; font-size: var(--md-fs-xs); color: var(--md-text-muted);
+  font-weight: var(--md-weight-medium);
+}
+.tp-swatches { display: flex; gap: var(--md-space-2); flex-wrap: wrap; }
+/* 色板宽 84px，是为了让 hex 标签能用 --md-fs-xs(12px) 而不必降到 10px ——
+   10px/11px 是设计体系明令废除的，缩窄色板等于逼自己破例。
+   ⚠️ 色块自己的底色由 JS 写成 inline style：那是主题包提取到的数据，不是设计决策。 */
+.tp-swatch {
+  display: flex; align-items: flex-end; justify-content: center;
+  width: 84px; height: 44px; border-radius: var(--md-radius-sm);
+  border: 1px solid rgba(29,27,28,.12); overflow: hidden;
+}
+.tp-swatch-hex {
+  width: 100%; text-align: center; padding: var(--md-space-hair) 0;
+  background: var(--md-surface); color: var(--md-text-secondary);
+  font-family: var(--md-font-mono); font-size: var(--md-fs-xs);
+  line-height: var(--md-leading-tight);
+}
+.tp-fontlist { display: flex; gap: var(--md-space-2); flex-wrap: wrap; }
+.tp-fontchip {
+  display: inline-flex; align-items: center; min-height: 28px;
+  padding: var(--md-space-hair) var(--md-space-2); border: 1px solid var(--md-border-subtle);
+  border-radius: var(--md-radius-pill); background: var(--md-surface);
+  color: var(--md-text-secondary); font-size: var(--md-fs-sm);
+}
+
+/* ══ 预览 ═══════════════════════════════════════════════════════════════ */
+
+.tp-preview {
+  border: 1px solid var(--md-border); border-radius: var(--md-radius-md);
+  background: var(--md-surface); overflow: hidden;
+}
+.tp-preview-bar {
+  display: flex; align-items: center; gap: var(--md-space-4);
+  padding: var(--md-space-2) var(--md-space-3);
+  border-bottom: 1px solid var(--md-border-subtle); background: var(--md-surface-soft);
+}
+.tp-preview-path {
+  display: inline-flex; align-items: center; gap: var(--md-space-1); margin-left: auto;
+  font-family: var(--md-font-mono); font-size: var(--md-fs-xs); color: var(--md-text-faint);
+}
+.tp-preview-stage { position: relative; height: 420px; background: var(--md-bg-subtle); }
+/* ⚠️ 隔离靠 iframe 自己的 sandbox=""（无脚本、无同源）：内容走 srcdoc，
+   不经过响应头，服务端那套 CSP / X-Frame-Options 对这条路径不生效。
+   这里只管尺寸，不要在样式上做任何「让它同源」的事。 */
+.tp-frame { display: block; width: 100%; height: 100%; border: 0; background: var(--md-surface); }
+.tp-preview-load {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center; gap: var(--md-space-2);
+  background: var(--md-bg-subtle); color: var(--md-text-muted); font-size: var(--md-fs-sm);
+}
+.tp-preview-load.is-err { color: var(--md-danger-ink); }
+/* ⚠️ 这一条不能省：`display:flex` 是作者样式，优先级高于 UA 给 [hidden] 的
+   `display:none`，所以 JS 里 el.hidden = true **压不住它** —— 表现是
+   iframe 里预览已经渲染好了，但「载入预览…」那层灰罩一直盖在上面，
+   看起来就是「预览永远加载不出来」。 */
+.tp-preview-load[hidden] { display: none; }
+/* 预览到底预览了什么 —— 服务端 lang 里有这句（safe_preview.notice），界面上一直没显示。
+   不显示的后果：用户以为预览就是最终成品，期望和产出对不上，最容易变成投诉。 */
+.tp-safenotice{
+  margin: 0;
+
+
+
+}
+
+/* ══ 新建 · 三步，不是一张表 ════════════════════════════════════════════ */
+
+/* 内容宽度上限，不是断点：写成 rem 是为了不污染「max-width 只许四个断点值」
+   那条 grep（54rem ≈ 864px，取的是可读行长，不是某个屏宽档）。 */
+.tp-compose { padding: var(--md-space-6); max-width: 54rem; }
+.tp-compose-head { display: flex; align-items: center; gap: var(--md-space-3); margin-bottom: var(--md-space-6); }
+.tp-compose-head .md-iconbtn { margin-left: auto; }
+.tp-compose-foot {
+  display: flex; align-items: center; gap: var(--md-space-4); flex-wrap: wrap;
+  padding-top: var(--md-space-5); border-top: 1px solid var(--md-border-subtle);
+}
+
+.tp-step { display: flex; gap: var(--md-space-4); margin-bottom: var(--md-space-6); }
+.tp-step-n {
+  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--md-primary-soft); border: 1px solid var(--md-primary-border);
+  color: var(--md-primary-pressed);
+  font-size: var(--md-fs-sm); font-weight: var(--md-weight-bold);
+}
+.tp-step-body { flex: 1 1 auto; min-width: 0; }
+.tp-step-title {
+  margin-bottom: var(--md-space-3);
+  font-size: var(--md-fs-md); font-weight: var(--md-weight-semibold); line-height: var(--md-leading-tight);
+}
+
+/* 三个槽位各自标用途（缺陷 4 的正面修复：不解释为什么要三个链接）。 */
+.tp-slots { display: grid; gap: var(--md-space-3); }
+.tp-slot {
+  display: flex; flex-direction: column; gap: var(--md-space-2);
+  padding: var(--md-space-3) var(--md-space-4);
+  border: 1px solid var(--md-border); border-radius: var(--md-radius-md);
+  background: var(--md-surface); transition: border-color .15s, background .15s;
+}
+.tp-slot:hover { border-color: var(--md-border-strong); }
+.tp-slot.is-filled { border-color: var(--md-primary-border); background: var(--md-primary-soft); }
+.tp-slot-head { display: flex; align-items: baseline; gap: var(--md-space-3); }
+.tp-slot-t { font-size: var(--md-fs-base); font-weight: var(--md-weight-semibold); }
+.tp-slot-h { font-size: var(--md-fs-xs); color: var(--md-text-muted); }
+
+.tp-styles {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--md-space-3); margin-bottom: var(--md-space-4);
+}
+.tp-style {
+  display: flex; flex-direction: column; gap: var(--md-space-1);
+  padding: var(--md-space-3) var(--md-space-4);
+  border: 1px solid var(--md-border); border-radius: var(--md-radius-md);
+  background: var(--md-surface); cursor: pointer; transition: border-color .15s, background .15s;
+}
+.tp-style:hover { border-color: var(--md-border-strong); }
+.tp-style.is-on { border-color: var(--md-primary); background: var(--md-primary-soft);  }
+/* 真 radio 视觉隐藏，不是 display:none —— 那样键盘就选不到了。 */
+.tp-style input { position: absolute; opacity: 0; width: 0; height: 0; }
+.tp-style:focus-within { outline: 2px solid var(--md-primary); outline-offset: 2px; }
+.tp-style-t { font-size: var(--md-fs-base); font-weight: var(--md-weight-semibold); }
+.tp-style-h { font-size: var(--md-fs-xs); color: var(--md-text-muted); line-height: var(--md-leading-snug); }
+/* 同上：这是输入框宽度（行长），不是断点。 */
+.tp-base { max-width: 22rem; }
+
+/* ══ 权限守卫遮罩 ═══════════════════════════════════════════════════════ */
+/* ⚠️ DOM 的 id 由 geo-theme-package.js 的 showGuard() 按 id 找，一个都不许改名。
+   样式换成令牌版，结构不动。 */
+.ops-state {
+  position: fixed; inset: 0; z-index: 70;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--md-bg-page);
+}
+.ops-state[hidden] { display: none; }
+.ops-state-box { text-align: center; padding: var(--md-space-6); }
+.ops-state-box h2 { margin: 0 0 var(--md-space-2); font-size: var(--md-fs-lg); font-weight: var(--md-weight-semibold); }
+.ops-state-box p { margin: 0 0 var(--md-space-4); font-size: var(--md-fs-sm); color: var(--md-text-muted); line-height: var(--md-leading-body); }
+.ob-spinner {
+  width: 34px; height: 34px; margin: 0 auto var(--md-space-3);
+  border: 3px solid var(--md-border); border-top-color: var(--md-primary);
+  border-radius: 50%; animation: tpSpin 1s linear infinite;
+}
+.ob-spinner[hidden], .ob-icon[hidden] { display: none; }
+.ob-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; margin: 0 auto var(--md-space-3);
+  border-radius: 50%; background: var(--md-danger); color: var(--md-on-primary);
+  font-size: var(--md-fs-lg); font-weight: var(--md-weight-bold);
+}
+@keyframes tpSpin { to { transform: rotate(360deg); } }
+
+/* ══ 断点 · 全站只有这四个（--md-bp-sm/md/lg/xl）═══════════════════════ */
+
+@media (max-width: 1200px) {
+  .tp-split { grid-template-columns: 300px minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+  /* 两栏叠成一栏：左栏变顶部横条，整页恢复正常纵向滚动。 */
+  body.tp { overflow: auto; }
+  .tp-split { grid-template-columns: 1fr; }
+  .tp-rail { border-right: 0; border-bottom: 1px solid var(--md-border); max-height: 40vh; }
+  .tp-styles { grid-template-columns: 1fr; }
+  .tp-trackdone-steps { display: none; }
+}
+@media (max-width: 640px) {
+  .tp-compose,
+  .tp-detail-body,
+  .tp-detail-head,
+  .tp-actionbar { padding-left: var(--md-space-4); padding-right: var(--md-space-4); }
+  .tp-extracted-key { flex-basis: 100%; }
+}
+
+/* Local UI batch 9: retain the master/detail workflow and its preview lifecycle. */
+.tp.md-app { font-size: var(--md-fs-base); font-weight: var(--md-weight-normal); }
+.tp.md-app .md-topbar { flex-wrap: wrap; height: auto; min-height: 64px; gap: var(--md-space-3); padding: var(--md-space-4) var(--md-space-6); }
+.tp.md-app .md-brand-text { font-size: var(--md-fs-md); font-weight: var(--md-weight-semibold); }
+.tp.md-app .md-who { min-width: 0; font-size: var(--md-fs-sm); }
+.tp.md-app #tpWho { overflow-wrap: anywhere; }
+.tp.md-app .tp-split { grid-template-columns: 280px minmax(0, 1fr); }
+.tp.md-app .tp-group-head { font-weight: var(--md-weight-medium); letter-spacing: normal; }
+.tp.md-app .tp-row-name { white-space: normal; overflow-wrap: anywhere; font-weight: var(--md-weight-medium); }
+.tp.md-app .tp-row-top { flex-wrap: wrap; }
+.tp.md-app .tp-row-mid { overflow-wrap: anywhere; }
+.tp.md-app .tp-group-n { font-weight: var(--md-weight-medium); }
+.tp.md-app :is(.md-h2, .md-sheet-title, .md-dialog-title) { font-size: var(--md-fs-xl); font-weight: var(--md-weight-semibold); line-height: var(--md-leading-snug); }
+
+.tp.md-app .md-iconbtn{ min-width: 40px;}
+
+.tp.md-app :is(.md-input, .md-textarea, .md-select) { min-width: 0; max-width: 100%; font-size: var(--md-fs-base); font-weight: var(--md-weight-normal); line-height: var(--md-leading-body); }
+.tp.md-app .md-input { min-height: 40px; }
+.tp.md-app .md-field-label { font-size: var(--md-fs-base); font-weight: var(--md-weight-medium); }
+.tp.md-app :is(.md-field-hint, .md-formfoot-hint, .md-sheet-sub, .md-count, .md-note, .tp-style-h, .tp-slot-h, .tp-actionbar-hint){ font-size: var(--md-fs-sm); font-weight: var(--md-weight-normal); line-height: var(--md-leading-body); }
+.tp.md-app .md-note { background: transparent; border: 0; padding: 0; }
+.tp.md-app .md-note strong { font-weight: var(--md-weight-medium); }
+.tp.md-app .tp-compose { width: 100%; max-width: 51rem; margin: 0 auto; }
+.tp.md-app .tp-compose-head { align-items: flex-start; }
+.tp.md-app .tp-step-title { font-size: var(--md-fs-md); font-weight: var(--md-weight-semibold); }
+.tp.md-app .tp-step-n { font-weight: var(--md-weight-medium); }
+.tp.md-app :is(.tp-slot-t, .tp-style-t) { font-size: var(--md-fs-base); font-weight: var(--md-weight-medium); }
+.tp.md-app .tp-slot-head { flex-wrap: wrap; gap: var(--md-space-1) var(--md-space-3); }
+.tp.md-app .tp-slot { padding: var(--md-space-4); }
+.tp.md-app .tp-slot.is-filled { background: var(--md-surface); }
+.tp.md-app .tp-detail-head { flex-wrap: wrap; }
+.tp.md-app .tp-detail-body { min-width: 0; }
+.tp.md-app .tp-track-label { font-size: var(--md-fs-base); font-weight: var(--md-weight-medium); }
+.tp.md-app .tp-track-hint { font-size: var(--md-fs-sm); font-weight: var(--md-weight-normal); }
+.tp.md-app .tp-track-body { min-width: 0; overflow-wrap: anywhere; }
+.tp.md-app .tp-trackdone { flex-wrap: wrap; font-weight: var(--md-weight-normal); }
+.tp.md-app .tp-extracted { background: transparent; }
+.tp.md-app .tp-preview-bar { flex-wrap: wrap; gap: var(--md-space-3); }
+.tp.md-app .md-segmented { max-width: 100%; overflow-x: auto; }
+.tp.md-app .md-seg { flex: 0 0 auto; white-space: nowrap; }
+.tp.md-app .tp-preview-path { min-width: 0; overflow-wrap: anywhere; }
+
+.tp.md-app .md-sheet { width: min(680px, 100%); }
+.tp.md-app :is(.md-sheet-head, .md-sheet-foot, .md-dialog-acts) { flex-wrap: wrap; }
+.tp.md-app :is(.md-sheet-body, .md-history-item) { min-width: 0; }
+.tp.md-app .md-history-text { font-size: var(--md-fs-base); font-weight: var(--md-weight-normal); overflow-wrap: anywhere; }
+@media (max-width: 1200px) {
+  .tp.md-app .tp-split { grid-template-columns: 260px minmax(0, 1fr); }
+  .tp.md-app .tp-styles { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+  body.tp.md-app { height: auto; min-height: 100vh; overflow: auto; }
+  .tp.md-app .tp-split { display: block; flex: none; }
+  .tp.md-app .tp-rail { max-height: none; }
+  .tp.md-app .tp-rail-head { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; }
+  .tp.md-app .tp-rail-list { flex: none; max-height: 240px; overflow-y: auto; }
+  .tp.md-app .tp-main { overflow: visible; }
+  .tp.md-app .tp-detail { min-height: 0; }
+  .tp.md-app :is(.tp-detail-head, .tp-actionbar) { position: static; }
+  .tp.md-app .tp-trackdone-steps { display: flex; }
+}
+@media (max-width: 640px) {
+  .tp.md-app :is(.md-btn, .md-seg, .md-iconbtn) { min-height: 44px; }
+  .tp.md-app .md-iconbtn { min-width: 44px; }
+  .tp.md-app .tp-step { gap: var(--md-space-2); }
+  .tp.md-app .tp-slot { padding: var(--md-space-3); }
+  .tp.md-app .tp-rail-head { grid-template-columns: minmax(0, 1fr); }
+  .tp.md-app .md-topbar { padding: var(--md-space-4); }
+}

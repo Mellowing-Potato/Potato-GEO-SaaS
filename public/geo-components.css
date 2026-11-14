@@ -1,0 +1,425 @@
+/* EXEC-09A · 工作台共用组件层（Blade + 原生 JS）。
+   范围：五个 .geo-app 页面；挂在 geo-shell.css 之后、页面 CSS 之前。
+   页面 CSS 只管布局，不重写组件外观；geo-base.css 保留排版、表单、表格、
+   骨架屏、抽屉、对话框和 toast。旧类名在此映射，不改行为契约。
+*/
+
+/* [hidden] 必须先复位，覆盖本文件的 flex/grid/inline-flex。 */
+.geo-app :is(.billing-metric, .billing-metric-label, .btn, .button, .callout, .cl-seg-tabs,
+  .cl-state-empty, .empty, .filter-chip, .kb-seg-tab, .kb-seg-tabs, .lead-drawer-empty,
+  .mat-seg-tabs, .md-alert, .md-alert--danger, .md-alert--info, .md-alert--success, .md-alert--warning,
+  .md-badge, .md-badge--danger, .md-badge--info, .md-badge--neutral, .md-badge--primary, .md-badge--success,
+  .md-badge--warning, .md-btn, .md-btn--danger, .md-btn--full, .md-btn--ghost, .md-btn--primary,
+  .md-btn--secondary, .md-btn--sm, .md-chip, .md-empty, .md-empty--sm, .md-empty-title,
+  .md-iconbtn, .md-link, .md-panel, .md-panel-body, .md-panel-body--flush, .md-panel-head, .md-panel-stat,
+  .md-seg, .md-segmented, .md-stat, .md-stat-delta, .md-stat-label, .md-stat-value,
+  .md-tab, .md-tab-count, .md-tabs, .segmented, .segmented-item, .skill-workspace-tabs,
+  .tp-safenotice, .usage-card)[hidden],
+.geo-app :is(.billing-metric, .billing-metric-label, .btn, .button, .callout, .cl-seg-tabs,
+  .cl-state-empty, .empty, .filter-chip, .kb-seg-tab, .kb-seg-tabs, .lead-drawer-empty,
+  .mat-seg-tabs, .md-alert, .md-alert--danger, .md-alert--info, .md-alert--success, .md-alert--warning,
+  .md-badge, .md-badge--danger, .md-badge--info, .md-badge--neutral, .md-badge--primary, .md-badge--success,
+  .md-badge--warning, .md-btn, .md-btn--danger, .md-btn--full, .md-btn--ghost, .md-btn--primary,
+  .md-btn--secondary, .md-btn--sm, .md-chip, .md-empty, .md-empty--sm, .md-empty-title,
+  .md-iconbtn, .md-link, .md-panel, .md-panel-body, .md-panel-body--flush, .md-panel-head, .md-panel-stat,
+  .md-seg, .md-segmented, .md-stat, .md-stat-delta, .md-stat-label, .md-stat-value,
+  .md-tab, .md-tab-count, .md-tabs, .segmented, .segmented-item, .skill-workspace-tabs,
+  .tp-safenotice, .usage-card) [hidden] {
+  display: none !important;
+}
+
+/* EXEC-10B B3 / §6.4: shared text actions, including their hidden reset. */
+.geo-app .md-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--md-primary-pressed);
+  font-family: var(--md-font-sans);
+  font-weight: var(--md-weight-medium);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--md-space-1);
+  cursor: pointer;
+}
+.geo-app .md-link:hover { text-decoration: underline; text-underline-offset: var(--md-space-1); }
+
+/* A2 · BEGIN */
+/* 按钮：四种外观 × 36 / 30px；旧类名只在这里映射。 */
+.geo-app :is(.md-btn, .button, .btn) {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--md-space-2);
+  box-sizing: border-box; height: 36px; min-height: 36px; padding: 0 var(--md-space-4);
+  border: 1px solid var(--md-border); border-radius: var(--md-radius-sm);
+  background: var(--md-surface); color: var(--md-text-strong);
+  font-family: var(--md-font-sans); font-size: var(--md-fs-sm); font-weight: var(--md-weight-medium);
+  line-height: var(--md-leading-tight); white-space: nowrap; text-decoration: none; cursor: pointer;
+  transition: background-color .12s var(--md-ease-gentle), border-color .12s var(--md-ease-gentle);
+}
+.geo-app :is(.md-btn, .button, .btn):hover {
+  background: var(--md-surface-soft); border-color: var(--md-border-strong);
+}
+.geo-app :is(.md-btn--secondary, .button.secondary, .btn.ghost) {
+  background: var(--md-surface); border-color: var(--md-border); color: var(--md-text-strong);
+}
+.geo-app :is(.md-btn--secondary, .button.secondary, .btn.ghost):hover {
+  background: var(--md-surface-soft); border-color: var(--md-border-strong);
+}
+.geo-app :is(.md-btn--primary, .button.primary, .btn.primary) {
+  background: var(--md-primary); border-color: transparent; color: var(--md-on-primary);
+}
+.geo-app :is(.md-btn--primary, .button.primary, .btn.primary):hover { background: var(--md-primary-hover); }
+.geo-app :is(.md-btn--primary, .button.primary, .btn.primary):active { background: var(--md-primary-pressed); }
+.geo-app :is(.md-btn--ghost, .button.ghost) {
+  background: transparent; border-color: transparent; color: var(--md-text-secondary);
+}
+.geo-app :is(.md-btn--ghost, .button.ghost):hover { background: var(--md-surface-hover); color: var(--md-text-strong); }
+.geo-app :is(.md-btn--danger, .button.danger, .button.danger-ghost) {
+  background: var(--md-surface); border-color: var(--md-danger-border); color: var(--md-danger-ink);
+}
+.geo-app :is(.md-btn--danger, .button.danger, .button.danger-ghost):hover { background: var(--md-danger-soft); }
+.geo-app :is(.md-btn--sm, .button.small, .btn.mini) {
+  height: 30px; min-height: 30px; padding: 0 var(--md-space-3); font-size: var(--md-fs-sm);
+}
+.geo-app :is(.md-btn, .button, .btn):disabled { opacity: .5; cursor: not-allowed; }
+.geo-app :is(.md-btn, .button, .btn, .md-iconbtn):focus-visible { outline: 0; box-shadow: var(--md-focus-shadow); }
+.geo-app .md-btn--full { width: 100%; }
+.geo-app .md-panel-head .md-btn:first-of-type { margin-left: auto; }
+
+/* 图标按钮保留原 28px 规格，不纳入动作按钮两档。 */
+.geo-app .md-iconbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0; width: 28px; height: 28px; flex: 0 0 auto;
+  border: 1px solid transparent; border-radius: var(--md-radius-sm);
+  background: transparent; color: var(--md-text-muted);
+  font: inherit; font-size: var(--md-fs-md); line-height: var(--md-leading-none); cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.geo-app .md-iconbtn:hover { background: var(--md-surface-hover); color: var(--md-text); }
+/* A2 · END */
+
+/* A3 · BEGIN */
+/* A3 · 页签：40px，下划线式，同时兼容 aria-selected 与文章页 is-on。 */
+.geo-app .md-tabs {
+  display: flex;
+  gap: var(--md-space-5);
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--md-border-subtle);
+}
+.geo-app .md-panel-head .md-tabs {
+  align-self: stretch;
+  margin-bottom: calc(-1 * var(--md-space-4) - 1px);
+  border-bottom: 0;
+}
+.geo-app .md-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--md-space-2);
+  box-sizing: border-box;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--md-text-muted);
+  font-family: var(--md-font-sans);
+  font-size: var(--md-fs-sm);
+  font-weight: var(--md-weight-medium);
+  line-height: var(--md-leading-ui);
+  cursor: pointer;
+}
+.geo-app .md-tab:hover,
+.geo-app .md-tab[aria-selected="true"],
+.geo-app .md-tab.is-on { color: var(--md-text-strong); }
+.geo-app .md-tab[aria-selected="true"]::after,
+.geo-app .md-tab.is-on::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: calc(var(--md-radius-xs) / 2) calc(var(--md-radius-xs) / 2) 0 0;
+  background: var(--md-primary);
+}
+.geo-app .md-tab :is(.md-tab-count, .cl-t-count) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--md-text-muted);
+  font-size: var(--md-fs-xs);
+  font-weight: var(--md-weight-normal);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A3 · 分段控件：旧 segmented 类保留用法，外观统一映射。 */
+.geo-app :is(.md-segmented, .segmented) {
+  display: inline-flex;
+  box-sizing: border-box;
+  gap: var(--md-space-hair);
+  padding: var(--md-space-hair);
+  border: 1px solid var(--md-border-subtle);
+  border-radius: var(--md-radius-sm);
+  background: var(--md-bg-subtle);
+}
+.geo-app :is(.md-seg, .segmented-item) {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 var(--md-space-3);
+  border: 0;
+  border-radius: var(--md-radius-xs);
+  background: transparent;
+  color: var(--md-text-muted);
+  font-family: var(--md-font-sans);
+  font-size: var(--md-fs-sm);
+  font-weight: var(--md-weight-medium);
+  line-height: var(--md-leading-ui);
+  cursor: pointer;
+}
+.geo-app :is(.md-seg, .segmented-item):hover { color: var(--md-text-strong); }
+.geo-app :is(.md-seg, .segmented-item):is([aria-pressed="true"], .is-on, .is-active) {
+  background: var(--md-surface);
+  color: var(--md-text-strong);
+  box-shadow: var(--md-shadow-xs);
+}
+
+/* A3 · 筛选药丸：30px，旧 filter-chip 保留用法。 */
+.geo-app :is(.md-chip, .filter-chip) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 30px;
+  padding: 0 var(--md-space-3);
+  border: 1px solid var(--md-border);
+  border-radius: var(--md-radius-pill);
+  background: var(--md-surface);
+  color: var(--md-text-secondary);
+  font-family: var(--md-font-sans);
+  font-size: var(--md-fs-sm);
+  font-weight: var(--md-weight-medium);
+  line-height: var(--md-leading-ui);
+  cursor: pointer;
+}
+.geo-app :is(.md-chip, .filter-chip)[aria-pressed="true"] {
+  background: var(--md-primary-soft);
+  border-color: var(--md-primary-border);
+  color: var(--md-primary-pressed);
+}
+
+/* A3 · 焦点环与按钮共用令牌；hidden 由文件第一段统一处理。 */
+.geo-app :is(.md-tab, .md-seg, .segmented-item, .md-chip, .filter-chip):focus-visible {
+  outline: 0;
+  box-shadow: var(--md-focus-shadow);
+}
+/* A3 · END */
+
+/* A4 · BEGIN */
+/* Alerts: the bare md-alert is deliberately danger. Production's blocked
+   article and theme-package error/recovery views rely on that meaning. */
+.geo-app :is(.md-alert, .callout, .tp-safenotice) {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--md-space-3);
+  padding: var(--md-space-3) var(--md-space-4);
+  border: 1px solid;
+  border-radius: var(--md-radius-sm);
+  font-size: var(--md-fs-sm);
+  line-height: var(--md-leading-body);
+}
+.geo-app .md-alert,
+.geo-app .md-alert--danger,
+.geo-app .callout[data-variant="danger"] {
+  background: var(--md-danger-soft);
+  border-color: var(--md-danger-border);
+  color: var(--md-danger-ink);
+}
+.geo-app .callout,
+.geo-app .tp-safenotice,
+.geo-app .md-alert--info,
+.geo-app .callout[data-variant="info"],
+.geo-app .callout[data-variant="neutral"] {
+  background: var(--md-info-soft);
+  border-color: var(--md-info-border);
+  color: var(--md-info-ink);
+}
+.geo-app .md-alert--success,
+.geo-app .callout[data-variant="success"] {
+  background: var(--md-success-soft);
+  border-color: var(--md-success-border);
+  color: var(--md-success-ink);
+}
+.geo-app .md-alert--warning,
+.geo-app .callout[data-variant="warning"] {
+  background: var(--md-warning-soft);
+  border-color: var(--md-warning-border);
+  color: var(--md-warning-ink);
+}
+.geo-app :is(.md-alert, .callout) :is(strong, b) {
+  font-weight: var(--md-weight-semibold);
+}
+.geo-app :is(.md-alert, .callout) p {
+  color: inherit;
+  font-size: var(--md-fs-sm);
+  line-height: var(--md-leading-body);
+}
+.geo-app .md-alert .ic { margin-top: var(--md-space-1); }
+.geo-app .md-alert .md-alert-body { flex: 1; }
+
+/* Empty states: cl-state-tpl remains untouched. The conjunctive alias only
+   targets its authorized empty variant and wins over later generic tpl rules. */
+.geo-app :is(.md-empty, .cl-state-empty, .lead-drawer-empty),
+.geo-app .cl-state-tpl.cl-state-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--md-space-2);
+  padding: var(--md-space-12) var(--md-space-6);
+  border: 0;
+  background: transparent;
+  color: var(--md-text-muted);
+  font-size: var(--md-fs-sm);
+  line-height: var(--md-leading-body);
+  text-align: center;
+}
+.geo-app :is(.md-empty--sm, .empty) {
+  display: grid;
+  justify-items: center;
+  gap: var(--md-space-2);
+  padding: var(--md-space-8) var(--md-space-4);
+  border: 0;
+  background: transparent;
+  color: var(--md-text-muted);
+  font-size: var(--md-fs-sm);
+  line-height: var(--md-leading-body);
+  text-align: center;
+}
+.geo-app .md-empty .em-icon,
+.geo-app .cl-state-empty .st-icon,
+.geo-app .cl-state-tpl.cl-state-empty .st-icon {
+  width: var(--md-space-10);
+  height: var(--md-space-10);
+  border-radius: var(--md-radius-pill);
+  display: grid;
+  place-items: center;
+  background: var(--md-bg-subtle);
+  color: var(--md-text-muted);
+  font-size: var(--md-fs-xl);
+  margin-bottom: var(--md-space-1);
+}
+.geo-app .md-empty-title,
+.geo-app .md-empty .em-title,
+.geo-app .cl-state-empty h3,
+.geo-app .cl-state-tpl.cl-state-empty h3 {
+  font: var(--md-type-subheading);
+  color: var(--md-text-heading);
+}
+.geo-app .md-empty p,
+.geo-app .cl-state-empty p,
+.geo-app .cl-state-tpl.cl-state-empty p {
+  color: var(--md-text-muted);
+  font-size: var(--md-fs-sm);
+  font-weight: var(--md-weight-normal);
+  line-height: var(--md-leading-body);
+  max-width: 44ch;
+}
+.geo-app .md-empty .md-btn { margin-top: var(--md-space-2); }
+
+/* Panels: only md-panel itself is mapped; page/card families remain untouched. */
+.geo-app .md-panel {
+  background: var(--md-surface);
+  border: 1px solid var(--md-border-subtle);
+  border-radius: var(--md-radius-md);
+  box-shadow: var(--md-shadow-xs);
+  min-width: 0;
+}
+.geo-app .md-panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--md-space-3);
+  padding: var(--md-space-4) var(--md-space-5);
+  border-bottom: 1px solid var(--md-border-subtle);
+  min-height: 56px;
+}
+.geo-app .md-panel-head :is(h2, h3) {
+  margin: 0;
+  font: var(--md-type-subheading);
+  color: var(--md-text-heading);
+}
+.geo-app .md-panel-head .ph-sub,
+.geo-app .md-panel-stat {
+  font-size: var(--md-fs-xs);
+  color: var(--md-text-muted);
+}
+.geo-app .md-panel-body { padding: var(--md-space-5); }
+.geo-app .md-panel-body--flush { padding: 0; }
+
+/* Stats: sample md-stat is an inner cell of an md-panel. The two production
+   aliases are standalone cards, so keep their paper/edge in this shared file. */
+.geo-app :is(.md-stat, .billing-metric, .usage-card) {
+  display: grid;
+  gap: var(--md-space-1);
+  padding: var(--md-space-4) var(--md-space-5);
+}
+.geo-app :is(.billing-metric, .usage-card) {
+  background: var(--md-surface);
+  border: 1px solid var(--md-border-subtle);
+  border-radius: var(--md-radius-md);
+}
+.geo-app .md-stat .st-label,
+.geo-app .billing-metric-label,
+.geo-app .usage-card > span {
+  display: flex;
+  align-items: center;
+  gap: var(--md-space-2);
+  color: var(--md-text-muted);
+  font-size: var(--md-fs-xs);
+  font-weight: var(--md-weight-normal);
+}
+.geo-app .md-stat .st-value,
+.geo-app .billing-metric strong,
+.geo-app .usage-card strong {
+  color: var(--md-text-strong);
+  font-size: var(--md-fs-2xl);
+  font-weight: var(--md-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--md-leading-tight);
+}
+.geo-app .md-stat .st-delta,
+.geo-app .usage-card small {
+  display: flex;
+  align-items: center;
+  gap: var(--md-space-1);
+  color: var(--md-text-muted);
+  font-size: var(--md-fs-xs);
+  font-weight: var(--md-weight-normal);
+}
+.geo-app .md-stat .delta-up { color: var(--md-success-ink); font-weight: var(--md-weight-medium); }
+.geo-app .md-stat .delta-down { color: var(--md-danger-ink); font-weight: var(--md-weight-medium); }
+.geo-app .md-stat .delta-flat { color: var(--md-text-muted); font-weight: var(--md-weight-medium); }
+
+/* Badges: six semantic tones, including the newly authorized primary tone. */
+.geo-app .md-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--md-space-1);
+  height: 22px;
+  padding: 0 var(--md-space-2);
+  border: 1px solid;
+  border-radius: var(--md-radius-pill);
+  background: var(--md-surface-soft);
+  border-color: var(--md-border);
+  color: var(--md-text-secondary);
+  font-size: var(--md-fs-xs);
+  font-weight: var(--md-weight-medium);
+  line-height: var(--md-leading-tight);
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.geo-app .md-badge--neutral { background: var(--md-surface-soft); border-color: var(--md-border); color: var(--md-text-secondary); }
+.geo-app .md-badge--success { background: var(--md-success-soft); border-color: var(--md-success-border); color: var(--md-success-ink); }
+.geo-app .md-badge--warning { background: var(--md-warning-soft); border-color: var(--md-warning-border); color: var(--md-warning-ink); }
+.geo-app .md-badge--danger { background: var(--md-danger-soft); border-color: var(--md-danger-border); color: var(--md-danger-ink); }
+.geo-app .md-badge--info { background: var(--md-info-soft); border-color: var(--md-info-border); color: var(--md-info-ink); }
+.geo-app .md-badge--primary { background: var(--md-primary-soft); border-color: var(--md-primary-border); color: var(--md-primary-pressed); }
+/* A4 · END */

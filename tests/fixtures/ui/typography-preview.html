@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>全局文字与色彩规范 · 本地样板</title>
+<link rel="stylesheet" href="/geo-tokens.css"><link rel="stylesheet" href="/geo-fonts.css"><link rel="stylesheet" href="/geo-typography.css">
+<style>
+body{margin:0;background:var(--md-bg-page)}main{max-width:1100px;margin:auto;padding:40px 24px}header{margin-bottom:32px}section{background:var(--md-surface);border:1px solid var(--md-border-subtle);border-radius:8px;padding:28px;margin-bottom:24px}h3{margin:0 0 24px}a{color:var(--md-primary-pressed);text-underline-offset:4px}.palette{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}.chip{height:56px;border-radius:4px;margin-bottom:12px}.palette p{margin:4px 0}.row{display:grid;grid-template-columns:180px minmax(0,1fr);gap:24px;border-top:1px solid var(--md-border-subtle);padding:20px 0}.row p{margin:0}.sample-page{font:var(--md-type-page);color:var(--md-text-strong)}.sample-section{font:var(--md-type-section);color:var(--md-text-heading)}.sample-body{font:var(--md-type-body);color:var(--md-text)}.sample-ui{font:var(--md-type-ui);color:var(--md-text-secondary)}.sample-caption{font:var(--md-type-caption);color:var(--md-text-muted)}code{font-family:var(--md-font-mono)}@media(max-width:640px){.palette{grid-template-columns:repeat(2,minmax(0,1fr))}.row{grid-template-columns:1fr;gap:12px}section{padding:20px}}
+</style></head>
+<body class="geo-app"><main>
+<header><p class="muted">本地样式验收 · 字体文件由本站加载 · 未部署</p><h1>全局文字与色彩规范</h1><p>同类文字使用同一套规则。字体、字号、字重、行高和文字颜色统一定义在全局令牌中。</p><p><a href="/?review=global#result/101">查看报告阅读器</a>　<a href="/?review=global#skill">查看诊断与写作</a>　<a href="/?review=global#billing-plan">查看订阅套餐</a>　<a href="/review/">全部页面</a></p></header>
+<section><h3>字体来源</h3><p>界面与文档：Noto Sans SC。代码：Roboto Mono。中英文、数字均从项目内的字体文件加载，不查找电脑上的同名字体，也不连接 Google 字体服务。</p><p class="muted">两套字体均使用 SIL Open Font License 1.1，许可证与字体一同保存。仅代码中的中文使用同站 Noto Sans SC 补充。</p><p><a href="/fonts/notosanssc/OFL.txt">Noto Sans SC 许可证</a>　<a href="/fonts/robotomono/OFL.txt">Roboto Mono 许可证</a></p></section>
+<section><h3>文字层级</h3>
+<div class="row"><p class="sample-caption">页面标题 · 24 / 600</p><p class="sample-page">示例文旅 GEO 传播优化报告</p></div>
+<div class="row"><p class="sample-caption">章节标题 · 20 / 500</p><p class="sample-section">执行摘要与关键发现</p></div>
+<div class="row"><p class="sample-caption">文档正文 · 16 / 400</p><p class="sample-body">围绕游客的真实问题组织内容，保留资料来源和更新时间。GEO、FAQ、AI 与中文采用同一套字体。2026 / 09 / 10，30 天。</p></div>
+<div class="row"><p class="sample-caption">菜单与控件 · 14 / 400</p><p class="sample-ui">项目管理　历史报告　内容资产　下载正文</p></div>
+<div class="row"><p class="sample-caption">辅助信息 · 14 / 400</p><p class="sample-caption">报告生成时间：2026/09/10 09:30　·　待核实资料</p></div>
+<div class="row"><p class="sample-caption">代码 · Roboto Mono</p><code>const reportId = 101; // 报告编号</code></div>
+</section>
+<section><h3>来自中国传统色库的文字配色</h3><div class="palette">
+<div><div class="chip" style="background:var(--md-text-strong)"></div><p>苍绿 · #223E36</p><p class="muted">页面标题</p></div>
+<div><div class="chip" style="background:var(--md-text-heading)"></div><p>青灰 · #2B333E</p><p class="muted">章节标题、表头</p></div>
+<div><div class="chip" style="background:var(--md-text)"></div><p>墨色 · #1D1B1C</p><p class="muted">正文与报告内容</p></div>
+<div><div class="chip" style="background:var(--md-text-secondary)"></div><p>鸦青 · #424B50</p><p class="muted">普通菜单与次要操作</p></div>
+<div><div class="chip" style="background:var(--md-text-muted)"></div><p>鱼尾灰 · #5E616D</p><p class="muted">说明、日期与标签</p></div>
+<div><div class="chip" style="background:var(--md-text-group)"></div><p>茶褐 · #5D3D21</p><p class="muted">导航分组</p></div>
+</div><p class="muted">保留鱼肚白页面底色与原有绿色选中状态。层级同时通过字号、字重和间距表达，不只依赖颜色。</p></section>
+</main></body></html>

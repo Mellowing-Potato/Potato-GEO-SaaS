@@ -1,0 +1,107 @@
+{
+  "leadFilterForm": [
+    {
+      "tag": "select",
+      "name": "status"
+    },
+    {
+      "tag": "select",
+      "name": "form_id"
+    },
+    {
+      "tag": "input",
+      "name": "date_from",
+      "type": "date"
+    },
+    {
+      "tag": "input",
+      "name": "date_to",
+      "type": "date"
+    },
+    {
+      "tag": "input",
+      "name": "search",
+      "type": "search"
+    }
+  ],
+  "leadAnalyticsFilterForm": [
+    {
+      "tag": "select",
+      "name": "lead_preset"
+    },
+    {
+      "tag": "input",
+      "name": "lead_date_from",
+      "type": "date",
+      "hidden": true
+    },
+    {
+      "tag": "input",
+      "name": "lead_date_to",
+      "type": "date",
+      "hidden": true
+    },
+    {
+      "tag": "select",
+      "name": "lead_form_id"
+    }
+  ],
+  "leadFormEditor": [
+    {
+      "tag": "input",
+      "name": "name",
+      "required": true,
+      "maxlength": "120"
+    },
+    {
+      "tag": "input",
+      "name": "slug",
+      "maxlength": "120"
+    },
+    {
+      "tag": "select",
+      "name": "status"
+    },
+    {
+      "tag": "textarea",
+      "name": "description",
+      "maxlength": "2000"
+    },
+    {
+      "tag": "input",
+      "name": "submit_button_label",
+      "maxlength": "80"
+    },
+    {
+      "tag": "textarea",
+      "name": "success_message",
+      "maxlength": "2000"
+    },
+    {
+      "tag": "input",
+      "name": "notify_webhook_url",
+      "type": "url",
+      "maxlength": "500"
+    },
+    {
+      "tag": "input",
+      "name": "notify_webhook_clear",
+      "type": "checkbox"
+    },
+    {
+      "tag": "select",
+      "name": "notify_webhook_format"
+    }
+  ],
+  "leadDrawerForm": [
+    {
+      "tag": "select",
+      "name": "status"
+    },
+    {
+      "tag": "textarea",
+      "name": "note",
+      "maxlength": "5000"
+    }
+  ]
+}

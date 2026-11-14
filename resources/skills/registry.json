@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "approved_at": "2026-10-17",
+  "skills": [
+    {
+      "id": "yao-geo-intent-miner",
+      "status": "active"
+    },
+    {
+      "id": "yao-geo-panorama-audit",
+      "status": "active"
+    },
+    {
+      "id": "yao-geo-execution-roadmap",
+      "status": "active"
+    },
+    {
+      "id": "yao-geo-tracking",
+      "status": "active"
+    },
+    {
+      "id": "yao-geo-explainer-builder",
+      "status": "active"
+    },
+    {
+      "id": "yao-geo-comparison-builder",
+      "status": "active"
+    },
+    {
+      "id": "yao-geo-ranking-article-builder",
+      "status": "active"
+    },
+    {
+      "id": "yao-geo-content-refiner",
+      "status": "active"
+    },
+    {
+      "id": "yao-geo-title-optimizer",
+      "status": "active"
+    },
+    {
+      "id": "yao-geo-page-blueprint",
+      "status": "active"
+    },
+    {
+      "id": "yao-geo-brand-graph",
+      "status": "active"
+    },
+    {
+      "id": "yao-geo-knowledge-base-builder",
+      "status": "active"
+    },
+    {
+      "id": "yao-geo-page-audit",
+      "status": "active"
+    },
+    {
+      "id": "yao-geo-channel-publishing",
+      "status": "active",
+      "source": "local-business-entry"
+    },
+    {
+      "id": "yao-geo-effect-monitor",
+      "status": "active"
+    },
+    {
+      "id": "yao-geoflow-cli",
+      "status": "active"
+    },
+    {
+      "id": "yao-geoflow-template",
+      "status": "active"
+    },
+    {
+      "id": "yao-geoflow-design",
+      "status": "active"
+    }
+  ]
+}

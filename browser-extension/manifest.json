@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "言及 · 发布草稿助手",
+  "description": "将言及发布单保存到知乎或微博文章草稿；公开发布由用户完成。",
+  "version": "0.4.0",
+  "minimum_chrome_version": "116",
+  "incognito": "not_allowed",
+  "permissions": [
+    "storage"
+  ],
+  "background": {
+    "service_worker": "src/publishing-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:8000/manual-publish*"
+      ],
+      "js": [
+        "src/instance-config.js",
+        "src/instance-runtime.js",
+        "src/yanji-bridge.js",
+        "src/weibo-bridge.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://zhuanlan.zhihu.com/write*",
+        "https://zhuanlan.zhihu.com/p/*/edit*"
+      ],
+      "js": [
+        "src/zhihu-article.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://card.weibo.com/article/v5/editor*"
+      ],
+      "js": [
+        "src/weibo-article.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

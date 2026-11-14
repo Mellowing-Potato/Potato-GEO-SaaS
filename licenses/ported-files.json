@@ -1,0 +1,387 @@
+[
+  {
+    "file": "app/Http/Controllers/Api/V1/EnterpriseKnowledgeController.php",
+    "upstream_file": "app/Http/Controllers/Admin/EnterpriseKnowledgeController.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Http/Controllers/Api/V1/LeadController.php",
+    "upstream_file": "app/Http/Controllers/Admin/LeadController.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Http/Controllers/Api/V1/LeadFormController.php",
+    "upstream_file": "app/Http/Controllers/Admin/LeadFormController.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Jobs/IterateSiteThemeReplicationJob.php",
+    "upstream_file": "app/Jobs/IterateSiteThemeReplicationJob.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Models/AiVisibilitySource.php",
+    "upstream_file": "app/Models/AiVisibilitySource.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Models/EnterpriseKnowledgeProject.php",
+    "upstream_file": "app/Models/EnterpriseKnowledgeProject.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Models/LeadForm.php",
+    "upstream_file": "app/Models/LeadForm.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Models/LeadSubmission.php",
+    "upstream_file": "app/Models/LeadSubmission.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Models/ManualPublication.php",
+    "upstream_file": "app/Models/ManualPublication.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Models/ManualPublicationAccount.php",
+    "upstream_file": "app/Models/ManualPublicationAccount.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Models/ManualPublicationPersona.php",
+    "upstream_file": "app/Models/ManualPublicationPersona.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Models/PlatformSensitiveWord.php",
+    "upstream_file": "app/Models/SensitiveWord.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Models/SensitiveWord.php",
+    "upstream_file": "app/Models/SensitiveWord.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Models/SiteThemeReplication.php",
+    "upstream_file": "app/Models/SiteThemeReplication.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Models/SiteThemeReplicationLog.php",
+    "upstream_file": "app/Models/SiteThemeReplicationLog.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Models/SiteThemeReplicationVersion.php",
+    "upstream_file": "app/Models/SiteThemeReplicationVersion.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Models/WorkerHeartbeat.php",
+    "upstream_file": "app/Models/WorkerHeartbeat.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Services/Admin/ActivityLogService.php",
+    "upstream_file": "app/Support/AdminActivityLogger.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Services/Api/ApiTokenService.php",
+    "upstream_file": "app/Services/Api/ApiTokenService.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Services/Api/IdempotencyService.php",
+    "upstream_file": "app/Services/Api/IdempotencyService.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Services/Content/TitleAiGenerationService.php",
+    "upstream_file": "app/Services/GeoFlow/TitleAiGenerationService.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Services/Content/WeChatArticleExporter.php",
+    "upstream_file": "app/Support/Admin/WeChatArticleHtmlExporter.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Services/Geo/AiVisibility/AiVisibilitySourceData.php",
+    "upstream_file": "app/Services/GeoFlow/AiVisibility/AiVisibilitySourceData.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Services/Knowledge/EnterpriseKnowledgeDraftService.php",
+    "upstream_file": "app/Services/GeoFlow/EnterpriseKnowledgeDraftService.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Services/Outbound/CrossOriginRequestSanitizer.php",
+    "upstream_file": "app/Services/Outbound/CrossOriginRequestSanitizer.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted outbound validation and transport for Yanji model and workspace requests."
+  },
+  {
+    "file": "app/Services/Outbound/FinalOutboundSecurityPolicy.php",
+    "upstream_file": "app/Services/Outbound/FinalOutboundSecurityPolicy.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted outbound validation and transport for Yanji model and workspace requests."
+  },
+  {
+    "file": "app/Services/Outbound/HardenedHandlerStack.php",
+    "upstream_file": "app/Services/Outbound/HardenedHandlerStack.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted outbound validation and transport for independent workspaces."
+  },
+  {
+    "file": "app/Services/Outbound/LaravelPinnedOutboundTransport.php",
+    "upstream_file": "app/Services/Outbound/LaravelPinnedOutboundTransport.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted outbound validation and transport for Yanji model and workspace requests."
+  },
+  {
+    "file": "app/Services/Outbound/OutboundRequestBlockedException.php",
+    "upstream_file": "app/Services/Outbound/OutboundRequestBlockedException.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted outbound validation and transport for independent workspaces."
+  },
+  {
+    "file": "app/Services/Outbound/OutboundRequestFailedException.php",
+    "upstream_file": "app/Services/Outbound/OutboundRequestFailedException.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted outbound validation and transport for independent workspaces."
+  },
+  {
+    "file": "app/Services/Outbound/ResolvedOutboundTarget.php",
+    "upstream_file": "app/Services/Outbound/ResolvedOutboundTarget.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted outbound validation and transport for independent workspaces."
+  },
+  {
+    "file": "app/Services/Outbound/ResponseSizeLimitedStream.php",
+    "upstream_file": "app/Services/Outbound/ResponseSizeLimitedStream.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted outbound validation and transport for Yanji model and workspace requests."
+  },
+  {
+    "file": "app/Services/Outbound/SafeOutboundHttpClient.php",
+    "upstream_file": "app/Services/Outbound/SafeOutboundHttpClient.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted outbound validation and transport for Yanji model and workspace requests."
+  },
+  {
+    "file": "app/Services/Outbound/SafeOutboundRequest.php",
+    "upstream_file": "app/Services/Outbound/SafeOutboundRequest.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted outbound validation and transport for Yanji model and workspace requests."
+  },
+  {
+    "file": "app/Services/Outbound/SecureHttpFactory.php",
+    "upstream_file": "app/Services/Outbound/SecureHttpFactory.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted outbound validation and transport for Yanji model and workspace requests."
+  },
+  {
+    "file": "app/Services/Outbound/SecurePendingRequest.php",
+    "upstream_file": "app/Services/Outbound/SecurePendingRequest.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted outbound validation and transport for Yanji model and workspace requests."
+  },
+  {
+    "file": "app/Services/Outbound/SystemHostResolver.php",
+    "upstream_file": "app/Services/Outbound/SystemHostResolver.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted outbound validation and transport for Yanji model and workspace requests."
+  },
+  {
+    "file": "app/Services/Publishing/ArticleRiskScanner.php",
+    "upstream_file": "app/Services/GeoFlow/ArticleRiskScanner.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Services/Publishing/ManualPublicationDuplicateDetector.php",
+    "upstream_file": "app/Services/GeoFlow/ManualPublicationDuplicateDetector.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Services/Publishing/ManualPublicationService.php",
+    "upstream_file": "app/Services/GeoFlow/ManualPublicationService.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Services/Reports/LeadAnalyticsFilter.php",
+    "upstream_file": "app/Services/Admin/Analytics/LeadAnalyticsFilter.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Services/Reports/LeadAnalyticsService.php",
+    "upstream_file": "app/Services/Admin/Analytics/LeadAnalyticsService.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Services/ThemePackaging/SiteThemeReplicationService.php",
+    "upstream_file": "app/Services/Admin/SiteThemeReplicationService.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
+  },
+  {
+    "file": "app/Services/ThemePackaging/ThemeComplianceGuard.php",
+    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeComplianceGuard.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
+  },
+  {
+    "file": "app/Services/ThemePackaging/ThemeReferenceAnalyzer.php",
+    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReferenceAnalyzer.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
+  },
+  {
+    "file": "app/Services/ThemePackaging/ThemeReferenceFetcher.php",
+    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReferenceFetcher.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
+  },
+  {
+    "file": "app/Services/ThemePackaging/ThemeReplicationAgent.php",
+    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReplicationAgent.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
+  },
+  {
+    "file": "app/Services/ThemePackaging/ThemeReplicationPackagePathGuard.php",
+    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReplicationPackagePathGuard.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
+  },
+  {
+    "file": "app/Services/ThemePackaging/ThemeReplicationPackageService.php",
+    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReplicationPackageService.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
+  },
+  {
+    "file": "app/Services/ThemePackaging/ThemeReplicationPipelineService.php",
+    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReplicationPipelineService.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
+  },
+  {
+    "file": "app/Services/ThemePackaging/ThemeReplicationStorageGuard.php",
+    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReplicationStorageGuard.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
+  },
+  {
+    "file": "app/Services/ThemePackaging/ThemeReplicationStorageLock.php",
+    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReplicationStorageLock.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
+  },
+  {
+    "file": "app/Services/ThemePackaging/ThemeScaffoldWriter.php",
+    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeScaffoldWriter.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
+  },
+  {
+    "file": "app/Support/Analytics/TrafficClassifier.php",
+    "upstream_file": "app/Support/Analytics/TrafficClassifier.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  },
+  {
+    "file": "app/Support/Lead/LeadFormFields.php",
+    "upstream_file": "app/Support/Lead/LeadFormFields.php",
+    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
+    "license": "Apache-2.0",
+    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
+  }
+]

@@ -1,0 +1,75 @@
+/* Global semantic typography. Loaded last on every application page.
+   Fonts, sizes, weights, leading and role colors belong to geo-tokens.css.
+   Page styles handle layout; do not create another local typography scale. */
+body.geo-app { font: var(--md-type-ui); color: var(--md-text); font-synthesis: none; }
+body.geo-app :is(button, input, select, textarea) { font-family: var(--md-font-sans); }
+body.geo-app :is(h1, h2) { font: var(--md-type-page); color: var(--md-text-strong); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   触屏点击范围：44px 硬下限（2026-09-21，计划 §5.1 验收 / R18 + 侧栏补充
+   「触屏统一至少 44px」）
+
+   为什么放在这个文件：它是 10 个应用模板**最后加载**、且都以 `body.geo-app` 为根的
+   一份共享样式；触屏下限是跨壳规则，放在这里才是一处生效，不会随某个壳改版掉队。
+
+   为什么用 !important：44px 是**可达性下限**，而各壳的紧凑档（34 / 30 / 28px）散在
+   几十条作用域规则里（`.button.small`、`.filter-chip`、`.md-btn--sm`、各面板自己的
+   `:is(...)`）。靠叠选择器权逐条去压，既脆弱（新加一条面板规则就悄悄回退成 34px），
+   也读不出"这是下限"的意图。这里显式写成下限，并由 scripts/verify-ui-panels.mjs
+   在真 Chrome 里按 pointer:coarse 逐个控件复核。
+
+   ⚠️ 只在 `pointer: coarse`（手机/平板等以触摸为主指针的设备）生效 ——
+   桌面鼠标的版式一个像素都不动（同一个工具会在 1440px + 无触摸模拟下复查基准高度）。
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (pointer: coarse) {
+  body.geo-app :is(
+    /* 裸 button 也要算：各壳里还有一批没带 class 的按钮（例如线索面板的筛选动作、
+       技能面板的待办项），只按 class 列举必然漏。 */
+    button,
+    .button, .button.small, .btn, .md-btn, .md-btn--sm, .link-btn,
+    .filter-chip, .format-link, .segmented-item, .method-option,
+    .sw-chip-del, .run-question, .article-title-link, .report-title-link, .report-row-download,
+    .md-seg, .md-iconbtn, .md-input, .pending-item,
+    .days-pick select, .section-nav a,
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+    select, textarea
+  ) { min-height: 44px !important; }
+
+  /* 行内动作（表格里的标题、下载、标签里的 ×）：只给 min-height 仍然是一小条，
+     要撑成一行才点得着。 */
+  /* 2026-09-21 全站 44px 统一：把 `<summary>`（折叠标题）与行内动作链接一并纳入 ——
+     它们在口径里一直是漏网的，而真浏览器扫描（pointer:coarse 逐个量）能把它们抓出来。 */
+  body.geo-app :is(.article-title-link, .report-title-link, .report-row-download, .sw-chip-del, .format-link) {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  body.geo-app .sw-chip-del { min-width: 44px !important; justify-content: center; }
+}
+body.geo-app h3 { font: var(--md-type-section); color: var(--md-text-heading); }
+body.geo-app :is(h4, h5, h6) { font: var(--md-type-subheading); color: var(--md-text-heading); }
+body.geo-app :is(label, th) { font: var(--md-type-label); color: var(--md-text-heading); }
+body.geo-app :is(.eyebrow, .hint, .muted, .field-help, .form-hint) { font: var(--md-type-caption); color: var(--md-text-muted); }
+body.geo-app :is(button, .button, .btn) { font-weight: var(--md-weight-medium); }
+body.geo-app :is(input, textarea, select) { font-weight: var(--md-weight-normal); }
+body.geo-app :is(code, pre, .md-code, .md-mono, .cell-mono, .mono) { font-family: var(--md-font-mono); }
+
+/* Application navigation: group, destination and selection have distinct roles. */
+.geo-app .workspace-menu .workspace-menu-group { font: var(--md-type-label); color: var(--md-text-group); }
+.geo-app .workspace-menu .workspace-menu-link { font: var(--md-type-ui); color: var(--md-text-secondary); }
+.geo-app .workspace-menu .workspace-menu-link.active { color: var(--md-primary-pressed); }
+.geo-app .workspace-menu :is(.project-nav-item, .project-nav-action) { font: var(--md-type-ui); color: var(--md-text-secondary); }
+.geo-app .workspace-menu .project-nav-item[aria-current] { color: var(--md-primary-pressed); }
+
+/* Reader and public article share the same document roles. */
+.geo-app #resultPageTitle, .geo-app.geo-reading h1 { font: var(--md-type-page); color: var(--md-text-strong); }
+.geo-app #resultPageMeta, .geo-app .reader-outline summary, .geo-app #readerToc .reader-toc-link { font: var(--md-type-caption); }
+.geo-app .reader-toc-link { color: var(--md-text-secondary); }
+.geo-app .reader-toc-link[aria-current] { color: var(--md-primary-pressed); }
+.geo-app #resultPageBody, .geo-app.geo-reading .article { font: var(--md-type-body); }
+.geo-app #resultPageBody :is(p, li, dd, dt, td, .report-metric-value, .report-metric-note, .report-score-num, .report-section-note, .report-note),
+.geo-app.geo-reading .article :is(p, li, td) { font: var(--md-type-body); color: var(--md-text); }
+.geo-app #resultPageBody :is(h2, h3, h4, h5, h6), .geo-app.geo-reading .article :is(h2, h3, h4) { font: var(--md-type-section); color: var(--md-text-heading); }
+.geo-app #resultPageBody .reader-subheading { font: var(--md-type-subheading); color: var(--md-text-heading); }
+.geo-app #resultPageBody :is(.report-meta, .report-metric-label) { font: var(--md-type-caption); color: var(--md-text-muted); }
+.geo-app #resultPageBody th, .geo-app.geo-reading .article th { font: var(--md-type-subheading); color: var(--md-text-heading); }

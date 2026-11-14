@@ -1,0 +1,254 @@
+/* ============ 设计令牌见 geo-tokens.css；此处只留页面自身的真实声明 ============ */
+:root {
+  color-scheme: light;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+button, input, select { font: inherit; color: inherit; }
+body { background: var(--md-bg-page); color: var(--md-text); font-family: var(--md-font-sans); font-size: var(--md-fs-base); line-height: var(--md-leading-snug); -webkit-font-smoothing: antialiased; min-height: 100vh; }
+a { color: var(--md-primary-hover); text-decoration: none; }
+:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--md-focus-ring), 0 0 0 1px var(--md-primary); border-radius: var(--md-radius-sm); }
+
+/* ============ 顶栏（平台侧：身份 + 环境标签） ============ */
+.topbar { height: 52px; background: var(--md-surface); border-bottom: 1px solid var(--md-border); display: flex; align-items: center; gap: 12px; padding: 0 18px; position: sticky; top: 0; z-index: 30; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: var(--md-weight-bold); font-size: var(--md-fs-base); color: var(--md-text-strong); white-space: nowrap; }
+.brand-mark { width: 24px; height: 24px; border-radius: var(--md-radius-sm); background: var(--md-text-strong); color: var(--md-on-primary); display: grid; place-items: center; font-size: var(--md-fs-xs); font-weight: var(--md-weight-bold); }
+.env-tag { font-size: var(--md-fs-xs); font-weight: var(--md-weight-bold); padding: 2px 9px; border-radius: 999px; background: var(--md-warning-soft); color: var(--md-warning); border: 1px solid var(--md-warning-border); white-space: nowrap; }
+.env-tag.env-prod { background: var(--md-danger-soft); color: var(--md-danger); border-color: var(--md-danger-border); }
+.topbar .spacer { flex: 1; }
+.topbar .who { font-size: var(--md-fs-xs); color: var(--md-text-muted); white-space: nowrap; }
+
+/* ============ 分区跳转（sticky 次导航） ============ */
+.section-nav { position: sticky; top: 52px; z-index: 25; background: var(--md-bg-page); border-bottom: 1px solid var(--md-border-subtle); padding: 8px 18px; display: flex; gap: 2px; overflow-x: auto; }
+.section-nav a { white-space: nowrap; font-size: var(--md-fs-xs); font-weight: var(--md-weight-semibold); color: var(--md-text-muted); padding: 4px 10px; border-radius: var(--md-radius-sm); }
+.section-nav a:hover { background: var(--md-surface-hover); }
+.section-nav a.on { background: var(--md-primary-soft); color: var(--md-primary-hover); }
+
+.wrap { max-width: 1280px; margin: 0 auto; padding: 18px 18px 120px; }
+section[id] { scroll-margin-top: 108px; }
+.view-title { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+.view-title h1 { font-size: var(--md-fs-lg); line-height: var(--md-leading-snug); font-weight: var(--md-weight-bold); color: var(--md-text-strong); }
+.view-title .vt-sub { font-size: var(--md-fs-xs); color: var(--md-text-muted); }
+
+/* ============ 面板 ============ */
+.panel { background: var(--md-surface); border: 1px solid var(--md-border); border-radius: var(--md-radius-md); box-shadow: var(--md-shadow-xs); position: relative; margin-bottom: 14px; }
+.panel-head { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-bottom: 1px solid var(--md-border-subtle); flex-wrap: wrap; }
+.panel-head h2 { font-size: var(--md-fs-base); font-weight: var(--md-weight-bold); }
+.panel-head .hint { font-size: var(--md-fs-xs); color: var(--md-text-muted); }
+.panel-head .spacer { flex: 1; }
+.panel-body { padding: 14px 16px; }
+
+/* ============ KPI 行 ============ */
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 14px; }
+.kpi { background: var(--md-surface); border: 1px solid var(--md-border); border-radius: var(--md-radius-md); padding: 10px 14px; }
+.kpi .k-num { font-size: var(--md-fs-xl); line-height: var(--md-leading-tight); font-weight: var(--md-weight-bold); font-variant-numeric: tabular-nums; color: var(--md-text-strong); }
+.kpi .k-num.gold { color: var(--md-value); }
+.kpi .k-num.warn { color: var(--md-warning); }
+.kpi .k-label { font-size: var(--md-fs-xs); color: var(--md-text-muted); }
+
+/* ============ 签名：钱流链路带（下单→支付→回调→开通） ============ */
+.money-chain { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; padding: 18px 16px 14px; }
+.mc-node { position: relative; text-align: center; }
+.mc-node .n-count { font-size: var(--md-fs-xl); font-weight: var(--md-weight-bold); font-variant-numeric: tabular-nums; color: var(--md-text-strong); }
+.mc-node.done .n-count { color: var(--md-primary-hover); }
+.mc-node .n-label { font-size: var(--md-fs-xs); font-weight: var(--md-weight-semibold); color: var(--md-text-secondary); }
+.mc-node .n-drop { font-size: var(--md-fs-xs); color: var(--md-text-faint); margin-top: 2px; }
+.mc-node .n-drop.warn { color: var(--md-warning); font-weight: var(--md-weight-semibold); }
+.mc-node .n-drop.bad { color: var(--md-danger); font-weight: var(--md-weight-bold); }
+.mc-node::after { content: ""; position: absolute; top: 14px; right: -22px; width: 44px; height: 2px; background: var(--md-primary); opacity: .55; }
+.mc-node:last-child::after { display: none; }
+.mc-alert { display: inline-flex; align-items: center; gap: 6px; margin: 0 16px 14px; padding: 6px 12px; border-radius: var(--md-radius-sm); background: var(--md-danger-soft); border: 1px solid var(--md-danger-border); color: var(--md-danger); font-size: var(--md-fs-xs); font-weight: var(--md-weight-semibold); }
+.mc-alert .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--md-danger); animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+
+/* ============ 表格（admin 密度 40px） ============ */
+.tbl-wrap { overflow-x: auto; }
+.tbl { width: 100%; border-collapse: collapse; font-size: var(--md-fs-xs); }
+.tbl th { text-align: left; font-size: var(--md-fs-xs); font-weight: var(--md-weight-semibold); color: var(--md-text-muted); background: var(--md-surface-soft); padding: 7px 10px; border-bottom: 1px solid var(--md-border); white-space: nowrap; }
+.tbl td { padding: 9px 10px; border-bottom: 1px solid var(--md-border-subtle); vertical-align: middle; height: 40px; }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl tbody tr:hover { background: var(--md-surface-soft); }
+.tbl tbody tr.row-bad { background: var(--md-danger-soft); }
+.tbl tbody tr.row-bad:hover { background: var(--md-danger-soft); }
+.tbl .cell-main { font-weight: var(--md-weight-semibold); color: var(--md-text); }
+.tbl .cell-sub { font-size: var(--md-fs-xs); color: var(--md-text-faint); margin-top: 1px; }
+.tbl .cell-mono { font-family: var(--md-font-mono); font-size: var(--md-fs-xs); color: var(--md-text-secondary); word-break: break-all; }
+.tbl .cell-num { font-variant-numeric: tabular-nums; }
+.tbl .cell-gold { color: var(--md-value-ink); font-weight: var(--md-weight-bold); font-variant-numeric: tabular-nums; }
+.tbl .cell-actions { text-align: left; white-space: nowrap; }
+.tbl .cell-actions .btn + .btn { margin-left: 4px; }
+
+/* pill（语义化状态，行内全 ghost 动作） */
+.pill { display: inline-flex; align-items: center; gap: 5px; min-height: 20px; padding: 0 8px; border-radius: 999px; font-size: var(--md-fs-xs); font-weight: var(--md-weight-semibold); border: 1px solid transparent; white-space: nowrap; }
+.pill::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.pill.ok      { background: var(--md-success-soft); color: var(--md-success); border-color: var(--md-success-border); }
+.pill.wait    { background: var(--md-warning-soft); color: var(--md-warning); border-color: var(--md-warning-border); }
+.pill.bad     { background: var(--md-danger-soft);  color: var(--md-danger);  border-color: var(--md-danger-border); }
+.pill.info    { background: var(--md-info-soft);    color: var(--md-info);    border-color: var(--md-info-border); }
+.pill.neutral { background: var(--md-surface-soft); color: var(--md-text-muted); border-color: var(--md-border); }
+
+/* 按钮（行内不出现实底；danger 实底只在弹窗执行位） */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 28px; padding: 0 10px; border-radius: var(--md-radius-sm); border: 1px solid var(--md-border-strong); background: var(--md-surface); font-size: var(--md-fs-xs); font-weight: var(--md-weight-semibold); cursor: pointer; }
+.btn:hover { background: var(--md-surface-hover); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--md-text-secondary); }
+.btn.ghost:hover { background: var(--md-surface-hover); }
+.btn.danger-ghost { border-color: transparent; background: transparent; color: var(--md-danger); }
+.btn.danger-ghost:hover { background: var(--md-danger-soft); }
+.btn.danger-fill { background: var(--md-danger); border-color: var(--md-danger); color: #fff; }
+.btn.danger-fill[disabled] { opacity: .4; cursor: not-allowed; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* 工具栏 */
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.toolbar select, .toolbar input { min-height: 30px; border: 1px solid var(--md-border); border-radius: var(--md-radius-sm); background: var(--md-surface); padding: 3px 9px; font-size: var(--md-fs-xs); }
+.toolbar input:focus, .toolbar select:focus { outline: none; border-color: var(--md-primary); box-shadow: 0 0 0 3px var(--md-focus-ring); }
+
+/* 健康度小卡 */
+.health-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.hcard { border: 1px solid var(--md-border-subtle); border-radius: var(--md-radius-md); padding: 10px 12px; background: var(--md-surface-soft); }
+.hcard .h-num { font-size: var(--md-fs-lg); font-weight: var(--md-weight-bold); font-variant-numeric: tabular-nums; color: var(--md-text-strong); }
+.hcard .h-num.warn { color: var(--md-warning); }
+.hcard .h-label { font-size: var(--md-fs-xs); color: var(--md-text-muted); }
+.hcard .h-sub { font-size: var(--md-fs-xs); color: var(--md-text-faint); margin-top: 2px; }
+.hcard .h-sub.warn { color: var(--md-warning); font-weight: var(--md-weight-semibold); }
+
+/* 状态模板 */
+.state-tpl { padding: 26px 18px; text-align: center; }
+.state-tpl .st-icon { width: 36px; height: 36px; border-radius: 50%; display: inline-grid; place-items: center; font-size: var(--md-fs-md); margin-bottom: 7px; background: var(--md-surface-soft); color: var(--md-text-faint); }
+.state-tpl h3 { font-size: var(--md-fs-base); margin-bottom: 2px; }
+.state-tpl p { font-size: var(--md-fs-xs); color: var(--md-text-muted); max-width: 340px; margin: 0 auto 10px; }
+
+/* ============ 危险确认弹窗（同 admin-ops，五件套） ============ */
+.dm-mask { position: fixed; inset: 0; background: rgba(29,27,28,.34); z-index: 60; display: none; }
+.dm-mask.open { display: grid; place-items: center; }
+.dmodal { width: min(480px, calc(100vw - 32px)); background: var(--md-surface); border: 1px solid var(--md-border); border-radius: var(--md-radius-md); box-shadow: var(--md-shadow-modal); padding: 18px; }
+.dmodal h3 { font-size: var(--md-fs-base); font-weight: var(--md-weight-bold); color: var(--md-danger); margin-bottom: 2px; }
+.dmodal .dm-sub { font-size: var(--md-fs-xs); color: var(--md-text-secondary); margin-bottom: 12px; }
+.dmodal .dm-impact { border: 1px solid var(--md-border-subtle); border-radius: var(--md-radius-sm); margin-bottom: 12px; }
+.dmodal .dm-impact .row { display: flex; justify-content: space-between; padding: 7px 11px; font-size: var(--md-fs-xs); border-top: 1px solid var(--md-border-subtle); }
+.dmodal .dm-impact .row:first-child { border-top: none; }
+.dmodal .dm-impact .row .k { color: var(--md-text-muted); }
+.dmodal .dm-impact .row .v { font-weight: var(--md-weight-semibold); }
+.dmodal .dm-impact .row .v.minus { color: var(--md-danger); }
+.dmodal .field { margin-bottom: 12px; }
+.dmodal .field label { display: block; font-size: var(--md-fs-xs); font-weight: var(--md-weight-semibold); color: var(--md-text-secondary); margin-bottom: 4px; }
+.dmodal .field select, .dmodal .field input, .dmodal .field textarea { width: 100%; min-height: 32px; border: 1px solid var(--md-border); border-radius: var(--md-radius-sm); padding: 4px 10px; font-size: var(--md-fs-xs); background: var(--md-surface); font-family: inherit; }
+.dmodal .field textarea { min-height: 64px; resize: vertical; line-height: var(--md-leading-snug); }
+.dmodal .audit-note { font-size: var(--md-fs-xs); color: var(--md-text-faint); margin-bottom: 14px; }
+.dmodal .dm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* 持久操作横幅 */
+.op-banner { display: none; align-items: flex-start; gap: 9px; border-radius: var(--md-radius-md); padding: 10px 14px; margin-bottom: 14px; font-size: var(--md-fs-xs); border: 1px solid; }
+.op-banner.show { display: flex; }
+.op-banner.ok { background: var(--md-success-soft); border-color: var(--md-success-border); }
+.op-banner.bad { background: var(--md-danger-soft); border-color: var(--md-danger-border); }
+.op-banner.bad .ob-icon { color: var(--md-danger); }
+.op-banner .ob-icon { font-weight: var(--md-weight-bold); color: var(--md-success); flex: none; }
+.op-banner .audit { font-family: var(--md-font-mono); font-size: var(--md-fs-xs); color: var(--md-text-faint); cursor: pointer; }
+.op-banner .ob-close { margin-left: auto; border: none; background: none; cursor: pointer; color: var(--md-text-faint); font-size: var(--md-fs-base); }
+
+@media (max-width: 900px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .health-row { grid-template-columns: repeat(2, 1fr); }
+  .money-chain { grid-template-columns: repeat(2, 1fr); gap: 16px 0; }
+  .mc-node:nth-child(2)::after { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .mc-alert .dot { animation: none; } }
+
+/* 连接中 / 守卫态遮罩（方案 B：壳页先渲染，前端 session-login 后切换） */
+.ops-state { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: var(--md-bg-page); }
+.ops-state-box { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 36px; max-width: 420px; text-align: center; background: var(--md-surface); border: 1px solid var(--md-border); border-radius: var(--md-radius-md); box-shadow: var(--md-shadow-sm); }
+.ops-state-box .ob-spinner { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--md-border-strong); border-top-color: var(--md-primary); animation: ops-spin .8s linear infinite; }
+.ops-state-box h2 { margin: 0; font-size: var(--md-fs-md); color: var(--md-text-strong); }
+.ops-state-box p { margin: 0; font-size: var(--md-fs-xs); color: var(--md-text-secondary); }
+.ops-state-box .btn { margin-top: 6px; text-decoration: none; background: var(--md-primary); border-color: var(--md-primary); color: var(--md-on-primary); }
+.ops-state-box .btn:hover { background: var(--md-primary-hover); }
+.ops-state.is-forbidden .ob-spinner { display: none; }
+.ops-state.is-forbidden .ob-icon { font-size: var(--md-fs-3xl); color: var(--md-danger); }
+@keyframes ops-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ops-state-box .ob-spinner { animation: none; } }
+
+/* ============ 平台敏感词基线库（T8） ============ */
+.field { margin-bottom: 10px; }
+.field label { display: block; font-size: var(--md-fs-xs); font-weight: var(--md-weight-semibold); color: var(--md-text-secondary); margin-bottom: 5px; }
+.field textarea, .field select, .field input { width: 100%; border: 1px solid var(--md-border); border-radius: var(--md-radius-sm); background: var(--md-surface); padding: 6px 10px; font-size: var(--md-fs-xs); font-family: inherit; }
+.field textarea { min-height: 84px; resize: vertical; line-height: var(--md-leading-snug); }
+.field textarea:focus, .field select:focus, .field input:focus { outline: none; border-color: var(--md-primary); box-shadow: 0 0 0 3px var(--md-focus-ring); }
+
+.sw-compose { border: 1px solid var(--md-border-subtle); border-radius: var(--md-radius-md); padding: 12px 14px; background: var(--md-surface-soft); margin-bottom: 14px; }
+.sw-compose-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.sw-inline { display: inline-flex; align-items: center; gap: 6px; font-size: var(--md-fs-xs); color: var(--md-text-secondary); font-weight: var(--md-weight-semibold); }
+.sw-inline select { min-height: 30px; border: 1px solid var(--md-border); border-radius: var(--md-radius-sm); background: var(--md-surface); padding: 3px 9px; font-size: var(--md-fs-xs); }
+.sw-inline select:focus { outline: none; border-color: var(--md-primary); box-shadow: 0 0 0 3px var(--md-focus-ring); }
+
+.sw-gate-note { font-size: var(--md-fs-xs); color: var(--md-text-muted); margin-top: 10px; line-height: var(--md-leading-ui); }
+.sw-gate-note::before { content: "⚠ "; color: var(--md-warning); font-weight: var(--md-weight-bold); }
+
+.btn.primary-fill { background: var(--md-primary); border-color: var(--md-primary); color: var(--md-on-primary); }
+.btn.primary-fill:hover { background: var(--md-primary-hover); }
+.btn.primary-fill[disabled] { opacity: .45; cursor: not-allowed; background: var(--md-primary); }
+
+.sw-dry { border: 1px solid var(--md-primary-border); border-radius: var(--md-radius-md); background: var(--md-primary-soft); padding: 12px 14px; margin-top: 4px; }
+.sw-dry-head { display: flex; align-items: center; gap: 10px; }
+.sw-dry-title { font-size: var(--md-fs-xs); font-weight: var(--md-weight-bold); color: var(--md-text-strong); }
+.sw-dry-head .hint { font-size: var(--md-fs-xs); color: var(--md-text-muted); }
+.sw-dry-body { margin-top: 10px; }
+.sw-dry-body .tbl { font-size: var(--md-fs-xs); }
+.sw-dry-sub { font-size: var(--md-fs-xs); font-weight: var(--md-weight-bold); color: var(--md-text-secondary); margin: 10px 0 6px; }
+.sw-dry-empty { font-size: var(--md-fs-xs); color: var(--md-text-secondary); padding: 8px 0; }
+
+/* UI batch 11: platform-only hierarchy; operations and permission gates stay intact. */
+.geo-platform-ops { font-size: var(--md-fs-base); line-height: var(--md-leading-snug); }
+.geo-platform-ops .topbar { position: static; height: auto; min-height: 64px; padding: 16px 24px; flex-wrap: wrap; }
+.geo-platform-ops .brand { font-size: var(--md-fs-md); font-weight: var(--md-weight-semibold); white-space: normal; }
+.geo-platform-ops .brand-mark { flex-shrink: 0; font-weight: var(--md-weight-semibold); }
+.geo-platform-ops .topbar .who { white-space: normal; overflow-wrap: anywhere; }
+.geo-platform-ops .section-nav { top: 0; padding: 8px 24px; gap: 8px; }
+.geo-platform-ops .section-nav a { display: flex; align-items: center; min-height: 40px; font-size: var(--md-fs-base); font-weight: var(--md-weight-normal); }
+.geo-platform-ops .section-nav a.on { font-weight: var(--md-weight-medium); }
+.geo-platform-ops section[id] { scroll-margin-top: 80px; }
+.geo-platform-ops .wrap { padding: 24px 24px 48px; }
+.geo-platform-ops .view-title { gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+.geo-platform-ops .view-title h1 { font-size: var(--md-fs-xl); font-weight: var(--md-weight-semibold); }
+.geo-platform-ops .panel { margin-bottom: 24px; box-shadow: none; min-width: 0; }
+.geo-platform-ops .panel-head { padding: 20px 24px; gap: 12px; }
+.geo-platform-ops .panel-body { padding: 20px 24px; min-width: 0; }
+.geo-platform-ops :is(.panel-head h2, .sw-dry-title, .state-tpl h3) { font-size: var(--md-fs-md); font-weight: var(--md-weight-semibold); }
+.geo-platform-ops :is(.hint, .vt-sub, .k-label, .n-drop, .sw-gate-note, .audit-note, .cell-sub, .state-tpl p, .h-sub) { font-size: var(--md-fs-sm); font-weight: var(--md-weight-normal); }
+.geo-platform-ops :is(.kpi .k-num, .mc-node .n-count, .hcard .h-num) { font-size: var(--md-fs-2xl); font-weight: var(--md-weight-semibold); overflow-wrap: anywhere; }
+.geo-platform-ops :is(.kpi, .hcard) { min-width: 0; padding: 16px; }
+.geo-platform-ops :is(.kpi-row, .health-row) { gap: 16px; margin-bottom: 24px; }
+.geo-platform-ops :is(.n-label, .h-label, .sw-dry-sub, .cell-main, .cell-gold, .sw-inline) { font-size: var(--md-fs-base); font-weight: var(--md-weight-medium); }
+.geo-platform-ops .tbl-wrap { min-width: 0; max-width: 100%; overflow-x: auto; }
+.geo-platform-ops .tbl { min-width: 680px; }
+.geo-platform-ops .tbl th { padding: 12px; font-size: var(--md-fs-xs); font-weight: var(--md-weight-medium); }
+.geo-platform-ops .tbl td { padding: 12px; font-size: var(--md-fs-sm); font-weight: var(--md-weight-normal); overflow-wrap: anywhere; }
+.geo-platform-ops :is(.pill, .env-tag) { font-size: var(--md-fs-xs); font-weight: var(--md-weight-medium); }
+.geo-platform-ops .toolbar { flex-wrap: wrap; gap: 12px; }
+.geo-platform-ops :is(.toolbar input, .toolbar select, .field input, .field select, .field textarea, .sw-inline select) { min-width: 0; max-width: 100%; min-height: 40px; font-size: var(--md-fs-base); font-weight: var(--md-weight-normal); }
+.geo-platform-ops .field label { font-size: var(--md-fs-base); font-weight: var(--md-weight-medium); }
+.geo-platform-ops .panel-head > select { min-height: 40px; padding: 8px 12px; border: 1px solid var(--md-border); border-radius: var(--md-radius-sm); background: var(--md-surface); font-size: var(--md-fs-base); font-weight: var(--md-weight-normal); }
+.geo-platform-ops .btn { min-height: 40px; font-size: var(--md-fs-base); font-weight: var(--md-weight-medium); }
+.geo-platform-ops .sw-compose { background: var(--md-surface); padding: 20px; margin-bottom: 24px; }
+.geo-platform-ops .sw-compose summary { cursor: pointer; font-size: var(--md-fs-base); font-weight: var(--md-weight-medium); min-height: 24px; }
+.geo-platform-ops .sw-compose[open] summary { margin-bottom: 20px; }
+.geo-platform-ops .sw-dry { background: var(--md-surface); padding: 20px; }
+.geo-platform-ops .sw-dry-body { overflow-x: auto; }
+.geo-platform-ops .sw-gate-note::before { font-weight: var(--md-weight-medium); }
+.geo-platform-ops .op-banner { flex-wrap: wrap; font-size: var(--md-fs-sm); }
+.geo-platform-ops .op-banner .ob-body { flex: 1 1 240px; overflow-wrap: anywhere; }
+.geo-platform-ops .dmodal { width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 24px; }
+.geo-platform-ops .dmodal h3 { font-size: var(--md-fs-lg); font-weight: var(--md-weight-semibold); }
+.geo-platform-ops .dmodal :is(.dm-sub, .dm-impact .row) { font-size: var(--md-fs-base); font-weight: var(--md-weight-normal); }
+.geo-platform-ops .dmodal .dm-actions { flex-wrap: wrap; gap: 12px; }
+.geo-platform-ops .dmodal .dm-impact .row { gap: 16px; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .geo-platform-ops :is(.topbar, .wrap, .panel-head, .panel-body) { padding: 16px; }
+  .geo-platform-ops .section-nav { padding: 8px 16px; }
+  .geo-platform-ops :is(.kpi-row, .health-row) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .geo-platform-ops :is(.btn, .section-nav a, .field input, .field select, .toolbar input, .toolbar select) { min-height: 44px; }
+  .geo-platform-ops .toolbar { width: 100%; }
+  .geo-platform-ops .toolbar :is(input, select) { flex: 1 1 160px; }
+  .geo-platform-ops .sw-compose-row { align-items: stretch; }
+  .geo-platform-ops .sw-compose-row .sw-inline { flex: 1 1 160px; }
+}

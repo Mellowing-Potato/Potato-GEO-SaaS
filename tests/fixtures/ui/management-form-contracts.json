@@ -1,0 +1,130 @@
+{
+  "atForm": [
+    {
+      "tag": "input",
+      "name": "name",
+      "required": true,
+      "maxlength": "191"
+    },
+    {
+      "tag": "select",
+      "name": "skill_id",
+      "required": true
+    },
+    {
+      "tag": "input",
+      "name": "project_id_display",
+      "disabled": true,
+      "readonly": true
+    },
+    {
+      "tag": "select",
+      "name": "cadence"
+    },
+    {
+      "tag": "textarea",
+      "name": "query"
+    },
+    {
+      "tag": "input",
+      "name": "auto_publish",
+      "type": "checkbox"
+    },
+    {
+      "tag": "input",
+      "name": "auto_distribute",
+      "type": "checkbox",
+      "checked": true
+    }
+  ],
+  "createKbForm": [
+    {
+      "tag": "input",
+      "name": "name",
+      "required": true,
+      "maxlength": "120"
+    },
+    {
+      "tag": "textarea",
+      "name": "description",
+      "maxlength": "500"
+    }
+  ],
+  "kbUploadForm": [
+    {
+      "tag": "input",
+      "name": "document",
+      "type": "file",
+      "accept": ".pdf,.txt,.md,.docx,.csv"
+    },
+    {
+      "tag": "select",
+      "name": "project_id"
+    }
+  ],
+  "kbIngestUrlForm": [
+    {
+      "tag": "input",
+      "name": "url",
+      "type": "url",
+      "maxlength": "2000"
+    },
+    {
+      "tag": "select",
+      "name": "project_id"
+    }
+  ],
+  "ekCreateFormEl": [
+    {
+      "tag": "input",
+      "name": "name",
+      "maxlength": "191"
+    },
+    {
+      "tag": "textarea",
+      "name": "description",
+      "maxlength": "2000"
+    },
+    {
+      "tag": "textarea",
+      "name": "content"
+    },
+    {
+      "tag": "textarea",
+      "name": "source_content"
+    }
+  ],
+  "ekAddSourceForm": [
+    {
+      "tag": "textarea",
+      "name": "content"
+    },
+    {
+      "tag": "input",
+      "name": "original_name",
+      "maxlength": "191"
+    },
+    {
+      "tag": "input",
+      "name": "source_url",
+      "type": "url",
+      "maxlength": "2000"
+    }
+  ],
+  "swAddFormEl": [
+    {
+      "tag": "textarea",
+      "name": "words"
+    },
+    {
+      "tag": "select",
+      "name": "severity"
+    },
+    {
+      "tag": "input",
+      "name": "suggestion",
+      "type": "text",
+      "maxlength": "500"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+/* Product identity for standalone pages; customer-hosted reading and forms opt out. */
+.geo-brand-lockup { display: flex; align-items: center; gap: 12px; min-width: 0; color: var(--md-text-strong); }
+.geo-brand-lockup .yanji-logo { display: block; width: 128px; height: auto; flex: 0 0 auto; }
+.geo-brand-lockup .geo-brand-page { font: var(--md-weight-medium) var(--md-fs-base)/var(--md-leading-snug) var(--md-font-sans); white-space: normal; }
+.monitoring-scope { margin: 0 0 24px; color: var(--md-text-muted); font: var(--md-weight-normal) var(--md-fs-base)/var(--md-leading-snug) var(--md-font-sans); }

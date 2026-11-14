@@ -1,0 +1,67 @@
+name: Tests
+on:
+  pull_request:
+  push:
+    branches: [main, 'codex/**']
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      # Works for private and public repositories. Only the automatic read-only
+      # job token is used, never repository secrets or persisted credentials.
+      - name: Fetch source
+        env:
+          SOURCE_SERVER: ${{ github.server_url }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_TOKEN: ${{ github.token }}
+        run: |
+          git init .
+          source_auth=$(printf 'x-access-token:%s' "$SOURCE_TOKEN" | base64 -w0)
+          echo "::add-mask::$source_auth"
+          git -c protocol.version=2 -c "http.extraheader=AUTHORIZATION: basic $source_auth" fetch --no-tags --depth=1 "$SOURCE_SERVER/$SOURCE_REPOSITORY.git" "$SOURCE_COMMIT"
+          unset SOURCE_TOKEN source_auth
+          git switch --detach FETCH_HEAD
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Source privacy and removed-service checks
+        run: |
+          python3 -m unittest discover -s scripts/checks -p 'test_*.py'
+          python3 scripts/checks/privacy.py
+          python3 scripts/checks/c1.py
+          python3 scripts/checks/c2.py
+          python3 scripts/checks/c3.py
+          git diff --check
+      - name: Full isolated suites
+        run: python3 scripts/test-linux.py --platform '${{ matrix.platform }}' --image yanji-ci:test --results test-results
+      - name: Dependency audits
+        run: |
+          docker run --rm --entrypoint composer yanji-ci:test audit --locked
+          docker run --rm --entrypoint npm yanji-ci:test audit --package-lock-only
+          docker run --rm --network none --entrypoint python3 yanji-ci:test -c 'import importlib.metadata as m; print("\n".join(sorted(d.metadata["Name"]+"=="+d.version for d in m.distributions())))' > /tmp/yanji-python-requirements.txt
+          python3 -m venv /tmp/yanji-audit
+          /tmp/yanji-audit/bin/pip install pip-audit==2.10.1
+          /tmp/yanji-audit/bin/pip-audit --no-deps --disable-pip -r /tmp/yanji-python-requirements.txt
+      - name: Build production image and verify bundled notices
+        run: |
+          docker buildx build --load --platform '${{ matrix.platform }}' --tag yanji-ci:runtime .
+          docker run --rm --network none --entrypoint sh yanji-ci:runtime -c 'test -s LICENSE && test -s NOTICE && test -s THIRD_PARTY_NOTICES.md && test -s skill-overlays/LICENSE && test -s yao-geo-skills/LICENSE && test -s licenses/runtime/inventory.json && test -s licenses/npm/inventory.json && test -s licenses/report-fonts/dejavu/LICENSE && test -s licenses/report-fonts/noto-cjk/LICENSE && test ! -e .dev-records && test ! -e .env'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: tests-${{ matrix.arch }}
+          path: test-results/
+          retention-days: 7

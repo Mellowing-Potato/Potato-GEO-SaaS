@@ -1,0 +1,37 @@
+{
+  "brand": "言及 / YANJI",
+  "version": "1.0.0",
+  "source": "D:/develop/design-specs/yanji/exports",
+  "assets": [
+    {
+      "file": "yanji-compact.svg",
+      "source": "svg/yanji-compact.svg",
+      "sha256": "7a9617fdc5cc1f61e146ff81adec773741881726311b7291d9f28b92f6ffa30b"
+    },
+    {
+      "file": "yanji-horizontal.svg",
+      "source": "svg/yanji-horizontal.svg",
+      "sha256": "65346263b75b08672f55767a9843455dab08ef91a223bc8994b337e9b122c613"
+    },
+    {
+      "file": "yanji-symbol.svg",
+      "source": "svg/yanji-symbol.svg",
+      "sha256": "23f04da88b740826736b0a3d92d96de1e8f147faf349ed25bd0903a3480d7125"
+    },
+    {
+      "file": "favicon.svg",
+      "source": "icons/favicon.svg",
+      "sha256": "79b35373d208f85b6aa6cda39e75ed00aba1169b111412412ff6c6eef3b39299"
+    },
+    {
+      "file": "favicon.ico",
+      "source": "icons/favicon.ico",
+      "sha256": "5ac541226ee72856def02ab0a0db3520dc59fb618abf426ea0f37c7ee4385d5e"
+    },
+    {
+      "file": "apple-touch-icon.png",
+      "source": "icons/apple-touch-icon.png",
+      "sha256": "7e37778f9adb1a1296cd9b465a5491dff2ab1747ed9f82e681acf530833007bd"
+    }
+  ]
+}

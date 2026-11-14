@@ -1,0 +1,115 @@
+x-app: &app
+  image: ${COMPOSE_PROJECT_NAME:-yanji}:local
+  restart: unless-stopped
+  environment: &environment
+    APP_NAME: 言及
+    APP_ENV: production
+    APP_DEBUG: 'false'
+    APP_URL: ${APP_URL:-http://localhost:8000}
+    YANJI_ENV_PATH: /app/instance
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: 5432
+    DB_DATABASE: yanji
+    DB_USERNAME: yanji
+    DB_PASSWORD: ${DB_PASSWORD:-yanji-local-database}
+    QUEUE_CONNECTION: database
+    DB_QUEUE_RETRY_AFTER: ${DB_QUEUE_RETRY_AFTER:-600}
+    SESSION_DRIVER: database
+    CACHE_STORE: database
+    LOG_CHANNEL: stderr
+    LOG_LEVEL: warning
+    MAIL_MAILER: log
+    SKILLS_REPO_PATH: /app/yao-geo-skills/skills
+    GEO_OUTBOUND_PRIVATE_TARGETS: ${GEO_OUTBOUND_PRIVATE_TARGETS:-}
+    GEO_ANALYTICS_PANEL_ENABLED: ${GEO_ANALYTICS_PANEL_ENABLED:-true}
+    GEO_QUEUE_HEALTH_PANEL_ENABLED: ${GEO_QUEUE_HEALTH_PANEL_ENABLED:-true}
+    GEO_VISIBILITY_PANEL_ENABLED: ${GEO_VISIBILITY_PANEL_ENABLED:-true}
+    GEO_MANUAL_PUBLISH_ENABLED: ${GEO_MANUAL_PUBLISH_ENABLED:-true}
+    GEO_ZHIHU_DRAFT_SYNC_ENABLED: ${GEO_ZHIHU_DRAFT_SYNC_ENABLED:-true}
+    GEO_LEAD_FORM_ENABLED: ${GEO_LEAD_FORM_ENABLED:-true}
+    GEO_THEME_PACKAGE_ENABLED: ${GEO_THEME_PACKAGE_ENABLED:-true}
+    GEO_KNOWLEDGE_VISION: ${GEO_KNOWLEDGE_VISION:-true}
+    YANJI_TERMS_URL: ${YANJI_TERMS_URL:-}
+    YANJI_PRIVACY_URL: ${YANJI_PRIVACY_URL:-}
+    YANJI_WEBSITE_URL: ${YANJI_WEBSITE_URL:-}
+  volumes:
+    - type: volume
+      source: storage
+      target: /app/storage
+      volume: {nocopy: true}
+    - type: volume
+      source: instance
+      target: /app/instance
+      volume: {nocopy: true}
+    - type: volume
+      source: caddy_data
+      target: /data
+      volume: {nocopy: true}
+    - type: volume
+      source: caddy_config
+      target: /config
+      volume: {nocopy: true}
+  depends_on:
+    postgres:
+      condition: service_healthy
+  security_opt:
+    - no-new-privileges:true
+  cap_drop: [ALL]
+  stop_grace_period: 570s
+
+services:
+  web:
+    <<: *app
+    # Build once: Compose adds service-specific image labels. Building all three
+    # services into one tag races and needlessly replaces workers on reinstall.
+    build:
+      context: .
+      target: runtime
+    command: [web]
+    # Only web seeds shared volume permissions. Concurrent copy-up by three
+    # containers can race on a brand-new Docker volume.
+    volumes:
+      - storage:/app/storage
+      - instance:/app/instance
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - '${BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-8000}:8000'
+  worker:
+    <<: *app
+    command: [worker]
+    depends_on:
+      web:
+        condition: service_started
+    healthcheck:
+      disable: true
+  scheduler:
+    <<: *app
+    command: [scheduler]
+    depends_on:
+      web:
+        condition: service_started
+    healthcheck:
+      disable: true
+  postgres:
+    image: pgvector/pgvector@sha256:1d533553fefe4f12e5d80c7b80622ba0c382abb5758856f52983d8789179f0fb
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: yanji
+      POSTGRES_USER: yanji
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-yanji-local-database}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U yanji -d yanji']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  database:
+  storage:
+  instance:
+  caddy_data:
+  caddy_config:

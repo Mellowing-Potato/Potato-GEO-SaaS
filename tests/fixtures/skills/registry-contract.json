@@ -1,0 +1,8 @@
+{
+  "skills": [
+    {"id":"yao-deepseek-crawler","status":"active","family":"geo-research","path":"skills/yao-deepseek-crawler"},
+    {"id":"yao-chatgpt-crawler","status":"active","family":"geo-research","path":"skills/yao-chatgpt-crawler"},
+    {"id":"yao-geo-article-friendly","status":"active","family":"geo-content-production","path":"skills/yao-geo-article-friendly"},
+    {"id":"yao-paused-contract-fixture","status":"paused","family":"geo-research","path":"skills/yao-paused-contract-fixture"}
+  ]
+}

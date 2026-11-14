@@ -1,0 +1,61 @@
+*.log
+.DS_Store
+._*
+.env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+/.codex
+/.cursor/
+/.idea
+/.nova
+/.phpunit.cache
+/test-results/
+/.vscode
+/.zed
+/auth.json
+/bootstrap/cache/*.php
+/database/*.sqlite
+/database/*.sqlite-*
+/frontend/.vite
+/node_modules
+/public/build
+/public/fonts-manifest.dev.json
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+/yao-geo/
+_ide_helper.php
+Homestead.json
+Homestead.yaml
+Thumbs.db
+
+# 本地走查垫片：/ 页的一份副本，里面烧了一张真 Sanctum token。
+# .dockerignore 已经挡住它进镜像，这条挡住它进版本库 —— 两道都要有，
+# 一次 git add -A 就够把钥匙推上远端。
+public/__*.html
+
+# .workbuddy/ 是本地工具的草稿目录（不是本仓的产物），09-02 就在那儿了。
+# 09-04 一次 git add -A 差点把它带进提交，先挡住；真要入库把这条删掉即可。
+.workbuddy/
+
+# Python 字节码：渲染脚本在容器里现编，编译产物不该进仓、更不该进镜像
+__pycache__/
+*.pyc
+
+# Local deployment transport and backup artifacts; both are excluded from images.
+*.tar
+*.tar.gz
+*.tgz
+*.bak-*
+
+# Local development evidence and private denylist must never be committed.
+/.dev-records/
+
+# Local backups contain private instance data and encryption keys.
+.backups/
+# Local DNS override described in INSTALL.md.
+/compose.dns.yml

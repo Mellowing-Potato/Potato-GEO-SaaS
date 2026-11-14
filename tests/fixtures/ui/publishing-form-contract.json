@@ -1,0 +1,43 @@
+[
+  {
+    "tag": "input",
+    "name": "name",
+    "required": true,
+    "maxlength": "120"
+  },
+  {
+    "tag": "select",
+    "name": "type"
+  },
+  {
+    "tag": "input",
+    "name": "endpoint_url",
+    "type": "url",
+    "required": true,
+    "maxlength": "2000"
+  },
+  {
+    "tag": "select",
+    "name": "auth_type"
+  },
+  {
+    "tag": "input",
+    "name": "username",
+    "maxlength": "255"
+  },
+  {
+    "tag": "input",
+    "name": "secret",
+    "type": "password",
+    "maxlength": "2000"
+  },
+  {
+    "tag": "input",
+    "name": "domain",
+    "maxlength": "255"
+  },
+  {
+    "tag": "select",
+    "name": "front_mode"
+  }
+]

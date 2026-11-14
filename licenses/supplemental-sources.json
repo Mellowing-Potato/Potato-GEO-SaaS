@@ -1,0 +1,28 @@
+[
+  {
+    "name": "laravel/sentinel",
+    "version": "v1.1.0",
+    "source": {
+      "type": "git",
+      "url": "https://github.com/laravel/sentinel.git",
+      "reference": "972d9885d9d14312a118e9565c4e6ecc5e751ea1"
+    },
+    "license": [
+      "MIT"
+    ],
+    "finding": "Pinned source and installed distribution declare MIT in composer.json but contain no standalone license text. Original metadata is retained in the image; no copyright text is fabricated."
+  },
+  {
+    "name": "pusher/pusher-php-server",
+    "version": "7.2.8",
+    "source": {
+      "type": "git",
+      "url": "https://github.com/pusher/pusher-http-php.git",
+      "reference": "4aa139ed2a2a805cd265449b691198beee1309d2"
+    },
+    "license": [
+      "MIT"
+    ],
+    "finding": "Pinned source and installed distribution declare MIT in composer.json but contain no standalone license text. Original metadata is retained in the image; no copyright text is fabricated."
+  }
+]

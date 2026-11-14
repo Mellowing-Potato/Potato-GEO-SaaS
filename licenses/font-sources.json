@@ -1,0 +1,25 @@
+[
+  {
+    "name": "dejavu",
+    "url": "https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/0eda8a319c08835009849583cd090bb5b141ce25/LICENSE",
+    "sha256": "7a083b136e64d064794c3419751e5c7dd10d2f64c108fe5ba161eae5e5958a93"
+  },
+  {
+    "name": "noto-cjk",
+    "filename": "LICENSE",
+    "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/523d033d6cb47f4a80c58a35753646f5c3608a78/LICENSE",
+    "sha256": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2"
+  },
+  {
+    "name": "noto-cjk",
+    "filename": "Sans-NOTICE.txt",
+    "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/523d033d6cb47f4a80c58a35753646f5c3608a78/Sans/README-third_party.md",
+    "sha256": "aa229a2136c426e3deca957c305727e02415198116138d8c1721222b12e22131"
+  },
+  {
+    "name": "noto-cjk",
+    "filename": "Serif-NOTICE.txt",
+    "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/523d033d6cb47f4a80c58a35753646f5c3608a78/Serif/README-third_party.md",
+    "sha256": "8bfe533920b6e94abd2218e12e77a45a8112f5e329f72d873b7c72ba66e43968"
+  }
+]

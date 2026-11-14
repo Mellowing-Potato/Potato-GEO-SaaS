@@ -1,0 +1,67 @@
+# geo-saas 的 Caddyfile —— 覆盖 FrankenPHP 镜像自带的 /etc/frankenphp/Caddyfile
+#
+# 为什么要自己写一份（2026-08-21 评审后补；执行书 §0.3「不用写 Caddyfile」漏了这件事）：
+#   自带那份把访问日志整段注释掉了，而它**用环境变量打不开** —— FRANKENPHP_CONFIG 只进
+#   frankenphp{} 全局块，CADDY_EXTRA_CONFIG 落在站点块外面，两个都伸不进站点块里加一条 log。
+#   实测后果：换成 FrankenPHP 后连打三次 /up，docker logs 一行都不出；而换之前 geo 容器
+#   一小时 98 行日志里有 87 行正是访问记录。再出「上传后一直转圈」「502」这类问题，
+#   容器日志里就只剩启动横幅，看不到哪个请求慢、哪个请求 5xx。
+#
+# 除了补日志和两处加固，本文件与自带那份行为一致（php_server 普通模式 / root=public/ / encode）。
+#
+# ⚠️ 不许给 php_server 加 worker 那行。加上 = Laravel 常驻内存（等同 Octane），会引入
+#    跨请求单例、静态变量残留这类难复现的脏数据 bug。本批只换服务器，不改执行模型。
+{
+	# 不往系统信任库装 Caddy 的本地 CA：这一层是明文 HTTP，TLS 由外层 反向代理 管。
+	skip_install_trust
+
+	# 双保险（2026-08-21 加）：万一哪天 SERVER_NAME 被写成带域名的形式，也不会去申请证书、
+	# 不会跳 HTTPS。在这之前「SERVER_NAME 不许带域名」只靠一条注释和一条测试守着，太薄。
+	auto_https off
+
+	{$CADDY_GLOBAL_OPTIONS}
+
+	frankenphp {
+		{$FRANKENPHP_CONFIG}
+	}
+}
+
+{$CADDY_EXTRA_CONFIG}
+
+{$SERVER_NAME::8000} {
+	# 访问日志（2026-08-21 加）。比换之前那行还全 —— artisan serve 只打路径和耗时，
+	# 连请求方法和状态码都没有；这里 method / uri / status / duration / client_ip 都在。
+	#
+	# 为什么用 json 不用 console：console 编码器会往日志里塞 ANSI 颜色转义码（NO_COLOR=1
+	# 也关不掉，实测过），落进 docker json-file 就是一堆 ^[[34m；而 Caddy 自己的启动日志
+	# 本来就是 json，统一成 json 之后整条流一个形状，`docker logs geo-saas | jq` 直接能用。
+	# time_format iso8601 是为了让人能直接读时间，别再去换算 unix 时间戳。
+	# 过滤掉两坨 header：它们占整行八成体积，排障基本用不上，留着白烧 10m 的日志配额。
+	log {
+		format filter {
+			wrap json {
+				time_format iso8601
+			}
+			fields {
+				request>headers delete
+				request>tls delete
+				resp_headers delete
+			}
+		}
+	}
+
+	root {$SERVER_ROOT:public/}
+	encode zstd br gzip
+
+	# 换之前没有 Server 头，别因为换服务器就开始对公网自报家门（FrankenPHP Caddy）。
+	header -Server
+
+	# Historical reports remain compatible with authenticated downloads. Never
+	# expose them as static files, including after a future storage:link command.
+	@privateReports path /storage/executions /storage/executions/* /storage/analysis /storage/analysis/*
+	respond @privateReports 404
+
+	{$CADDY_SERVER_EXTRA_DIRECTIVES}
+
+	php_server
+}

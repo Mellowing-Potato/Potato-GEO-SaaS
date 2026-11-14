@@ -1,0 +1,78 @@
+.git
+.github
+# 禁止把 WorkBuddy 在仓库根生成的未跟踪目录带进生产镜像（Dockerfile 有 COPY . .）
+.workbuddy
+.codex
+.cursor
+# 2026-09-21 发布源护栏批：工作区里长期存在这三个未跟踪目录，`.dockerignore` 不盖就会
+# 跟着 `COPY . .` 进镜像 ——
+#   .codex-finalizer-example/  外部助手在仓库根生成的脚手架
+#   .ppt-build-example/        示例文旅 PPT 构建目录（含自带 node_modules）
+#   deliverables/               PPT 交付产物
+# 只做"排除进镜像"，目录本身按用户指示原样保留、未删未动。
+.codex-*/
+.ppt-build-*/
+deliverables/
+# 2026-10-25 EXEC-11 发布：UI 改版样稿与本地走查工具（未跟踪的 designs/），同上只排除、不删不动。
+# 其中 designs/workbench-redesign/_prod 是指向 ../../public 的软链接。
+designs/
+# Skills are fetched and verified in their own build stage.
+yao-geo
+yao-geo-skills
+__pycache__
+*.pyc
+test-results
+# 禁止把本地走查垫片带进生产镜像。它是 / 页的一份副本，里面**烧了一张真 Sanctum token**，
+# 进了镜像就等于在公网 /__xxx.html 上挂一把钥匙。09-04 内容库走查用过一次，
+# 发版前靠人手删掉的 —— 这条是防下一次忘。
+public/__*.html
+node_modules
+vendor
+public/build
+bootstrap/cache/*.php
+docs
+frontend
+GEOFlow
+geo-citation-lab
+tests
+.env
+.env.*
+!.env.example
+storage/*.key
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+database/*.sqlite
+.phpunit.result.cache
+*.md
+!browser-extension/README.md
+# Local image archives are deployment transport artifacts, never application input.
+*.tar
+*.tar.gz
+*.tgz
+# Developer backup artifacts are not application inputs.
+*.bak-*
+**/*.bak-*
+
+# Local development records and private denylist are never build inputs.
+.dev-records
+
+# Preserve third-party license texts and skill overlay instructions.
+!**/LICENSE*
+!**/NOTICE*
+!THIRD_PARTY_NOTICES.md
+!licenses/**
+!skill-overlays/**/*.md
+
+# Local backups contain private instance data and encryption keys.
+.backups/
+# Optional operator-specific DNS configuration is not application input.
+compose.dns.yml
+
+# These exclusions must remain LAST: earlier license exceptions must never
+# re-include local development records, even if they contain LICENSE files.
+.dev-records
+.dev-records/**
+.git
+.git/**

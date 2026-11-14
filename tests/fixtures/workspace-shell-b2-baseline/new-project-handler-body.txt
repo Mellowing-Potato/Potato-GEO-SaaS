@@ -1,0 +1,4 @@
+
+    cancelProjectNavigation();
+    setActiveWorkspaceView("projects", { updateHash: true });
+    openCreateProjectPanel();

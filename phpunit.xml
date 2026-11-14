@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <!-- 全量 450+ 条跑下来累计内存会超过 PHP CLI 默认的 128M（2026-08-07 实测撞到），
+             失败点还是随机的某条 setUp，看起来像那条测试坏了，其实是内存到顶。
+             这里钉成与生产 php.ini 一致的 512M，免得换台机器就红一片。 -->
+        <ini name="memory_limit" value="512M"/>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_URL" value="http://localhost"/>
+        <env name="APP_KEY" value="base64:dGVzdC1maXh0dXJlLWVuY3J5cHRpb24ta2V5LXRlc3Q="/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="DB_URL" value=""/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync" force="true"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- 单 7：手动发布模块测试需要路由在（routes/api.php + routes/web.php 都按此开关注册）。
+             不置 true 则 M1–M10 全部 404 全红；关态行为由 M11 测试内 putenv+refreshApplication 单独覆盖。 -->
+        <env name="GEO_MANUAL_PUBLISH_ENABLED" value="true"/>
+        <env name="GEO_ZHIHU_DRAFT_SYNC_ENABLED" value="true"/>
+        <!-- 单 8：管理台 UI 挂在这个开关下，测试环境固定为 true 才测得到；
+             L10 那条「关掉开关 → 404」的用例在自己的 createApplication 里 putenv 覆盖成 false。 -->
+        <env name="GEO_LEAD_FORM_ENABLED" value="true"/>
+    </php>
+</phpunit>

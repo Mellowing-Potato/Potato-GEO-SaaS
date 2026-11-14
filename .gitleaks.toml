@@ -1,0 +1,31 @@
+title = "Yanji release secret scanning"
+
+[extend]
+useDefault = true
+
+# Keep every upstream detector. These category exceptions affect only the
+# heuristic generic-api-key rule, never an entire file or a commit fingerprint.
+[[allowlists]]
+description = "Explicit fake credentials in automated tests"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)tests/''']
+regexTarget = "secret"
+regexes = ['''^(sk-test-|test-)[A-Za-z0-9_-]+$''']
+
+[[allowlists]]
+description = "Relative API route names are not credentials"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)(app|tests)/''']
+regexTarget = "secret"
+regexes = ['''^api/v[0-9]+/[a-z]+(/[a-z-]+)*$''']
+
+[[allowlists]]
+description = "SHA256 entries in the vendored skill integrity manifest"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)resources/skills/upstream-lock\.json$''']
+regexTarget = "line"
+# A path-to-digest entry only; a key/token property in this file is still scanned.
+regexes = ['''^\s*"[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+":\s*"[a-f0-9]{64}",?\s*$''']
