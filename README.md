@@ -1,12 +1,12 @@
 # 言及 Yanji
 
-**不会命令行？把这句话发给 Claude Code 或 Codex：帮我按 INSTALL.md 安装言及 <仓库地址>**
+**可以丢给AI智能体发送：帮我按 INSTALL.md 安装言及 <仓库地址>**
 
 言及是可自行部署的 GEO（生成式引擎优化）项目工作台，面向做 GEO 代运营的个人、小团队，以及品牌市场人员。在网页中整理客户项目和知识材料，运行技能生成报告与内容，配合中文平台草稿助手和豆包监测完成交付。
 
-**来源说明：言及移植并改造了姚金刚的 [GEOFlow](https://github.com/yaojingang/GEOFlow) 部分功能与代码，使用了 [yao-geo-skills](https://github.com/yaojingang/yao-geo-skills) 的技能、方法和报告资产。感谢姚金刚及上游贡献者。** 言及在此基础上增加和重组了项目工作流、任务恢复、工作区隔离与发布结果管理。两个项目关注的使用场景不同，可以按自己的工作方式选择。
+**来源说明：言及移植并改造了姚金刚老师的 [GEOFlow](https://github.com/yaojingang/GEOFlow) 部分功能与代码，使用了 [yao-geo-skills](https://github.com/yaojingang/yao-geo-skills) 的技能、方法和报告资产。感谢姚金刚老师及上游贡献者。** 言及在此基础上增加和重组了项目工作流、任务恢复、工作区隔离与发布结果管理。两个项目关注的使用场景不同，可以按自己的工作方式选择。
 
-当前为首个自部署版本的发行候选，尚未公开发布。Apple 芯片 Mac 的 Docker 安装及主要业务流程已经实测；其他平台与渠道的验证范围见下文。安装、备份、恢复、升级和故障处理见 [INSTALL.md](INSTALL.md)。
+当前是首个自部署版本的发行。Apple 芯片 Mac 的 Docker 安装及主要业务流程已经实测；其他平台与渠道的验证范围见下文。安装、备份、恢复、升级和故障处理见 [INSTALL.md](INSTALL.md)。
 
 ## 安装与第一次使用
 
@@ -72,6 +72,6 @@ Apache-2.0 不授予商标权。二次部署的运营者不得以“言及官方
 
 ## 参与与支持
 
-欢迎提交缺陷和功能建议；Issue 不提供免费部署咨询。提交前阅读 [贡献指南](CONTRIBUTING.md)，安全问题通过 [私密漏洞报告](SECURITY.md) 提交。版本变化见 [CHANGELOG.md](CHANGELOG.md)。
+欢迎提交缺陷和功能建议；Issue 。提交前阅读 [贡献指南](CONTRIBUTING.md)，安全问题通过 [私密漏洞报告](SECURITY.md) 提交。版本变化见 [CHANGELOG.md](CHANGELOG.md)。
 
 路线图：保留材料并重新向量化、更完整的渠道验收、持续改善报告质量。未交付功能不作可用承诺。
