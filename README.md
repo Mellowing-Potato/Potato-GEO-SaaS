@@ -6,7 +6,7 @@
 
 **来源说明：言及移植并改造了姚金刚老师的 [GEOFlow](https://github.com/yaojingang/GEOFlow) 部分功能与代码，使用了 [yao-geo-skills](https://github.com/yaojingang/yao-geo-skills) 的技能、方法和报告资产。感谢姚金刚老师及上游贡献者。** 言及在此基础上增加和重组了项目工作流、任务恢复、工作区隔离与发布结果管理。两个项目关注的使用场景不同，可以按自己的工作方式选择。
 
-当前是首个自部署版本的发行。Apple 芯片 Mac 的 Docker 安装及主要业务流程已经实测；其他平台与渠道的验证范围见下文。安装、备份、恢复、升级和故障处理见 [INSTALL.md](INSTALL.md)。
+当前正在准备首个自部署版本 **v0.1.0（未发布）**，目标版本号见 [VERSION](VERSION)，变更范围见 [更新日志](CHANGELOG.md)。Apple 芯片 Mac 的 Docker 安装及主要业务流程已经实测；其他平台与渠道的验证范围见下文。安装、备份、恢复、升级和故障处理见 [INSTALL.md](INSTALL.md)。
 
 ## 安装与第一次使用
 
@@ -96,7 +96,7 @@ GEOFlow 更侧重企业官网与多站点的持续内容运营，将知识库、
 
 - **自动化测试：** SQLite、PostgreSQL、前端、字体与技能快照都有测试入口；本地运行见 [贡献指南](CONTRIBUTING.md)。测试通过不等于全部真实平台均已验收。
 - **界面实测：** 新安装、登录与退出、三种真实模型连接、材料入库和检索、豆包监测、标题内容生成、报告下载、用量、未知结果不自动重发、窄屏模型表单。
-- **平台：** Apple 芯片 Mac / Linux arm64 容器已验证。CI 配置将验证 Linux amd64 和 arm64；首次 GitHub 运行前，amd64 仍标记为未验证。
+- **平台：** Apple 芯片 Mac / Linux arm64 容器已验证。CI 已配置 Linux amd64 和 arm64 的自动化测试，运行结果以对应提交的 CI 为准；Linux amd64 的安装及主要业务流程仍待实测，自动化测试不能替代这项验收。
 - **未验证：** 可选视觉模型、上表注明的真实渠道、正式公开发布与 GitHub 镜像发行。旧版工作台预览入口默认关闭。
 <img width="888" height="1191" alt="IMG_1408" src="https://github.com/user-attachments/assets/9da45d2f-baff-414d-ad0a-98959facd8f7" />
 
