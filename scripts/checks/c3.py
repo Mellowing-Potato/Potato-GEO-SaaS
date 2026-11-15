@@ -4,6 +4,8 @@ import json
 import re
 from privacy import ROOT, sources
 
+# The repository's own public address is the one allowed use of the name.
+PUBLIC_REPOSITORY = 'Mellowing-Potato/Potato-GEO-SaaS'
 TERMS = re.compile(r'qinghe|Qinghe|potato|X-Points-Unit-Version|gateway_context|geo-text|geo-embed|geo-vision', re.IGNORECASE)
 
 
@@ -15,7 +17,7 @@ def scan(root=ROOT):
         if path.startswith(('database/migrations/', 'scripts/checks/')):
             continue
         for number, line in enumerate(text.splitlines(), 1):
-            if TERMS.search(line):
+            if TERMS.search(line.replace(PUBLIC_REPOSITORY, '')):
                 findings.append({'file': path, 'line': number, 'category': 'private-model-protocol'})
     return findings
 
