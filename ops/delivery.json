@@ -1,0 +1,22 @@
+{
+  "repo": "Mellowing-Potato/Potato-GEO-SaaS",
+  "internal": ["*.md", "docs/**/*.md"],
+  "check": { "workflow": "tests.yml", "job": "test" },
+  "review": {
+    "points": "AGENTS.md",
+    "status": "agent-review",
+    "xhigh": [
+      "app/Services/Outbound/*",
+      "app/Services/Auth/*",
+      "app/Services/AI/*",
+      "database/migrations/*",
+      "Dockerfile",
+      "docker-compose.yml",
+      "scripts/install.sh",
+      "scripts/checks/*",
+      ".github/workflows/*",
+      "ops/delivery.json",
+      "AGENTS.md"
+    ]
+  }
+}
