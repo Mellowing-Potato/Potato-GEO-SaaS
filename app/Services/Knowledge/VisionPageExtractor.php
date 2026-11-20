@@ -127,6 +127,9 @@ class VisionPageExtractor
                     'error' => mb_substr((string) $result->errorMessage, 0, 200),
                 ]);
                 $pages[$page] = $this->pageEntry('failed', null, 'call_failed', 0, 0);
+                if (($result->gateway['request_sent'] ?? true) === false || ($result->gateway['status'] ?? null) === 'unknown') {
+                    break;
+                }
                 continue;
             }
 
@@ -306,7 +309,9 @@ class VisionPageExtractor
         if ($saved !== null) {
             return new AiProviderCallResult(...$saved);
         }
-        $result = $this->transcribe($jpgPath, $maxTokens, 'document:'.$document->id);
+        $result = $this->transcribe(
+            $jpgPath, $maxTokens, 'document:'.$document->id, $document->metadata['vision_connection_snapshot'] ?? null,
+        );
         DB::transaction(function () use ($document, $attempt, $result): void {
             $current = KnowledgeDocument::query()->whereKey($document->id)->lockForUpdate()->firstOrFail();
             $metadata = $current->metadata ?? [];
@@ -314,7 +319,7 @@ class VisionPageExtractor
             $current->update(['metadata' => $metadata]);
         });
         $document->refresh();
-        if ($document->project_id && $document->uploaded_by) {
+        if ($document->project_id && $document->uploaded_by && ($result->gateway['request_sent'] ?? true) !== false) {
             app(\App\Services\Billing\AssistUsageRecorder::class)->record(
                 $document->project_id, $document->uploaded_by, $result,
                 'ai-assist-kb-vision', '知识库图像识别', metadata: ['document_id' => $document->id, 'page' => basename($jpgPath)],
@@ -324,14 +329,20 @@ class VisionPageExtractor
     }
 
     /** 一页一次调用（B4-3）。不传 enable_thinking —— 网关按路由已配好。 */
-    private function transcribe(string $jpgPath, int $maxTokens, ?string $taskId = null): AiProviderCallResult
+    private function transcribe(
+        string $jpgPath,
+        int $maxTokens,
+        string $taskId,
+        ?array $snapshot = null,
+    ): AiProviderCallResult
     {
         $dataUrl = 'data:image/jpeg;base64,' . base64_encode((string) file_get_contents($jpgPath));
 
         return $this->aiProvider->generate(self::USER_PROMPT, self::SYSTEM_PROMPT, [
             'model' => self::MODEL,
             'feature_id' => 'pdf-transcription',
-            'task_id' => $taskId ?? 'pdf:'.hash('sha256', dirname($jpgPath)),
+            'task_id' => $taskId,
+            'connection_snapshot' => $snapshot,
             'step_id' => basename($jpgPath),
             'temperature' => 0,
             'max_tokens' => $maxTokens,

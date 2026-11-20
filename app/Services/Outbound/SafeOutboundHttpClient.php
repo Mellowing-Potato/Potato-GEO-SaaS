@@ -11,6 +11,7 @@ namespace App\Services\Outbound;
 
 use App\Contracts\Outbound\HostResolver;
 use App\Contracts\Outbound\OutboundTransport;
+use App\Services\AI\MagpieTargets;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
@@ -64,6 +65,9 @@ final class SafeOutboundHttpClient
         '2002::/16',
     ];
 
+    /** @var list<string> */
+    private const MAGPIE_LOCAL_CIDRS = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', 'fc00::/7'];
+
     public function __construct(
         private readonly HostResolver $resolver,
         private readonly OutboundTransport $transport,
@@ -111,7 +115,11 @@ final class SafeOutboundHttpClient
         int $maxBytes,
         int $maxRedirects = 0,
         ?callable $redirectValidator = null,
+        ?MagpieRequestScope $magpie = null,
     ): Response {
+        if ($magpie !== null && ($maxRedirects !== 0 || (strtoupper($method) === 'GET' && $data !== []))) {
+            throw new OutboundRequestBlockedException('magpie_operation_forbidden');
+        }
         if ($maxBytes < 1 || $maxRedirects < 0 || $maxRedirects > 3) {
             throw new OutboundRequestBlockedException('invalid_request_policy');
         }
@@ -124,7 +132,7 @@ final class SafeOutboundHttpClient
         $previousTarget = null;
 
         while (true) {
-            $target = $this->resolveTarget($currentUrl);
+            $target = $this->resolveTarget($currentUrl, $magpie, $method);
             $crossOrigin = $previousTarget instanceof ResolvedOutboundTarget && ! $this->sameOrigin($previousTarget, $target);
             if ($crossOrigin) {
                 $currentRequest = CrossOriginRequestSanitizer::pendingRequest($currentRequest, $method, $target->url);
@@ -134,6 +142,7 @@ final class SafeOutboundHttpClient
             }
 
             try {
+                $magpie?->assertAuthorized($method, $target->url);
                 $response = $this->transport->send($currentRequest, $method, $target, $currentData, $maxBytes, $crossOrigin);
             } catch (OutboundRequestBlockedException|OutboundRequestFailedException $exception) {
                 throw $exception;
@@ -171,23 +180,42 @@ final class SafeOutboundHttpClient
         }
     }
 
-    public function resolveTarget(string $url): ResolvedOutboundTarget
+    public function resolveTarget(string $url, ?MagpieRequestScope $magpie = null, string $method = 'GET'): ResolvedOutboundTarget
     {
-        [$normalizedUrl, $scheme, $host, $port] = $this->normalizeUrl($url);
+        $magpie?->assertAuthorized($method, $url);
+        [$normalizedUrl, $scheme, $host, $port] = $this->normalizeUrl($url, $magpie !== null);
+        $reserved = $magpie === null ? (new MagpieTargets)->reservedHosts($port) : [];
+        if ($reserved !== [] && (array_key_exists($host, $reserved) || $host === 'host.docker.internal'
+                || (filter_var($host, FILTER_VALIDATE_IP) === false && $this->looksLikeAmbiguousIp($host)))) {
+            throw new OutboundRequestBlockedException('magpie_target_reserved');
+        }
         $ipLiteral = filter_var($host, FILTER_VALIDATE_IP) !== false;
-        if (! $ipLiteral && ! str_contains($host, '.') && ! $this->privateTargetAllowed($host, $port)) {
+        if ($magpie === null && ! $ipLiteral && ! str_contains($host, '.') && ! $this->privateTargetAllowed($host, $port)) {
             // 无点主机名（如 intranet-box）只能解析到内网命名空间，等同内网直连。
             $this->blockOrObserve('unsafe_address', $host, $port, ['rule' => 'non_dotted_host']);
         }
         try {
-            $addresses = $ipLiteral ? [$host] : $this->resolver->resolve($host);
+            $addresses = $this->addresses($host);
         } catch (\Throwable) {
             throw new OutboundRequestFailedException(beforeSend: true);
+        }
+        // Explicit deployment pins also support targets provided through container
+        // host mappings, which the DNS record resolver does not consult.
+        if ($addresses === [] && $magpie !== null) {
+            $addresses = $magpie->target->addresses;
         }
         $addresses = array_values(array_unique(array_map(static fn (mixed $ip): string => strtolower(trim((string) $ip)), $addresses)));
         if ($addresses === [] || in_array('', $addresses, true)) {
             // 解析不出地址就没有可连的目标，观察模式也无从「放行」，一律失败。
             throw new OutboundRequestBlockedException('dns_resolution_failed');
+        }
+
+        $this->assertNotReserved($reserved, $addresses);
+        if ($magpie !== null) {
+            $this->assertMagpieAddresses($magpie, $addresses);
+            $selectedIp = $magpie->pinnedIp ?? $addresses[0];
+
+            return new ResolvedOutboundTarget($normalizedUrl, $scheme, $host, $port, $addresses, $selectedIp, $magpie);
         }
 
         $allowPrivate = $this->privateTargetAllowed($host, $port);
@@ -226,6 +254,75 @@ final class SafeOutboundHttpClient
         return new ResolvedOutboundTarget($normalizedUrl, $scheme, $host, $port, $addresses, $addresses[0]);
     }
 
+    /** @return list<string> */
+    private function addresses(string $host): array
+    {
+        if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
+            return [$host];
+        }
+        if ($host === 'localhost') {
+            return ['127.0.0.1', '::1'];
+        }
+
+        return $this->resolver->resolve($host);
+    }
+
+    /** @param array<string, list<string>> $reserved @param list<string> $addresses */
+    private function assertNotReserved(array $reserved, array $addresses): void
+    {
+        foreach ($reserved as $host => $pins) {
+            try {
+                $resolved = $this->addresses($host);
+            } catch (\Throwable) {
+                $resolved = [];
+            }
+            foreach ($addresses as $ip) {
+                if (MagpieTargets::isLoopback($ip) || $this->isIpv4MappedAddress($ip) || $this->isUnsafeTransitionAddress($ip)
+                    || $this->containsAddress([...$resolved, ...$pins], $ip)
+                    || ($resolved === [] && $pins === [] && ! $this->isPublicAddress($ip))) {
+                    throw new OutboundRequestBlockedException('magpie_target_reserved');
+                }
+            }
+        }
+    }
+
+    /** @param list<string> $addresses */
+    private function assertMagpieAddresses(MagpieRequestScope $scope, array $addresses): void
+    {
+        $target = $scope->target;
+        if ($scope->pinnedIp !== null && ! $this->containsAddress($addresses, $scope->pinnedIp)) {
+            throw new OutboundRequestBlockedException('magpie_address_changed');
+        }
+        foreach ($addresses as $ip) {
+            $loopback = MagpieTargets::isLoopback($ip);
+            $local = $loopback;
+            foreach (self::MAGPIE_LOCAL_CIDRS as $cidr) {
+                $local = $local || $this->addressMatchesCidr($ip, $cidr);
+            }
+
+            if (! $local || ($target->authMode === 'loopback' && ! $loopback)
+                || ($target->addresses !== [] && ! $this->containsAddress($target->addresses, $ip))) {
+                throw new OutboundRequestBlockedException('magpie_address_not_authorized');
+            }
+        }
+    }
+
+    /** @param list<string> $addresses */
+    private function containsAddress(array $addresses, string $ip): bool
+    {
+        $binary = @inet_pton($ip);
+        if ($binary === false) {
+            return false;
+        }
+        foreach ($addresses as $candidate) {
+            if (is_string($candidate) && @inet_pton($candidate) === $binary) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * 地址类判定的唯一出口：强制模式抛异常，观察模式只记日志放行。
      *
@@ -257,7 +354,7 @@ final class SafeOutboundHttpClient
     }
 
     /** @return array{string, string, string, int} */
-    private function normalizeUrl(string $url): array
+    private function normalizeUrl(string $url, bool $magpie = false): array
     {
         if ($url === '' || $url !== trim($url)) {
             throw new OutboundRequestBlockedException('invalid_url');
@@ -303,13 +400,16 @@ final class SafeOutboundHttpClient
             throw new OutboundRequestBlockedException('invalid_port');
         }
 
-        if (($host === 'localhost' || str_ends_with($host, '.localhost') || str_ends_with($host, '.local'))
+        if (! $magpie && ($host === 'localhost' || str_ends_with($host, '.localhost') || str_ends_with($host, '.local'))
             && ! $this->privateTargetAllowed($host, $port)) {
             $this->blockOrObserve('unsafe_address', $host, $port, ['rule' => 'localhost_suffix']);
         }
         if (filter_var($host, FILTER_VALIDATE_IP) === false) {
             if ($this->looksLikeAmbiguousIp($host)) {
                 // 0x7f000001 / 2130706433 这类混淆写法，本质是地址伪装。
+                if ($magpie) {
+                    throw new OutboundRequestBlockedException('ambiguous_ip');
+                }
                 $this->blockOrObserve('ambiguous_ip', $host, $port, ['rule' => 'ambiguous_ip_literal']);
             }
             if (preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/', $host) !== 1) {
@@ -345,14 +445,7 @@ final class SafeOutboundHttpClient
 
     private function looksLikeAmbiguousIp(string $host): bool
     {
-        if (preg_match('/^(?:0x[0-9a-f]+|[0-9]+)$/i', $host) === 1) {
-            return true;
-        }
-        if (preg_match('/^[0-9.]+$/', $host) !== 1) {
-            return false;
-        }
-
-        return true;
+        return preg_match('/\A(?:0x[0-9a-f]+|[0-9]+)(?:\.(?:0x[0-9a-f]+|[0-9]+))*\z/i', $host) === 1;
     }
 
     private function privateTargetAllowed(string $host, int $port): bool

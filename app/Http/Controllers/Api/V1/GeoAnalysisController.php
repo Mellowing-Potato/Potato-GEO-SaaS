@@ -111,6 +111,7 @@ class GeoAnalysisController extends Controller
                 'stage_index' => 1,
                 'status' => $async ? 'pending' : 'running',
                 'input_data' => $input,
+                'model_connection_snapshot' => app(\App\Services\AI\ModelConnectionResolver::class)->snapshot('text'),
             ]);
 
             if ($async) {
@@ -300,7 +301,7 @@ class GeoAnalysisController extends Controller
                 $this->analysisSchema(),
                 'You are a senior GEO and AI-search optimization strategist. Return strict JSON only.',
                 ['feature_id' => 'geo-analysis', 'task_id' => 'skill:'.$execution->id,
-                    'step_id' => 'legacy-analysis', 'client_request_id' => $clientId],
+                    'step_id' => 'legacy-analysis', 'client_request_id' => $clientId, 'execution_id' => $execution->id],
             );
         } catch (\Throwable) {
             (new UnresolvedModelAttempt(['attribution' => $originalAttribution],

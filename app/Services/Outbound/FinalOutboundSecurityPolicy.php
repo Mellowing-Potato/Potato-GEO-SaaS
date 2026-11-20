@@ -154,6 +154,7 @@ final class FinalOutboundSecurityPolicy
         );
 
         try {
+            $target->magpieScope?->assertAuthorized($request->getMethod(), (string) $request->getUri());
             $result = $handler($request, $options);
 
             return $this->guardHandlerResult(

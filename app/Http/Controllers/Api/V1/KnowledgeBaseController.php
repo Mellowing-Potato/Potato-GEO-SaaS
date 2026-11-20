@@ -70,9 +70,11 @@ class KnowledgeBaseController extends Controller
             ->paginate($perPage);
 
         $models = app(\App\Services\AI\ModelConfiguration::class);
+        $vision = app(\App\Services\AI\ModelConnectionResolver::class)->availability('vision');
         return response()->json($bases->toArray() + ['model_configuration' => [
             'embedding_configured' => $models->active('embedding') !== null,
-            'vision_configured' => $models->active('vision') !== null,
+            'vision_configured' => $vision['available'],
+            'vision_message' => $vision['message'],
         ]]);
     }
 

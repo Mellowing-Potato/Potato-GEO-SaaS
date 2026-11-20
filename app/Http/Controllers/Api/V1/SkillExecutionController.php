@@ -176,6 +176,7 @@ class SkillExecutionController extends Controller
             'status' => 'running',
             'execution_mode' => 'sync',
             'input_data' => $submittedBrief->auditableInputData(),
+            'model_connection_snapshot' => app(\App\Services\AI\ModelConnectionResolver::class)->snapshot($submittedBrief->modelSlot()),
         ]);
 
         $brief = new SkillBrief(

@@ -164,6 +164,9 @@ class SkillChunkRunner
         );
 
         foreach ($attempts as $attempt) {
+            if (($attempt->gateway['request_sent'] ?? true) === false) {
+                throw new \App\Services\AI\ModelConnectionUnavailable($attempt->errorMessage ?? '模型请求未发送。');
+            }
             $state['call_count']++;
             $state['token_sum'] += $attempt->totalTokens;
             $state['raw_parts'][] = "<!-- chunk: {$spec['key']}; call: {$state['call_count']} -->\n".($attempt->content ?? '');

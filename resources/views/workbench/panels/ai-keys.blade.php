@@ -7,9 +7,25 @@
     <p id="aikeysMessage" role="status"></p>
     <div id="aikeyList">
     @foreach (['text' => '文本模型（必填）', 'vision' => '视觉模型（可选）', 'embedding' => '向量模型（使用知识库时必填）', 'visibility' => '豆包监测'] as $slot => $title)
+        @php($supportsMagpie = in_array($slot, ['text', 'vision'], true))
+        @if ($supportsMagpie)
+        <section class="model-source-section" data-magpie-slot="{{ $slot }}" aria-labelledby="model-slot-title-{{ $slot }}">
+            <div class="model-config-heading">
+                <h3 id="model-slot-title-{{ $slot }}">{{ $title }}</h3>
+                <span class="muted" data-active-model-source aria-live="polite">正在读取当前来源…</span>
+            </div>
+            @if ($slot === 'vision')
+                <p class="muted">未配置时，图片材料标记为“未识别”。</p>
+            @endif
+            <div class="model-sources">
+        @endif
         <form class="model-config-form" data-model-slot="{{ $slot }}" autocomplete="off">
             <div class="model-config-heading">
-                <h3>{{ $title }}</h3>
+                @if ($supportsMagpie)
+                    <h4>第三方直连</h4>
+                @else
+                    <h3>{{ $title }}</h3>
+                @endif
                 <p data-model-status class="muted">未配置</p>
             </div>
             @if ($slot === 'embedding')
@@ -17,8 +33,6 @@
                 <p class="muted">知识库只接受 1024 维向量。更换模型前，请在知识库中自行删除材料。</p>
             @elseif ($slot === 'visibility')
                 <p>联网搜索费用按你的火山方舟账户计算。</p>
-            @elseif ($slot === 'vision')
-                <p class="muted">未配置时，图片材料标记为“未识别”。</p>
             @endif
             <label for="model-provider-{{ $slot }}">供应商
                 <select id="model-provider-{{ $slot }}" name="provider" required>
@@ -49,9 +63,43 @@
                 <button class="button small" type="submit">保存配置</button>
                 <button class="button secondary small" type="button" data-aikey-action="toggle" hidden>停用</button>
                 <button class="button danger small" type="button" data-aikey-action="delete" hidden>删除 Key</button>
+                @if ($supportsMagpie)
+                    <button class="button secondary small" type="button" data-use-direct hidden>切回第三方直连</button>
+                @endif
             </div>
             <p data-model-message role="status"></p>
         </form>
+        @if ($supportsMagpie)
+            <div class="model-magpie">
+                <h4>Magpie</h4>
+                <p class="muted" data-magpie-authorization>正在读取部署授权…</p>
+                <form class="model-magpie-form" autocomplete="off" hidden>
+                    <p class="muted">模型和上游账号在 Magpie 中管理。请先启动 Magpie，再保存连接并读取模型目录。</p>
+                    <label for="magpie-target-{{ $slot }}">部署授权目标
+                        <select id="magpie-target-{{ $slot }}" name="target_alias" required></select>
+                    </label>
+                    <p class="muted" data-magpie-endpoint></p>
+                    <label for="magpie-key-{{ $slot }}" data-magpie-key>Gateway Key
+                        <input id="magpie-key-{{ $slot }}" name="api_key" type="password" maxlength="4096" autocomplete="new-password" aria-describedby="magpie-key-status-{{ $slot }}">
+                        <span class="muted" id="magpie-key-status-{{ $slot }}" data-magpie-key-status></span>
+                    </label>
+                    <label for="magpie-model-{{ $slot }}">模型
+                        <select id="magpie-model-{{ $slot }}" name="model" disabled></select>
+                    </label>
+                    <p class="muted" data-magpie-model-status></p>
+                    <p class="muted">读取目录会检测服务与鉴权，不发送生成请求。保存配置后可单独切换来源。</p>
+                    <div class="model-config-actions">
+                        <button class="button small" type="submit" data-magpie-action="save">保存 Magpie 配置</button>
+                        <button class="button secondary small" type="button" data-magpie-action="directory" disabled>检测服务并读取目录</button>
+                        <button class="button secondary small" type="button" data-magpie-action="activate" hidden>设为{{ $slot === 'text' ? '文本' : '视觉' }}模型</button>
+                        <button class="button secondary small" type="button" data-magpie-action="toggle" hidden>停用 Magpie 连接</button>
+                    </div>
+                </form>
+                <p class="form-message" data-magpie-message role="status"></p>
+            </div>
+            </div>
+        </section>
+        @endif
     @endforeach
     </div>
 </section>

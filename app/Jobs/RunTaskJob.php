@@ -5,6 +5,8 @@ namespace App\Jobs;
 use App\Models\Task;
 use App\Models\TaskRun;
 use App\Models\Tenant;
+use App\Services\AI\ModelConnectionResolver;
+use App\Services\DTOs\SkillBrief;
 use App\Services\Workflow\TaskOrchestrationService;
 use App\Support\TenantContext;
 use App\Support\TenantScope;
@@ -38,6 +40,9 @@ class RunTaskJob implements ShouldQueue
     /** Stable across serialization/redelivery; old payloads may have no token. */
     public ?string $runToken = null;
 
+    /** Historical jobs without a snapshot can complete using their original recovery protocol. */
+    public ?array $modelConnectionSnapshot = null;
+
     /**
      * @param  int  $tenantId  租户 ID（队列 Worker 还原 TenantContext）
      * @param  int  $taskId  任务 ID
@@ -47,9 +52,29 @@ class RunTaskJob implements ShouldQueue
         public int $tenantId,
         public int $taskId,
         public string $trigger = TaskRun::TRIGGER_SCHEDULE,
+        ?array $modelConnectionSnapshot = null,
     ) {
         $this->runToken = (string) Str::uuid();
+        $this->modelConnectionSnapshot = $modelConnectionSnapshot;
         $this->onQueue('tasks');
+    }
+
+    public static function dispatchFor(Task $task, string $trigger): void
+    {
+        $previous = TenantContext::get();
+        $tenant = $task->tenant;
+        if ($tenant === null) {
+            return;
+        }
+
+        TenantContext::set($tenant);
+        try {
+            $slot = SkillBrief::imageInputs($task->input_data ?? []) === [] ? 'text' : 'vision';
+            $snapshot = app(ModelConnectionResolver::class)->snapshot($slot);
+            self::dispatch($task->tenant_id, $task->id, $trigger, $snapshot);
+        } finally {
+            $previous ? TenantContext::set($previous) : TenantContext::forget();
+        }
     }
 
     public function handle(TaskOrchestrationService $service): void
@@ -108,7 +133,7 @@ class RunTaskJob implements ShouldQueue
             return;
         }
 
-        $service->run($task, $this->trigger, $this->queueRunToken());
+        $service->run($task, $this->trigger, $this->queueRunToken(), modelConnectionSnapshot: $this->modelConnectionSnapshot);
     }
 
     /** The callback is invoked on a fresh copy of the serialized job. */

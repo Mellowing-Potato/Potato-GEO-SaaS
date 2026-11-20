@@ -151,6 +151,7 @@ class SkillSingleCallRunner
                     'step_id' => 'single:primary',
                     ...($primaryClientId === null ? [] : ['client_request_id' => $primaryClientId]),
                     'images' => $this->modelCaller->visualInputs($brief),
+                    'execution_id' => $brief->executionId,
                     'max_tokens' => $maxTokens,
                     'temperature' => $hasRenderPipeline ? 0.3 : 0.7,
                     'model' => $primaryModel,
@@ -257,7 +258,8 @@ class SkillSingleCallRunner
                     'task_id' => 'skill:'.($brief->executionId ?? \Illuminate\Support\Str::uuid()),
                     'step_id' => 'single:fallback',
                     ...($fallbackClientId === null ? [] : ['client_request_id' => $fallbackClientId]),
-                    'images' => $this->modelCaller->visualInputs($brief),
+                        'images' => $this->modelCaller->visualInputs($brief),
+                        'execution_id' => $brief->executionId,
                         'max_tokens' => $maxTokens,
                         'temperature' => $hasRenderPipeline ? 0.3 : 0.7,
                         'model' => $fallbackModel,
@@ -678,7 +680,7 @@ class SkillSingleCallRunner
 
     private function recordUsage(SkillBrief $brief, AiProviderCallResult $result, array $metadata): void
     {
-        if (! $brief->executionId) {
+        if (! $brief->executionId || ($result->gateway['request_sent'] ?? true) === false) {
             return;
         }
 

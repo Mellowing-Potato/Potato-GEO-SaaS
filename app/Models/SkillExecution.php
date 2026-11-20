@@ -23,6 +23,7 @@ class SkillExecution extends Model
         'execution_mode',
         'client_request_key',
         'input_data',
+        'model_connection_snapshot',
         'gateway_requests',
         'output_data',
         'billing_pending_result',
@@ -33,11 +34,12 @@ class SkillExecution extends Model
         'error_message',
     ];
 
-    protected $hidden = ['gateway_requests', 'billing_pending_result'];
+    protected $hidden = ['gateway_requests', 'billing_pending_result', 'model_connection_snapshot'];
 
     protected $casts = [
         'gateway_requests' => 'array',
         'input_data' => 'array',
+        'model_connection_snapshot' => 'array',
         'output_data' => 'array',
         'billing_pending_result' => 'encrypted:array',
         'quality_report' => 'array',

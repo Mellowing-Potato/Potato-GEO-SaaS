@@ -6,7 +6,7 @@ use App\Models\ArticlePublication;
 use App\Models\PublishingChannel;
 use App\Services\Distribution\DistributionPublisherInterface;
 use App\Support\OperationalTextRedactor;
-use Illuminate\Support\Facades\Http;
+use App\Services\Outbound\PublicationHttpClient;
 use Illuminate\Support\Facades\Log;
 
 class GenericHttpPublisher implements DistributionPublisherInterface
@@ -21,7 +21,7 @@ class GenericHttpPublisher implements DistributionPublisherInterface
 
         $start = microtime(true);
         try {
-            $response = Http::timeout($timeout)
+            $response = app(PublicationHttpClient::class)->timeout($timeout)
                 ->withHeaders(['Accept' => 'application/json'])
                 ->get($url);
         } catch (\Throwable $e) {
@@ -140,7 +140,7 @@ class GenericHttpPublisher implements DistributionPublisherInterface
     private function requestFor(PublishingChannel $channel, array $config): \Illuminate\Http\Client\PendingRequest
     {
         $timeout = (int) data_get($channel->settings, 'timeout', 30);
-        $request = Http::timeout($timeout);
+        $request = app(PublicationHttpClient::class)->timeout($timeout);
 
         $authType = data_get($config, 'auth_type', $channel->auth_type ?? 'none');
 

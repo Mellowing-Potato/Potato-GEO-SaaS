@@ -49,18 +49,21 @@ final class PreparedModelAttempt
                 throw (new UnrecordedModelResult(new \App\Services\DTOs\AiProviderCallResult(
                     success: true, provider: $saved['provider'], model: $saved['model'], content: $saved['content'],
                     promptTokens: $saved['prompt_tokens'], completionTokens: $saved['completion_tokens'],
-                    totalTokens: $saved['total_tokens'], finishReason: $saved['finish_reason'], gateway: $prior['gateway'],
+                    totalTokens: $saved['total_tokens'], durationSeconds: (float) ($saved['duration_seconds'] ?? 0.0),
+                    finishReason: $saved['finish_reason'], gateway: $prior['gateway'],
                 ), $prior['record_metadata'] ?? [], new \RuntimeException('A saved result must be delivered without resending.')))
                     ->withDeliveryContext($prior['delivery_context'] ?? []);
             }
+            $selection = $execution->model_connection_snapshot ?? [];
+            $identity = array_intersect_key($selection, array_flip(['provider', 'model', 'credential_fingerprint']));
             $execution->update(['billing_pending_result' => [
                 'version' => 1, 'kind' => 'model_attempt_prepared',
-                'gateway' => ['attribution' => [
+                'gateway' => $identity + ['attribution' => [
                     'client_request_id' => $clientId, 'task_id' => $taskId,
                     'feature_id' => $featureId, 'step_id' => $stepId,
                 ]],
                 'record_metadata' => $metadata,
-                'requested_model' => $model,
+                'requested_model' => $selection['model'] ?? $model,
                 'brief_data' => $brief->toArray(),
                 'delivery_context' => $deliveryContext,
             ]]);
@@ -85,6 +88,7 @@ final class PreparedModelAttempt
                 'provider' => $result->provider, 'model' => $result->model, 'content' => $result->content,
                 'prompt_tokens' => $result->promptTokens, 'completion_tokens' => $result->completionTokens,
                 'total_tokens' => $result->totalTokens, 'finish_reason' => $result->finishReason,
+                'duration_seconds' => $result->durationSeconds,
             ];
             $execution->update(['billing_pending_result' => $prior]);
         });

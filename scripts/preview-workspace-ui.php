@@ -85,6 +85,7 @@ copy(dirname(__DIR__).'/public/geo-entry-mobile-menu.js', $out.'/geo-entry-mobil
 copy(dirname(__DIR__).'/public/geo-entry-workspace-settings.js', $out.'/geo-entry-workspace-settings.js');
 copy(dirname(__DIR__).'/public/geo-entry-url-import-detail.js', $out.'/geo-entry-url-import-detail.js');
 copy(dirname(__DIR__).'/public/geo-points.js', $out.'/geo-points.js');
+copy(dirname(__DIR__).'/public/geo-entry-magpie.js', $out.'/geo-entry-magpie.js');
 copy(dirname(__DIR__).'/public/geo-entry-management.js', $out.'/geo-entry-management.js');
 copy(dirname(__DIR__).'/public/geo-entry-billing.js', $out.'/geo-entry-billing.js');
 copy(dirname(__DIR__).'/public/geo-entry-enterprise-knowledge.js', $out.'/geo-entry-enterprise-knowledge.js');

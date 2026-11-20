@@ -88,6 +88,7 @@ final class UnknownModelAttemptRecovery
                         completionTokens: $savedResult['completion_tokens'],
                         totalTokens: $savedResult['total_tokens'],
                         finishReason: $savedResult['finish_reason'] ?? null,
+                        durationSeconds: (float) ($savedResult['duration_seconds'] ?? 0.0),
                         gateway: is_array($snapshot['gateway'] ?? null) ? $snapshot['gateway'] : [],
                     );
                     if ($snapshot['delivery_context']['path'] === 'legacy_geo_analysis') {
@@ -173,6 +174,7 @@ final class UnknownModelAttemptRecovery
             $result = new AiProviderCallResult(success: true, provider: $saved['provider'], model: $saved['model'],
                 content: $saved['content'], promptTokens: $saved['prompt_tokens'], completionTokens: $saved['completion_tokens'],
                 totalTokens: $saved['total_tokens'], finishReason: $saved['finish_reason'] ?? null,
+                durationSeconds: (float) ($saved['duration_seconds'] ?? 0.0),
                 gateway: is_array($snapshot['gateway'] ?? null) ? $snapshot['gateway'] : []);
             $log = DB::transaction(function () use ($execution, $snapshot, $result) {
                 $current = SkillExecution::query()->whereKey($execution->id)->lockForUpdate()->first();

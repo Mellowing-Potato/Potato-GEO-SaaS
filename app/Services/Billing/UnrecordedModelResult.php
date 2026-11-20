@@ -58,6 +58,7 @@ final class UnrecordedModelResult extends RuntimeException
                         'prompt_tokens' => $this->result->promptTokens,
                         'completion_tokens' => $this->result->completionTokens,
                         'total_tokens' => $this->result->totalTokens,
+                        'duration_seconds' => $this->result->durationSeconds,
                     ],
                 ],
                 'output_data' => [],

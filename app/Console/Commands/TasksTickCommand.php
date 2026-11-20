@@ -33,7 +33,7 @@ class TasksTickCommand extends Command
                 'next_run_at' => \App\Models\Task::computeNextRunAtFor($task->cadence, $task->timezone),
             ]);
 
-            \App\Jobs\RunTaskJob::dispatch($task->tenant_id, $task->id, \App\Models\TaskRun::TRIGGER_SCHEDULE);
+            \App\Jobs\RunTaskJob::dispatchFor($task, \App\Models\TaskRun::TRIGGER_SCHEDULE);
             $dispatched++;
         }
 

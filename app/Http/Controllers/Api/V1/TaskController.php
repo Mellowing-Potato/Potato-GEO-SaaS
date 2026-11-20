@@ -142,7 +142,7 @@ class TaskController extends Controller
     {
         $this->ensureOwns($task);
 
-        RunTaskJob::dispatch($task->tenant_id, $task->id, TaskRun::TRIGGER_MANUAL);
+        RunTaskJob::dispatchFor($task, TaskRun::TRIGGER_MANUAL);
 
         return response()->json(['message' => '任务已入队执行。']);
     }

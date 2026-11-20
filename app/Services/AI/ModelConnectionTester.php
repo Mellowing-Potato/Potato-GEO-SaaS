@@ -3,13 +3,38 @@
 namespace App\Services\AI;
 
 use App\Models\ModelCallLog;
+use App\Models\ModelConnectionProfile;
 use App\Services\Geo\AiVisibility\AiProviderEndpointPolicy;
 
 final class ModelConnectionTester
 {
-    public function __construct(private readonly ModelEndpointClient $client, private readonly ModelConfiguration $configuration) {}
+    public function __construct(
+        private readonly ModelEndpointClient $client,
+        private readonly ModelConfiguration $configuration,
+        private readonly ModelConnectionResolver $connections,
+    ) {}
+
+    public function testProfile(ModelConnectionProfile $profile, int $userId): array
+    {
+        try {
+            $connection = $this->connections->fromProfile($profile);
+            $this->connections->capabilities($connection, $connection->slot === 'vision');
+        } catch (ModelConnectionUnavailable|MagpieException $e) {
+            return ['success' => false, 'status' => 'failed', 'message' => $e->getMessage(), 'verification_token' => null];
+        }
+
+        return $this->run(
+            ['slot' => $connection->slot, 'provider' => $connection->provider, 'model' => $connection->model],
+            $connection->tenantId, $userId, $connection,
+        );
+    }
 
     public function test(array $data, int $tenantId, int $userId): array
+    {
+        return $this->run($data, $tenantId, $userId);
+    }
+
+    private function run(array $data, int $tenantId, int $userId, ?ResolvedModelConnection $connection = null): array
     {
         if ($data['slot'] === 'embedding') {
             [$path, $payload] = $this->client->embeddingRequest($data, ['言及模型连接测试']);
@@ -31,7 +56,9 @@ final class ModelConnectionTester
             }
             $payload = ['model' => $data['model'], 'messages' => [['role' => 'user', 'content' => $content]], 'max_tokens' => 128];
         }
-        $result = $this->client->post($data, $path, $payload);
+        $result = $connection === null
+            ? $this->client->post($data, $path, $payload)
+            : $this->client->chat($connection, $payload);
         if ($result['success']) {
             if ($data['slot'] === 'embedding' && $this->client->vectors($data, $result['body'], 1) === null) {
                 $result = array_replace($result, ['success' => false, 'status' => 'failed', 'error' => '模型未返回有效的 1024 维向量，不能保存为知识库模型。']);
@@ -53,7 +80,7 @@ final class ModelConnectionTester
             'prompt_tokens' => $result['usage']['prompt_tokens'] ?? null, 'completion_tokens' => $result['usage']['completion_tokens'] ?? null,
             'total_tokens' => $result['usage']['total_tokens'] ?? null, 'duration_seconds' => $result['duration_seconds'],
             'metadata' => ['feature' => 'model-connection-test', 'slot' => $data['slot'], 'usage_available' => $result['usage'] !== null,
-                'provider_request_id' => $result['request_id']]]);
+                'provider_request_id' => $result['request_id'], 'request_sent' => ! ($result['before_send'] ?? false)]]);
 
         return ['success' => $result['success'], 'status' => $result['status'],
             'message' => $result['success'] ? '连接测试通过。' : $result['error'],

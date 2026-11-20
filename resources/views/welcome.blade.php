@@ -318,6 +318,7 @@
     <script src="/geo-entry-reports.js?v={{ filemtime(public_path('geo-entry-reports.js')) }}" defer></script>
     <script src="/geo-entry-skills.js?v={{ filemtime(public_path('geo-entry-skills.js')) }}" defer></script>
     <script src="/geo-entry-management.js?v={{ filemtime(public_path('geo-entry-management.js')) }}" defer></script>
+    <script src="/geo-entry-magpie.js?v={{ filemtime(public_path('geo-entry-magpie.js')) }}" defer></script>
     <script src="/geo-entry-usage.js?v={{ filemtime(public_path('geo-entry-usage.js')) }}" defer></script>
     <script src="/geo-entry-enterprise-knowledge.js?v={{ filemtime(public_path('geo-entry-enterprise-knowledge.js')) }}" defer></script>
     <script src="/geo-entry-knowledge-base.js?v={{ filemtime(public_path('geo-entry-knowledge-base.js')) }}" defer></script>

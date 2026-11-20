@@ -27,6 +27,8 @@
             <file>tests/Feature/TaskExecutionReliabilityTest.php</file>
             <file>tests/Feature/ModelConnectionSchemaTest.php</file>
             <file>tests/Feature/ModelConfigurationTest.php</file>
+            <file>tests/Feature/MagpieModelSourcesTest.php</file>
+            <file>tests/Feature/MagpieRuntimeTest.php</file>
             <file>tests/Feature/ModelEndpointProtocolTest.php</file>
             <file>tests/Feature/ArkDirectResponsesTest.php</file>
             <file>tests/Feature/AiVisibilityRunTest.php</file>

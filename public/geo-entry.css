@@ -612,6 +612,59 @@ h2 {
   margin: 0;
 }
 
+.model-source-section {
+  border-top: 1px solid var(--md-border);
+  padding-block: var(--md-space-5);
+}
+
+.model-sources {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--md-space-5);
+  margin-top: var(--md-space-4);
+}
+
+.model-source-section .model-config-form,
+.model-magpie {
+  align-content: start;
+  min-width: 0;
+  border: 1px solid var(--md-border);
+  border-radius: var(--md-radius-md);
+  padding: var(--md-space-4);
+}
+
+.model-magpie,
+.model-magpie-form {
+  display: grid;
+  align-content: start;
+  gap: var(--md-space-3);
+}
+
+.model-source-section [data-custom-json] {
+  display: flex;
+  align-items: center;
+}
+
+.model-source-section [data-custom-json] input {
+  width: 1rem;
+  min-height: auto;
+  padding: 0;
+}
+
+.model-source-section h4,
+.model-magpie p {
+  margin: 0;
+}
+
+.model-magpie select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.model-magpie p {
+  overflow-wrap: anywhere;
+}
+
 label {
   color: var(--md-text);
   display: grid;

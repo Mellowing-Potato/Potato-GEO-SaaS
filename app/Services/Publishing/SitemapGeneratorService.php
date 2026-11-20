@@ -6,7 +6,7 @@ use App\Models\Article;
 use App\Models\Project;
 use App\Models\Tenant;
 use App\Support\TenantContext;
-use Illuminate\Support\Facades\Http;
+use App\Services\Outbound\PublicationHttpClient;
 use Illuminate\Validation\ValidationException;
 
 /** Public sitemaps are rendered from current publication state on every request. */
@@ -164,7 +164,7 @@ class SitemapGeneratorService
     private function checkLive(string $url, string $expected): array
     {
         try {
-            $response = Http::timeout(3)->get($url);
+            $response = app(PublicationHttpClient::class)->timeout(3)->get($url);
             $tag = $response->header('X-Robots-Tag');
             $matches = $response->successful() && $response->body() === $expected;
             return [

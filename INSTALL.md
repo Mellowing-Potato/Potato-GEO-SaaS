@@ -59,6 +59,12 @@ docker compose logs --tail=50 worker scheduler
 
 如需连接自己控制的内网模型服务，在 `.env` 的 `GEO_OUTBOUND_PRIVATE_TARGETS` 中填写精确的 `主机名:端口`，再运行安装脚本使配置生效；默认留空，不支持通配符。Docker Desktop 访问宿主机服务时可用 `host.docker.internal`，容器里的 `localhost` 指容器自身。不要关闭出站安全检查。
 
+### 可选的 Magpie 工作区授权
+
+Magpie 和 GEO 的后端需要运行在同一台电脑。由部署者在 `.env` 的 `GEO_MAGPIE_TARGETS` 中维护 JSON 字典，每项用连接别名标识，设置 `origin`（协议、主机和端口）、`tenant_ids`（允许使用的工作区 ID 数组）、`auth_mode`、`enabled` 和 `revision`。示例见 `.env.example`。原生 GEO 可用回环地址和 `loopback` 模式。Docker Desktop 候选地址为 `http://host.docker.internal:3425`，用 `gateway_key` 模式，并在 GEO 页面中填写 Magpie Gateway Key。端口应与用户启动的 Magpie 一致。使用其他 DNS 主机名时须明确列出允许的本机 IP（`addresses` 数组）。Linux Docker 及其他平台需核实宿主地址和 Magpie 监听方式。容器仅通过主机映射解析此地址时，配置 `addresses` 来固定该本机地址。
+
+Web、Worker 和 Scheduler 使用同一授权配置。修改授权时更新 `revision`，让各进程重新读取环境。Compose 环境变量变动需要重建相应服务容器，由部署者安排。要撤销可达的目标，保留条目并设 `enabled=false`，让该地址继续受保留目标保护。原有 `GEO_OUTBOUND_PRIVATE_TARGETS` 用于常规内网目标。
+
 ### 使用 TUN / Fake-IP 网络代理时
 
 如果公网网页导入或模型连接提示“内网地址或其他非公网可达地址”，先检查 Docker 的域名解析。Clash 等代理的 Fake-IP 模式可能返回 `198.18.0.0/15` 保留地址；应用会按非公网地址拒绝访问。不要把这个网段加入放行名单。

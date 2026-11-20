@@ -37,6 +37,46 @@ class ArticlePublishingFlowTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_http_publication_cannot_send_to_a_reserved_magpie_target_or_redirect(): void
+    {
+        [$tenant, $admin, $project] = $this->tenantProject('publish-reserved');
+        $article = $this->article($tenant, $project, $admin, ['status' => 'approved']);
+        $channel = $this->channel($tenant, [
+            'type' => PublishingChannel::TYPE_HTTP_WEBHOOK,
+            'endpoint_url' => 'http://localhost:3425/v1/chat/completions',
+            'auth_type' => 'bearer',
+            'encrypted_secret' => 'sk-test-fake',
+        ]);
+        config([
+            'geo.magpie_targets.local' => [
+                'origin' => 'http://127.0.0.1:3425',
+                'tenant_ids' => [$tenant->id],
+                'auth_mode' => 'loopback',
+                'enabled' => false,
+                'revision' => 1,
+            ],
+            'geo.outbound_private_targets' => ['localhost:3425', '127.0.0.1:3425'],
+        ]);
+        TenantContext::set($tenant);
+        Http::preventStrayRequests()->fake([
+            'https://hooks.example.test/publish' => Http::response('', 307, [
+                'Location' => 'http://127.0.0.1:3425/v1/chat/completions',
+            ]),
+            'http://*:3425/*' => Http::response(['status' => 'accepted'], 202),
+        ]);
+
+        $publisher = app(\App\Services\Publishing\ArticlePublicationService::class);
+        $direct = $publisher->publish($article, $channel, $admin);
+        $this->assertSame('failed', $direct->status);
+        Http::assertNothingSent();
+
+        $channel->update(['endpoint_url' => 'https://hooks.example.test/publish']);
+        $redirected = $publisher->publish($article, $channel, $admin);
+        $this->assertSame('failed', $redirected->status);
+        Http::assertSentCount(1);
+        Http::assertSent(fn ($request) => $request->url() === 'https://hooks.example.test/publish');
+    }
+
     public function test_tenant_can_create_publishing_channel_without_leaking_secret(): void
     {
         [$tenant, $admin] = $this->tenantAdmin('publish-channel');
