@@ -8,6 +8,15 @@
 
 言及是可自行部署的 GEO（生成式引擎优化）项目工作台，面向做 GEO 代运营的个人、小团队，以及品牌市场人员。在网页中整理客户项目和知识材料，运行技能生成报告与内容，配合中文平台草稿助手和豆包监测完成交付。
 
+![言及项目工作台，展示示例项目的六阶段进度、待办和最近动态](docs/images/project-workbench.png)
+
+<details>
+<summary>查看豆包监测结果示例</summary>
+
+![豆包监测运行详情，展示示例回答、搜索词、检索参考和模型用量](docs/images/doubao-monitoring.png)
+
+</details>
+
 **来源说明：言及移植并改造了姚金刚老师的 [GEOFlow](https://github.com/yaojingang/GEOFlow) 部分功能与代码，使用了 [yao-geo-skills](https://github.com/yaojingang/yao-geo-skills) 的技能、方法和报告资产。感谢姚金刚老师及上游贡献者。** 言及在此基础上增加和重组了项目工作流、任务恢复、工作区隔离与发布结果管理。两个项目关注的使用场景不同，可以按自己的工作方式选择。
 
 当前正在准备首个自部署版本 **v0.1.0（未发布）**，目标版本号见 [VERSION](VERSION)，变更范围见 [更新日志](CHANGELOG.md)。Apple 芯片 Mac 的 Docker 安装及主要业务流程已经实测；其他平台与渠道的验证范围见下文。安装、备份、恢复、升级和故障处理见 [INSTALL.md](INSTALL.md)。
