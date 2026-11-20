@@ -6,6 +6,7 @@ use App\Exceptions\IngestionFailure;
 use App\Models\KnowledgeBase;
 use App\Models\KnowledgeChunk;
 use App\Models\KnowledgeDocument;
+use App\Services\AI\ModelConnectionResolver;
 use App\Services\Billing\AssistUsageRecorder;
 use App\Services\Content\HtmlVisibility;
 use App\Services\Contracts\AiProvider;
@@ -149,6 +150,10 @@ class DocumentIngestionService
             throw new \RuntimeException('知识库不存在或不属于当前租户');
         }
 
+        $mimeType = $file->getMimeType();
+        $visionSnapshot = $mimeType === 'application/pdf' && config('geo.knowledge.vision_enabled', false)
+            ? app(ModelConnectionResolver::class)->snapshot('vision') : null;
+
         $document = app(\App\Services\AI\ModelConfiguration::class)->createDocument([
             'tenant_id' => $tenantId,
             'knowledge_base_id' => $knowledgeBaseId,
@@ -156,7 +161,8 @@ class DocumentIngestionService
             'uploaded_by' => $uploadedBy,
             'title' => $title ?? $file->getClientOriginalName(),
             'source_type' => 'upload',
-            'mime_type' => $file->getMimeType(),
+            'mime_type' => $mimeType,
+            'metadata' => $visionSnapshot === null ? [] : ['vision_connection_snapshot' => $visionSnapshot],
             'file_size' => $file->getSize(),
             'status' => 'pending',
         ]);
@@ -462,14 +468,21 @@ class DocumentIngestionService
             // ── B5：视觉誊抄（PDF 且 GEO_KNOWLEDGE_VISION=true 时）──
             // 任何一步出问题都降级走原文字层路，绝不因为多模态挂了把整篇入库拖死。
             $vision = null;
-            $visionMissing = ($document->mime_type === 'application/pdf' || str_starts_with((string) $document->mime_type, 'image/'))
-                && app(\App\Services\AI\ModelConfiguration::class)->active('vision', $document->tenant_id) === null;
-            if ($visionMissing) {
-                $metadata = $document->metadata ?? [];
-                $metadata['vision_notice'] = '图片未识别：未配置视觉模型';
-                $document->update(['metadata' => $metadata]);
+            $visionApplicable = $this->visionApplicable($document);
+            $visionNotice = null;
+            if ($document->mime_type === 'application/pdf' || str_starts_with((string) $document->mime_type, 'image/')) {
+                $availability = app(ModelConnectionResolver::class)->availability(
+                    'vision', $document->tenant_id,
+                    snapshot: $document->metadata['vision_connection_snapshot'] ?? null,
+                    checkCapabilities: $visionApplicable && empty($document->metadata['vision_attempts']),
+                );
+                if (! $availability['available']) {
+                    $visionNotice = '图片未识别：'.$availability['message'];
+                    $document->update(['metadata' => array_replace($document->metadata ?? [], ['vision_notice' => $visionNotice])]);
+                }
             }
-            if ($this->visionApplicable($document)) {
+            // A saved per-page result is local and remains usable after the source changes.
+            if ($visionApplicable && ($visionNotice === null || ! empty($document->metadata['vision_attempts']))) {
                 try {
                     $vision = $this->extractWithVision($document);
                 } catch (\Throwable $e) {
@@ -493,8 +506,8 @@ class DocumentIngestionService
             }
 
             if (trim((string) $text) === '') {
-                if ($visionMissing) {
-                    throw new IngestionFailure('图片未识别：未配置视觉模型');
+                if ($visionNotice !== null) {
+                    throw new IngestionFailure($visionNotice);
                 }
                 throw new IngestionFailure('没能从这份文件里提取到正文（可能是扫描件、纯图片或加密文件），请换一份能复制出文字的文件。');
             }
@@ -577,9 +590,6 @@ class DocumentIngestionService
      */
     private function visionApplicable(KnowledgeDocument $document): bool
     {
-        if (! app(\App\Services\AI\ModelConfiguration::class)->active('vision', $document->tenant_id)) {
-            return false;
-        }
         if (! $document->project_id || ! $document->uploaded_by) {
             if (config('geo.knowledge.vision_enabled', false)) {
                 Log::warning('Vision extraction skipped: document has no charge attribution (project_id/uploaded_by)', [

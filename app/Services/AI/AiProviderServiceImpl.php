@@ -3,10 +3,8 @@
 namespace App\Services\AI;
 
 use App\Models\Tenant;
-use App\Models\TenantAiKey;
 use App\Services\Contracts\AiProvider as AiProviderContract;
 use App\Services\DTOs\AiProviderCallResult;
-use App\Support\TenantContext;
 use Illuminate\Support\Str;
 
 /** Workspace-owned models using the provider's public API. */
@@ -17,50 +15,67 @@ class AiProviderServiceImpl implements AiProviderContract
     public const GEO_VISION_MODEL = 'vision';
     public const GEO_EMBED_MODEL = 'embedding';
 
-    public function __construct(private readonly ModelConfiguration $configuration, private readonly ModelEndpointClient $client) {}
+    public function __construct(
+        private readonly ModelConnectionResolver $connections,
+        private readonly ModelEndpointClient $client,
+    ) {}
 
     public function generate(string $prompt, ?string $system = null, array $options = []): AiProviderCallResult
     {
         $images = is_array($options['images'] ?? null) ? $options['images'] : [];
         $slot = $images !== [] || ($options['slot'] ?? '') === 'vision' ? 'vision' : 'text';
-        $key = $this->configuration->active($slot);
-        if (! $key) {
-            return AiProviderCallResult::failure('', '', $slot === 'vision' ? '未配置视觉模型' : '未配置文本模型',
-                ['pre_send_rejection' => true, 'status' => 'failed', 'request_sent' => false]);
-        }
-        $data = $this->connection($key);
-        $content = $prompt;
-        if ($images !== []) {
-            $content = [];
-            foreach ($images as $image) {
-                if (is_string($image) && $image !== '') {
-                    $content[] = ['type' => 'image_url', 'image_url' => ['url' => $image]];
-                }
+        $connection = null;
+        try {
+            $snapshot = isset($options['execution_id']) ? $this->connections->executionSnapshot($options['execution_id'])
+                : ($options['connection_snapshot'] ?? null);
+            $connection = $this->connections->resolve($slot, snapshot: $snapshot);
+            $capabilities = $this->connections->capabilities($connection, $images !== []);
+            if ($connection->profile !== null && ! empty($options['json_object'])
+                && ($capabilities['json_object'] ?? null) !== true && empty($options['_json_schema'])) {
+                $prompt .= "\n\n请只输出有效的 JSON 对象。";
             }
+            $content = $prompt;
+            if ($images !== []) {
+                $content = [];
+                foreach ($images as $image) {
+                    if (is_string($image) && $image !== '') {
+                        if ($connection->profile !== null) {
+                            $image = $this->client->inlineImage($image);
+                        }
+                        $content[] = ['type' => 'image_url', 'image_url' => ['url' => $image]];
+                    }
+                }
+                $content[] = ['type' => 'text', 'text' => $prompt];
+            }
+        } catch (ModelConnectionUnavailable|MagpieException $e) {
+            return AiProviderCallResult::failure($connection?->provider ?? '', $connection?->model ?? '', $e->getMessage(),
+                ['pre_send_rejection' => true, 'status' => 'failed', 'request_sent' => false, 'usage_available' => false]);
         }
-        if ($images !== []) { $content[] = ['type' => 'text', 'text' => $prompt]; }
         $messages = $system ? [['role' => 'system', 'content' => $system]] : [];
         $messages[] = ['role' => 'user', 'content' => $content];
-        $payload = ['model' => $data['model'], 'messages' => $messages,
+        $payload = ['model' => $connection->model, 'messages' => $messages,
             'max_tokens' => (int) ($options['max_tokens'] ?? 4096)];
         if (isset($options['temperature'])) {
             $payload['temperature'] = $options['temperature'];
         }
-        if (! empty($options['json_object']) && ($key->metadata['json_mode'] ?? false)) {
+        if (! empty($options['json_object']) && ($capabilities['json_object'] ?? null) === true) {
             $payload['response_format'] = ['type' => 'json_object'];
         }
-        if (! empty($options['_json_schema']) && $data['provider'] === 'openai' && config('geo.native_json_schema', false)) {
+        $nativeSchema = $connection->profile === null
+            ? $connection->provider === 'openai' && config('geo.native_json_schema', false)
+            : ($capabilities['json_schema'] ?? null) === true;
+        if (! empty($options['_json_schema']) && $nativeSchema) {
             $payload['response_format'] = ['type' => 'json_schema', 'json_schema' =>
                 ['name' => 'workspace_output', 'strict' => true, 'schema' => $options['_json_schema']]];
         }
         // These providers' JSON mode requires non-thinking decoding.
-        if (isset($payload['response_format']) && $data['provider'] === 'dashscope') {
+        if (isset($payload['response_format']) && $connection->provider === 'dashscope') {
             $payload['enable_thinking'] = false;
         }
-        if (isset($payload['response_format']) && $data['provider'] === 'volces') {
+        if (isset($payload['response_format']) && $connection->provider === 'volces') {
             $payload['thinking'] = ['type' => 'disabled'];
         }
-        $response = $this->client->post($data, '/chat/completions', $payload, (int) config('geo.model_http_timeout', 280));
+        $response = $this->client->chat($connection, $payload, (int) config('geo.model_http_timeout', 280));
         $body = $response['body'];
         $text = $body['choices'][0]['message']['content'] ?? null;
         if ($response['success'] && ! is_string($text)) {
@@ -68,14 +83,14 @@ class AiProviderServiceImpl implements AiProviderContract
         }
 
         return new AiProviderCallResult(
-            success: $response['success'], provider: $data['provider'], model: $data['model'],
+            success: $response['success'], provider: $connection->provider, model: $connection->model,
             content: is_string($text) ? $text : null,
             promptTokens: $response['usage']['prompt_tokens'] ?? 0,
             completionTokens: $response['usage']['completion_tokens'] ?? 0,
             totalTokens: $response['usage']['total_tokens'] ?? 0,
             durationSeconds: $response['duration_seconds'], errorMessage: $response['error'],
             finishReason: is_string($body['choices'][0]['finish_reason'] ?? null) ? $body['choices'][0]['finish_reason'] : null,
-            gateway: $this->receipt($key, $response, $options),
+            gateway: $this->receipt($connection, $response, $options),
         );
     }
 
@@ -95,6 +110,13 @@ class AiProviderServiceImpl implements AiProviderContract
         }
         $decoded = json_decode($content, true);
         if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            if ($result->provider === 'magpie' && ($result->finishReason === 'length'
+                || ! is_array($decodedSchema) || ! StructuredModelOutput::matches(json_decode($content), $decodedSchema))) {
+                return new AiProviderCallResult(...array_replace(get_object_vars($result), [
+                    'success' => false, 'errorMessage' => 'Magpie 模型返回的内容未完整满足要求的数据结构。',
+                ]));
+            }
+
             return new AiProviderCallResult(...array_replace(get_object_vars($result), ['structuredOutput' => $decoded]));
         }
         // Keep the original content and usage. Parsing failure never triggers another call.
@@ -107,10 +129,16 @@ class AiProviderServiceImpl implements AiProviderContract
     {
         $providers = [];
         foreach (['text', 'vision', 'embedding'] as $slot) {
-            $key = $this->configuration->active($slot, $tenant->id);
-            if ($key) {
-                $providers[$key->provider]['name'] = config("ai-providers.{$key->provider}.name", $key->provider);
-                $providers[$key->provider]['models'][] = $key->metadata['model'];
+            try {
+                $connection = $this->connections->resolve($slot, $tenant->id);
+                if ($connection->profile !== null) {
+                    $this->connections->capabilities($connection, $slot === 'vision');
+                }
+                $provider = $connection->provider;
+                $providers[$provider]['name'] = config("ai-providers.{$provider}.name", $provider === 'magpie' ? 'Magpie' : $provider);
+                $providers[$provider]['models'][] = $connection->model;
+            } catch (ModelConnectionUnavailable|MagpieException) {
+                continue;
             }
         }
 
@@ -119,16 +147,28 @@ class AiProviderServiceImpl implements AiProviderContract
 
     public function pickBestModel(Tenant $tenant, ?string $preferred = null): array
     {
-        $key = $this->configuration->active('text', $tenant->id);
+        try {
+            $connection = $this->connections->resolve('text', $tenant->id);
+            if ($connection->profile !== null) {
+                $this->connections->capabilities($connection);
+            }
 
-        return $key ? ['provider' => $key->provider, 'model' => $key->metadata['model']] : ['provider' => '', 'model' => ''];
+            return ['provider' => $connection->provider, 'model' => $connection->model];
+        } catch (ModelConnectionUnavailable|MagpieException) {
+            return ['provider' => '', 'model' => ''];
+        }
     }
 
     public function getTenantApiKey(Tenant $tenant, string $provider): ?string
     {
-        $key = $this->configuration->active('text', $tenant->id);
+        try {
+            $connection = $this->connections->resolve('text', $tenant->id);
 
-        return $key?->provider === $provider ? $key->getDecryptedKey() : null;
+            return $connection->profile === null && $connection->provider === $provider
+                ? $connection->legacyConfiguration()['api_key'] : null;
+        } catch (ModelConnectionUnavailable|MagpieException) {
+            return null;
+        }
     }
 
     public function embed(string $text, string $model = self::GEO_EMBED_MODEL, array $options = []): array
@@ -142,13 +182,14 @@ class AiProviderServiceImpl implements AiProviderContract
 
     public function embedBatch(array $texts, string $model = self::GEO_EMBED_MODEL, array $options = []): array
     {
-        $key = $this->configuration->active('embedding');
-        if (! $key) {
-            return ['embeddings' => [], 'tokens' => 0, 'error' => '未配置向量模型', 'attempt_sent' => false,
+        try {
+            $connection = $this->connections->resolve('embedding');
+        } catch (ModelConnectionUnavailable $e) {
+            return ['embeddings' => [], 'tokens' => 0, 'error' => $e->getMessage(), 'attempt_sent' => false,
                 'gateway' => ['pre_send_rejection' => true, 'request_sent' => false, 'status' => 'failed']];
         }
-        $data = $this->connection($key);
-        if ($texts === [] || (config("ai-providers.{$key->provider}.embedding_protocol") === 'ark_multimodal' && count($texts) !== 1)) {
+        $data = $connection->legacyConfiguration();
+        if ($texts === [] || (config("ai-providers.{$connection->provider}.embedding_protocol") === 'ark_multimodal' && count($texts) !== 1)) {
             return ['embeddings' => [], 'tokens' => 0, 'error' => '向量请求的材料数量不符合模型要求。', 'attempt_sent' => false];
         }
         [$path, $payload] = $this->client->embeddingRequest($data, $texts);
@@ -160,25 +201,20 @@ class AiProviderServiceImpl implements AiProviderContract
 
         return ['embeddings' => $vectors ?? [], 'tokens' => $response['usage']['total_tokens'] ?? 0,
             'error' => $response['error'], 'attempt_sent' => ! ($response['before_send'] ?? false),
-            'gateway' => $this->receipt($key, $response, $options),
+            'gateway' => $this->receipt($connection, $response, $options),
             'provider' => $data['provider'], 'model' => $data['model']];
     }
 
-    private function connection(TenantAiKey $key): array
-    {
-        return ['slot' => $key->slot, 'provider' => $key->provider, 'model' => $key->metadata['model'],
-            'base_url' => $key->metadata['base_url'], 'api_key' => $key->getDecryptedKey()];
-    }
-
     /** Legacy DTO field name retained for saved local delivery checkpoints, not wire protocol. */
-    private function receipt(TenantAiKey $key, array $response, array $options): array
+    private function receipt(ResolvedModelConnection $connection, array $response, array $options): array
     {
         return [
             // Local attempt identity cannot collide across vendors returning the same ID.
             'request_id' => 'model:'.Str::uuid(), 'provider_request_id' => $response['request_id'],
-            'provider' => $key->provider, 'model' => $key->metadata['model'],
-            'credential_fingerprint' => $this->configuration->fingerprint($key->tenant_id, $this->connection($key)),
+            'provider' => $connection->provider, 'model' => $connection->model,
+            'credential_fingerprint' => $connection->fingerprint,
             'status' => $response['status'], 'http_status' => $response['http_status'] ?? null,
+            'duration_seconds' => $response['duration_seconds'],
             'request_sent' => ! ($response['before_send'] ?? false),
             'pre_send_rejection' => (bool) ($response['before_send'] ?? false),
             'usage_available' => $response['usage'] !== null, 'usage' => $response['usage'],

@@ -8,7 +8,7 @@ use App\Services\Distribution\DistributionPublisherInterface;
 use App\Services\Distribution\WordPressMediaSyncService;
 use App\Services\Distribution\WordPressTaxonomySyncService;
 use App\Support\OperationalTextRedactor;
-use Illuminate\Support\Facades\Http;
+use App\Services\Outbound\PublicationHttpClient;
 use Illuminate\Support\Facades\Log;
 
 class WordPressRestPublisher implements DistributionPublisherInterface
@@ -25,7 +25,7 @@ class WordPressRestPublisher implements DistributionPublisherInterface
         // ─── Step 1: 可达性检查 ───
         $start = microtime(true);
         try {
-            $response = Http::timeout($timeout)
+            $response = app(PublicationHttpClient::class)->timeout($timeout)
                 ->withHeaders(['Accept' => 'application/json'])
                 ->get($url);
         } catch (\Throwable $e) {
@@ -279,7 +279,7 @@ class WordPressRestPublisher implements DistributionPublisherInterface
     public function requestFor(PublishingChannel $channel): \Illuminate\Http\Client\PendingRequest
     {
         $timeout = (int) data_get($channel->settings, 'timeout', 30);
-        $request = Http::timeout($timeout)->withHeaders(['Accept' => 'application/json']);
+        $request = app(PublicationHttpClient::class)->timeout($timeout)->withHeaders(['Accept' => 'application/json']);
 
         $authType = $channel->auth_type ?? 'none';
         match ($authType) {
@@ -355,7 +355,7 @@ class WordPressRestPublisher implements DistributionPublisherInterface
         }
 
         try {
-            $imageContent = Http::timeout(15)->get($fetchUrl);
+            $imageContent = app(PublicationHttpClient::class)->timeout(15)->get($fetchUrl);
             if (! $imageContent->successful()) {
                 return ['id' => null, 'url' => null];
             }

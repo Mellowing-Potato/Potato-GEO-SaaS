@@ -14,7 +14,7 @@ use App\Support\OperationalTextRedactor;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Http;
+use App\Services\Outbound\PublicationHttpClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -285,7 +285,7 @@ class ArticlePublicationService
 
     private function requestFor(PublishingChannel $channel, array $payload): PendingRequest
     {
-        $request = Http::timeout((int) data_get($channel->settings ?? [], 'timeout', 15))
+        $request = app(PublicationHttpClient::class)->timeout((int) data_get($channel->settings ?? [], 'timeout', 15))
             ->acceptJson()
             ->asJson();
 

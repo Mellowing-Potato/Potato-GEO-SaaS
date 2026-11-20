@@ -50,6 +50,27 @@ final readonly class SkillBrief
         return $this->fields[$key] ?? $default;
     }
 
+    public function modelSlot(): string
+    {
+        return self::imageInputs($this->fields) === [] ? 'text' : 'vision';
+    }
+
+    /** Only explicit image fields select the vision model. */
+    public static function imageInputs(array $fields): array
+    {
+        $images = is_array($fields['images'] ?? null) ? $fields['images'] : [];
+        foreach (['image_url', 'screenshot_url'] as $key) {
+            if (! empty($fields[$key])) {
+                $images[] = $fields[$key];
+            }
+        }
+
+        return array_values(array_filter($images, static fn ($value): bool => is_string($value)
+            && (preg_match('~^data:image/(?:png|jpeg|webp|gif);base64,~', $value) === 1
+                || (filter_var($value, FILTER_VALIDATE_URL)
+                    && in_array(strtolower((string) parse_url($value, PHP_URL_SCHEME)), ['http', 'https'], true)))));
+    }
+
     /**
      * 完整保存用户本次提交的可复现输入。
      *

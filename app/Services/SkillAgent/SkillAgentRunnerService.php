@@ -525,7 +525,6 @@ class SkillAgentRunnerService implements SkillAgentRunnerContract
         // 查询 Skill 定义以填充冗余字段
         $skill = $this->registry->find($brief->skillId);
 
-        // 创建 pending 状态的执行记录
         $execution = SkillExecution::create([
             'project_id' => $brief->projectId,
             'user_id' => $brief->userId,
@@ -537,6 +536,7 @@ class SkillAgentRunnerService implements SkillAgentRunnerContract
             'execution_mode' => 'async',
             'client_request_key' => $brief->clientRequestKey,
             'input_data' => $brief->auditableInputData(),
+            'model_connection_snapshot' => app(\App\Services\AI\ModelConnectionResolver::class)->snapshot($brief->modelSlot()),
         ]);
 
         $queuedBrief = new SkillBrief(

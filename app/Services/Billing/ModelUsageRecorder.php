@@ -18,6 +18,7 @@ class ModelUsageRecorder
         }
         $this->record($execution, new AiProviderCallResult(
             success: false, provider: $receipt['provider'], model: $receipt['model'],
+            durationSeconds: (float) ($receipt['duration_seconds'] ?? 0.0),
             errorMessage: '结果未知，可手动重新执行',
             gateway: array_replace($receipt, ['status' => 'unknown', 'usage_available' => false]),
         ), $metadata);

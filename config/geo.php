@@ -238,6 +238,9 @@ return [
         explode(',', (string) env('GEO_OUTBOUND_PRIVATE_TARGETS', ''))
     ), static fn (string $item): bool => $item !== '')),
 
+    // Map of deployer-managed Magpie targets. Tenant settings can only select these aliases.
+    'magpie_targets' => json_decode((string) env('GEO_MAGPIE_TARGETS', '{}'), true),
+
     // 单次出站响应体上限（字节）。AI 类端点单独收紧，其余走全局上限。
     'outbound_ai_max_bytes' => (int) env('GEO_OUTBOUND_AI_MAX_BYTES', 8 * 1024 * 1024),
     'outbound_max_bytes' => (int) env('GEO_OUTBOUND_MAX_BYTES', 50 * 1024 * 1024),

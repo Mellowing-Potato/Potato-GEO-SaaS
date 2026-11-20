@@ -58,6 +58,26 @@ class UrlImportTest extends TestCase
         $this->assertNull($empty->fresh()->article_id);
     }
 
+    public function test_url_import_worker_cannot_fetch_a_reserved_magpie_alias(): void
+    {
+        [$tenant, , $project] = $this->makeTenantAdminWithProject('magpie-import');
+        config([
+            'geo.magpie_targets.local.origin' => 'http://127.0.0.1:3425',
+            'geo.outbound_private_targets' => ['import.example.test:3425'],
+        ]);
+        $this->fakeSafeOutbound(self::SAMPLE_HTML, 200, ['127.0.0.1'], enforce: false);
+        $import = UrlImport::create([
+            'tenant_id' => $tenant->id, 'project_id' => $project->id,
+            'url' => 'http://import.example.test:3425/v1/models', 'status' => 'pending',
+        ]);
+
+        (new ProcessUrlImportJob($tenant->id, $import->id))->handle(app(UrlImportProcessingService::class));
+
+        $this->assertSame('failed', $import->fresh()->status);
+        $this->assertNull($import->fresh()->article_id);
+        $this->assertOutboundRequestCount(0);
+    }
+
     // ─── 提交 URL → 201 + 派发异步任务 ───
     public function test_admin_submit_creates_pending_import_and_dispatches_job(): void
     {

@@ -4,7 +4,7 @@ namespace App\Services\Distribution;
 
 use App\Models\DistributionChannelSecret;
 use App\Models\PublishingChannel;
-use Illuminate\Support\Facades\Http;
+use App\Services\Outbound\PublicationHttpClient;
 use Illuminate\Support\Facades\Log;
 
 class DistributionHttpClient
@@ -46,7 +46,7 @@ class DistributionHttpClient
         $timeout = (int) data_get($channel->settings, 'timeout', 30);
 
         try {
-            $response = Http::timeout($timeout)
+            $response = app(PublicationHttpClient::class)->timeout($timeout)
                 ->withHeaders(array_merge($headers, [
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',
@@ -119,7 +119,7 @@ class DistributionHttpClient
 
         $start = microtime(true);
         try {
-            $response = Http::timeout($timeout)
+            $response = app(PublicationHttpClient::class)->timeout($timeout)
                 ->withHeaders(['Accept' => 'application/json'])
                 ->get($url);
         } catch (\Throwable $e) {

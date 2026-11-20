@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\EnterpriseKnowledgeController;
 use App\Http\Controllers\Api\V1\GeoFlowBeaconController;
 use App\Http\Controllers\Api\V1\TeamController;
+use App\Http\Controllers\Api\V1\MagpieModelController;
 use App\Http\Controllers\Api\V1\TenantAiKeyController;
 use App\Http\Controllers\Api\V1\ThemePackageController;
 use Illuminate\Http\Request;
@@ -454,6 +455,19 @@ Route::prefix('v1')
 
         Route::post('ai-keys/test', [TenantAiKeyController::class, 'testConnection'])
             ->middleware('can:team:manage', 'throttle:10,1');
+
+        Route::prefix('ai-keys/magpie')->middleware('can:team:manage')->group(function () {
+            Route::get('/', [MagpieModelController::class, 'index']);
+            Route::post('profiles', [MagpieModelController::class, 'store']);
+            Route::patch('profiles/{profile}', [MagpieModelController::class, 'update'])->whereNumber('profile');
+            Route::delete('profiles/{profile}', [MagpieModelController::class, 'destroy'])->whereNumber('profile');
+            Route::post('profiles/{profile}/directory', [MagpieModelController::class, 'directory'])
+                ->whereNumber('profile')->middleware('throttle:30,1');
+            Route::post('profiles/{profile}/test', [MagpieModelController::class, 'test'])
+                ->whereNumber('profile')->middleware('throttle:10,1');
+            Route::put('bindings/{slot}', [MagpieModelController::class, 'bind'])
+                ->whereIn('slot', ['text', 'vision'])->middleware('throttle:30,1');
+        });
 
         Route::delete('ai-keys/{key}', [TenantAiKeyController::class, 'destroy'])
             ->middleware('can:team:manage');

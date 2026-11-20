@@ -52,7 +52,7 @@ class TaskOrchestrationService
      * 任何异常都会被记录为 failed 的 TaskRun，不会向上抛出（避免污染队列 Worker）。
      */
     public function run(Task $task, string $trigger = TaskRun::TRIGGER_MANUAL,
-        ?string $queueToken = null, ?array $resume = null): TaskRun
+        ?string $queueToken = null, ?array $resume = null, ?array $modelConnectionSnapshot = null): TaskRun
     {
         $tenant = $task->tenant;
 
@@ -94,7 +94,7 @@ class TaskOrchestrationService
             $skill = $this->resolveSkillDefinition($task->skill_id);
             $executionBrief = $brief;
             if ($skill && $resume === null) {
-                $execution = DB::transaction(function () use ($brief, $skill, $run) {
+                $execution = DB::transaction(function () use ($brief, $skill, $run, $modelConnectionSnapshot) {
                     $execution = SkillExecution::create([
                         'project_id' => $brief->projectId,
                         'user_id' => $brief->userId,
@@ -105,6 +105,8 @@ class TaskOrchestrationService
                         'status' => ExecutionStatus::Running->value,
                         'execution_mode' => 'task',
                         'input_data' => $brief->auditableInputData(),
+                        'model_connection_snapshot' => $modelConnectionSnapshot
+                            ?? app(\App\Services\AI\ModelConnectionResolver::class)->snapshot($brief->modelSlot()),
                     ]);
                     // Persist before the model call, so timeout/failed callbacks can
                     // recover the exact execution and already-settled call logs.

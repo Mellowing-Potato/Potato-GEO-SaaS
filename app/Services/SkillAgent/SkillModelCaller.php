@@ -90,6 +90,7 @@ class SkillModelCaller
                     'skill_id' => $brief->skillId,
                     'task_id' => 'skill:'.($brief->executionId ?? \Illuminate\Support\Str::uuid()),
                     'images' => $this->visualInputs($brief),
+                    'execution_id' => $brief->executionId,
                     'max_tokens' => $maxTokens,
                     'temperature' => 0.3,
                     'model' => $model,
@@ -119,7 +120,7 @@ class SkillModelCaller
             }
             PreparedModelAttempt::resolved($brief->executionId, $clientId, $llmResult);
             $attempts[] = $llmResult;
-            if ($brief->executionId) {
+            if ($brief->executionId && ($llmResult->gateway['request_sent'] ?? true) !== false) {
                 try {
                     $executionRecord = SkillExecution::find($brief->executionId);
                     if (! $executionRecord) {
@@ -182,7 +183,7 @@ class SkillModelCaller
 
     public function modelForSkill(SkillDefinition $skill, SkillBrief $brief): string
     {
-        return $this->visualInputs($brief) !== [] ? 'vision' : 'text';
+        return $brief->modelSlot();
     }
 
     public function fallbackModelFor(string $model): ?string
@@ -198,12 +199,6 @@ class SkillModelCaller
     /** Only explicit image fields contain images; words such as “截图” do not trigger vision. */
     public function visualInputs(SkillBrief $brief): array
     {
-        $images = $brief->fields['images'] ?? [];
-        if (! is_array($images)) $images = [];
-        foreach (['image_url', 'screenshot_url'] as $key) {
-            if (! empty($brief->fields[$key])) $images[] = $brief->fields[$key];
-        }
-        return array_values(array_filter($images, static fn ($v) => is_string($v) &&
-            (preg_match('~^data:image/(?:png|jpeg|webp|gif);base64,~', $v) === 1 || (filter_var($v, FILTER_VALIDATE_URL) && in_array(strtolower((string) parse_url($v, PHP_URL_SCHEME)), ['http', 'https'], true)))));
+        return SkillBrief::imageInputs($brief->fields);
     }
 }
