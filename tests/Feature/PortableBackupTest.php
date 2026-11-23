@@ -34,8 +34,8 @@ final class PortableBackupTest extends TestCase
         }
         symlink(PHP_BINARY, $this->release.'/runtime/bin/php');
         file_put_contents($this->release.'/app/artisan', '<?php require '.var_export(base_path('artisan'), true).';');
-        touch($this->release.'/app/portable/yanji');
-        touch($this->release.'/runtime/ca/cacert.pem');
+        copy(base_path('portable/yanji'), $this->release.'/app/portable/yanji');
+        copy(base_path('tests/fixtures/portable-test-ca.pem'), $this->release.'/runtime/ca/cacert.pem');
         $this->instance = new Instance($this->dir.'/数据实例');
         $this->instance->prepare();
         symlink($this->release, $this->instance->root.'/current');
