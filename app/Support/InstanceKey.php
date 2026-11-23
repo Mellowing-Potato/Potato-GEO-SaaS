@@ -176,7 +176,7 @@ final class InstanceKey
             : preg_replace('/^'.self::PENDING.'=[a-f0-9]{64}(?:\r?\n|$)/m', '', $contents));
     }
 
-    public static function assertReady(string $path, bool $portable): void
+    public static function assertReady(string $path, bool $portable): string
     {
         [$key, $id] = self::saved($path);
         self::inspect(function (Connection $db) use ($key, $id, $portable) {
@@ -185,6 +185,12 @@ final class InstanceKey
             }
             self::verify($db, $key, $id, $portable);
         });
+        return self::bindingHash($key, $id);
+    }
+
+    public static function bindingHash(string $key, string $instanceId): string
+    {
+        return hash('sha256', json_encode([$key, $instanceId], JSON_THROW_ON_ERROR));
     }
 
     private static function inspect(callable $check): void
