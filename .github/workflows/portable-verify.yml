@@ -47,7 +47,17 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Restore cached Windows FrankenPHP, PHP 8.5.13, Python 3.12 and fonts
+        id: win-runtime-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            D:\yanji-build\web-out
+            D:\yanji-build\py-out
+          key: yanji-win-rt-v1-${{ hashFiles('licenses/portable-web.json', 'scripts/runtime/build-web-windows.ps1', 'scripts/runtime/collect-web-go-notices.py', 'licenses/portable-python.json', 'scripts/runtime/build-portable-python.py') }}
+
       - name: Build AGPL-free Windows FrankenPHP & PHP 8.5.13 runtime
+        if: steps.win-runtime-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -56,6 +66,7 @@ jobs:
           & .\scripts\runtime\build-web-windows.ps1 -OutputDir D:\yanji-build\web-out -WorkDir D:\yanji-build\web-work
 
       - name: Build bundled Windows Python 3.12 & open-source report fonts
+        if: steps.win-runtime-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -63,6 +74,15 @@ jobs:
           New-Item -ItemType Directory -Force -Path D:\yanji-build\py-out, D:\yanji-build\cache | Out-Null
           python .\scripts\runtime\build-portable-python.py --mode python --platform windows-x86_64 --output D:\yanji-build\py-out --cache-dir D:\yanji-build\cache
           python .\scripts\runtime\build-portable-python.py --mode fonts --output D:\yanji-build\py-out --cache-dir D:\yanji-build\cache
+
+      - name: Save built Windows FrankenPHP, PHP 8.5.13, Python 3.12 and fonts cache
+        if: steps.win-runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            D:\yanji-build\web-out
+            D:\yanji-build\py-out
+          key: yanji-win-rt-v1-${{ hashFiles('licenses/portable-web.json', 'scripts/runtime/build-web-windows.ps1', 'scripts/runtime/collect-web-go-notices.py', 'licenses/portable-python.json', 'scripts/runtime/build-portable-python.py') }}
 
       - name: Build production frontend, npm notices, skills and Composer vendor
         shell: pwsh
@@ -126,17 +146,11 @@ jobs:
             --fonts-sha256 $fontSha `
             --output D:\yanji-build\candidate
 
-      - name: Native Windows x64 full cold-install, timeout, private-404, 11-renderer and restore acceptance
+      - name: Native Windows x64 11-skill render matrix (bundled Python + fonts only)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          $sumsSha = (Get-FileHash D:\yanji-build\candidate\SHA256SUMS -Algorithm SHA256).Hash.ToLowerInvariant()
-          # Run full native Windows runtime suite WITHOUT -PythonBin
-          python .\scripts\test-portable-runtime.py --package-dir D:\yanji-build\candidate --manifest-sha256 $sumsSha
-          if ($LASTEXITCODE -ne 0) { throw "Windows test-portable-runtime.py failed with exit code $LASTEXITCODE" }
-
-          # Also run 11-skill render matrix using ONLY the bundled Windows Python + bundled fonts
           New-Item -ItemType Directory -Force -Path D:\yanji-build\render-check | Out-Null
           Expand-Archive -Path D:\yanji-build\candidate\yanji-windows-x86_64.zip -DestinationPath D:\yanji-build\render-check -Force
           Copy-Item D:\yanji-build\vendor-src\vendor .\vendor -Recurse -Force
@@ -152,6 +166,16 @@ jobs:
           $renderLines = @($renderOut | Where-Object { $_ -match '^yao-geo-' })
           $renderOut | ForEach-Object { Write-Host $_ }
           if ($renderLines.Count -ne 11) { throw "Expected 11 rendered skill reports, got $($renderLines.Count)" }
+
+      - name: Native Windows x64 full cold-install, timeout, private-404 and restore acceptance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $sumsSha = (Get-FileHash D:\yanji-build\candidate\SHA256SUMS -Algorithm SHA256).Hash.ToLowerInvariant()
+          # Run full native Windows runtime suite WITHOUT -PythonBin
+          python .\scripts\test-portable-runtime.py --package-dir D:\yanji-build\candidate --manifest-sha256 $sumsSha
+          if ($LASTEXITCODE -ne 0) { throw "Windows test-portable-runtime.py failed with exit code $LASTEXITCODE" }
 
   linux-native-python-and-render:
     name: Native Linux ${{ matrix.platform }} Bundled Python & 11-Renderer Verification

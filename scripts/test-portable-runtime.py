@@ -252,6 +252,30 @@ def scenario(args, work):
             python_version=doctor.get('python', {}).get('version'),
         )
     except Exception:
+        if IS_WIN and password.exists():
+            print('=== windows password ACL diagnostic ===', file=sys.stderr)
+            print('icacls:', subprocess.run(['icacls', str(password)], capture_output=True, text=True).stdout, file=sys.stderr)
+            diag_ps = (
+                "$p = $env:DIAG_P; $me = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value; "
+                "$acl = [System.IO.File]::GetAccessControl($p); "
+                "$rules = @($acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]) | ForEach-Object { $_.IdentityReference.Value }); "
+                "Write-Output ('me=' + $me + ' rules=' + ($rules -join ','))"
+            )
+            diag_env = dict(os.environ, DIAG_P=str(password))
+            res = subprocess.run(['powershell.exe', '-NoProfile', '-Command', diag_ps], capture_output=True, text=True, env=diag_env)
+            print('ps-acl rc=', res.returncode, 'out=', res.stdout.strip(), 'err=', res.stderr.strip(), file=sys.stderr)
+            rel_dirs = list((program / 'releases').glob('*')) if (program / 'releases').is_dir() else []
+            for rd in rel_dirs:
+                pbin = rd / 'runtime/bin/php.exe'
+                if pbin.is_file():
+                    probe_code = (
+                        "$f = $argv[1]; $h = fopen($f, 'rb'); $st = fstat($h); "
+                        "require $argv[2]; "
+                        "var_export(['is_link'=>is_link($f),'mode'=>decoct($st['mode']),'size'=>$st['size'],'priv'=>\\Yanji\\Portable\\Platform::isPrivate($f)]);"
+                    )
+                    pr = subprocess.run([str(pbin), '-n', '-r', probe_code, str(password), str(rd / 'app/portable/src/Platform.php')], capture_output=True, text=True)
+                    print('php-probe rc=', pr.returncode, 'out=', pr.stdout.strip(), 'err=', pr.stderr.strip(), file=sys.stderr)
+                    break
         for log_name in ('manager.log', 'manager-err.log', 'web.log', 'worker.log', 'scheduler.log', 'lifecycle.log'):
             lp = instance / 'logs' / log_name
             if lp.is_file() and lp.stat().st_size > 0:
