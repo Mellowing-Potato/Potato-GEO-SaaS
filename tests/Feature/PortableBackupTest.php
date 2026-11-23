@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Encryption\Encrypter;
 use Illuminate\Support\Facades\File;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
 use Yanji\Portable\Backup;
@@ -31,18 +33,26 @@ final class PortableBackupTest extends TestCase
             mkdir($this->release.'/'.$name, 0700, true);
         }
         symlink(PHP_BINARY, $this->release.'/runtime/bin/php');
-        file_put_contents($this->release.'/app/artisan', '<?php exit(7);');
+        file_put_contents($this->release.'/app/artisan', '<?php require '.var_export(base_path('artisan'), true).';');
         touch($this->release.'/app/portable/yanji');
         touch($this->release.'/runtime/ca/cacert.pem');
         $this->instance = new Instance($this->dir.'/数据实例');
         $this->instance->prepare();
         symlink($this->release, $this->instance->root.'/current');
         file_put_contents($this->instance->root.'/instance.json', '{"port":8182}');
-        file_put_contents($this->instance->root.'/.env', 'APP_KEY=base64:'.base64_encode(random_bytes(32))."\n");
+        $key = random_bytes(32);
+        $id = bin2hex(random_bytes(16));
+        file_put_contents($this->instance->root.'/.env', 'APP_KEY=base64:'.base64_encode($key)."\nYANJI_INSTANCE_ID={$id}\n");
         $db = new \PDO('sqlite:'.$this->instance->root.'/database/database.sqlite');
         $db->exec('PRAGMA journal_mode=WAL');
         $db->exec('CREATE TABLE facts (id INTEGER PRIMARY KEY)');
         $db->exec('INSERT INTO facts VALUES (19)');
+        $db->exec('CREATE TABLE users (role TEXT)');
+        $db->exec("INSERT INTO users (role) VALUES ('platform_admin')");
+        $db->exec('CREATE TABLE instance_settings (id INTEGER PRIMARY KEY, key_verification TEXT)');
+        $db->prepare('INSERT INTO instance_settings VALUES (1, ?)')->execute([
+            (new Encrypter($key, 'AES-256-CBC'))->encryptString('yanji-instance-v1:'.$id),
+        ]);
     }
 
     protected function tearDown(): void
@@ -106,6 +116,7 @@ final class PortableBackupTest extends TestCase
             $this->assertStringContainsString('备份不匹配当前程序版本', $error->getMessage());
         }
         $this->assertSame(['.', '..'], scandir($target->root));
+        file_put_contents($this->release.'/app/artisan', '<?php exit(7);');
         try {
             Backup::restore($target, $archive, $this->release, 8183);
             $this->fail('A release that fails its portable readiness check must not publish the backup.');
@@ -124,6 +135,34 @@ final class PortableBackupTest extends TestCase
             $this->assertNotSame('', $error->getMessage());
         }
         $this->assertSame(['.', '..'], scandir($target->root));
+    }
+
+    public static function mismatchedBindings(): array
+    {
+        return ['missing key' => ['APP_KEY', null], 'different key' => ['APP_KEY', 'key'], 'different instance' => ['YANJI_INSTANCE_ID', 'id']];
+    }
+
+    #[DataProvider('mismatchedBindings')]
+    public function test_unrestorable_source_never_publishes_a_successful_backup(string $variable, ?string $replacement): void
+    {
+        $env = $this->instance->root.'/.env';
+        $db = $this->instance->root.'/database/database.sqlite';
+        $value = match ($replacement) {
+            'key' => 'base64:'.base64_encode(random_bytes(32)), 'id' => bin2hex(random_bytes(16)), default => '',
+        };
+        $contents = preg_replace('/^'.$variable.'=.*$/m', $variable.'='.$value, file_get_contents($env));
+        file_put_contents($env, $contents);
+        $originalDb = hash_file('sha256', $db);
+        $archive = $this->dir.'/unrestorable.zip';
+        try {
+            Backup::create($this->instance, $archive);
+            $this->fail('A backup from incompatible instance keys must not be published.');
+        } catch (RuntimeException $error) {
+            $this->assertStringContainsString('就绪', $error->getMessage());
+        }
+        $this->assertFileDoesNotExist($archive);
+        $this->assertSame($contents, file_get_contents($env));
+        $this->assertSame($originalDb, hash_file('sha256', $db));
     }
 
     public function test_refuses_existing_files_recursive_outputs_and_linked_private_data(): void

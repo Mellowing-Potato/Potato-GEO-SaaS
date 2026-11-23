@@ -25,20 +25,30 @@ final class Backup
         }
         $work = self::workspace($parent);
         try {
-            $snapshot = $work.'/database.sqlite';
+            $probe = $work.'/binding';
+            Instance::privateDir($probe.'/database');
+            $snapshot = $probe.'/'.self::DATABASE;
             if (is_link($instance->root.'/database') || is_link($instance->root.'/storage')) {
                 throw new RuntimeException('数据目录不能指向实例外。');
             }
+            $env = $instance->root.'/.env';
+            if (! is_file($env) || is_link($env) || ($contents = file_get_contents($env)) === false) {
+                throw new RuntimeException('实例缺少与数据库配套的原环境文件。');
+            }
+            Instance::atomicFile($probe.'/.env', $contents);
             SqliteSnapshot::create($instance->root.'/'.self::DATABASE, $snapshot);
+            $release = $instance->release();
+            $port = $instance->port();
+            self::verifyBinding($probe, $release, $port);
             $zip = new ZipArchive;
             $archive = $work.'/instance.zip';
             if ($zip->open($archive, ZipArchive::CREATE | ZipArchive::EXCL) !== true) {
                 throw new RuntimeException('不能创建备份归档。');
             }
-            $manifest = ['schema' => 1, 'release' => basename($instance->release()), 'port' => $instance->port(),
+            $manifest = ['schema' => 1, 'release' => basename($release), 'port' => $port,
                 'created_at' => gmdate(DATE_ATOM), 'files' => [], 'directories' => []];
             try {
-                self::addFile($zip, $manifest, '.env', $instance->root.'/.env');
+                self::addFile($zip, $manifest, '.env', $probe.'/.env');
                 self::addFile($zip, $manifest, self::DATABASE, $snapshot);
                 self::addStorage($zip, $manifest, $instance->root, 'storage/app');
                 if (! $zip->addFromString('manifest.json', json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES))
@@ -61,13 +71,17 @@ final class Backup
 
     public static function restore(Instance $target, string $archive, string $release, int $port): void
     {
-        self::publishToEmpty($archive, $target->root, static function (string $data) use ($release, $port): void {
-            $probe = new Instance($data);
-            (new Installation($probe))->configure($release, $port);
-            if ($probe->artisan(['yanji:ready', '--portable'], quiet: true) !== 0) {
-                throw new RuntimeException('备份中的环境密钥、数据库或管理员未通过就绪验证。请恢复配套的原始备份。');
-            }
-        }, expectedRelease: basename($release));
+        self::publishToEmpty($archive, $target->root,
+            static fn (string $data) => self::verifyBinding($data, $release, $port), expectedRelease: basename($release));
+    }
+
+    private static function verifyBinding(string $data, string $release, int $port): void
+    {
+        $probe = new Instance($data);
+        (new Installation($probe))->configure($release, $port);
+        if ($probe->artisan(['yanji:ready', '--portable'], quiet: true) !== 0) {
+            throw new RuntimeException('备份中的环境密钥、数据库或管理员未通过就绪验证。请核对配套的原始数据。');
+        }
     }
 
     public static function extractToEmpty(string $archive, string $target): void
