@@ -129,6 +129,16 @@ final class Platform
         return $env;
     }
 
+    public static function encodePowerShellCommand(string $asciiScript): string
+    {
+        $utf16 = '';
+        $len = strlen($asciiScript);
+        for ($i = 0; $i < $len; $i++) {
+            $utf16 .= $asciiScript[$i]."\x00";
+        }
+        return base64_encode($utf16);
+    }
+
     public static function protectPrivate(string $path, bool $isDir, bool $executable = false): void
     {
         if (is_link($path) || ($isDir ? !is_dir($path) : !is_file($path))) {
@@ -163,7 +173,7 @@ PS;
         $env = self::windowsPowerShellEnv(getenv());
         $env['YANJI_ACL_PATH'] = $native;
         $proc = @proc_open(
-            [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', $ps],
+            [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', self::encodePowerShellCommand($ps)],
             [0 => ['file', 'NUL', 'r'], 1 => ['file', 'NUL', 'w'], 2 => ['file', 'NUL', 'w']],
             $pipes,
             null,
@@ -200,7 +210,7 @@ PS;
         $env = self::windowsPowerShellEnv(getenv());
         $env['YANJI_ACL_PATH'] = $native;
         $proc = @proc_open(
-            [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', $ps],
+            [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', self::encodePowerShellCommand($ps)],
             [0 => ['file', 'NUL', 'r'], 1 => ['file', 'NUL', 'w'], 2 => ['file', 'NUL', 'w']],
             $pipes,
             null,
@@ -317,7 +327,7 @@ PS;
         }
         $launchEnv = self::windowsPowerShellEnv($env + $extra);
         $proc = @proc_open(
-            [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', $ps51],
+            [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', self::encodePowerShellCommand($ps51)],
             [0 => ['file', 'NUL', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             $cwd,
@@ -347,7 +357,7 @@ PS;
         $env['YANJI_J_TARGET'] = self::nativePath($target);
         $ps = 'New-Item -ItemType Junction -Path $env:YANJI_J_LINK -Target $env:YANJI_J_TARGET -Force | Out-Null';
         $proc = @proc_open(
-            [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', $ps],
+            [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', self::encodePowerShellCommand($ps)],
             [0 => ['file', 'NUL', 'r'], 1 => ['file', 'NUL', 'w'], 2 => ['file', 'NUL', 'w']],
             $pipes,
             null,

@@ -214,7 +214,7 @@ def scenario(args, work):
             restore_cmd.extend(['--python-bin', str(args.python_bin)])
         subprocess.run(restore_cmd, check=True)
         restored_manage = ['cmd.exe', '/c', str(restored_instance / 'yanji.cmd')] if IS_WIN else [str(restored_instance / 'yanji')]
-        restored_doc = json.loads(subprocess.check_output([*restored_manage, 'doctor'], text=True))
+        restored_doc = json.loads(subprocess.check_output([*restored_manage, 'doctor'], text=True, encoding='utf-8'))
         if not restored_doc.get('database_key_admin_ready') or not restored_doc.get('permissions'):
             raise AssertionError(f'Restored instance doctor failed: {restored_doc}')
         subprocess.run([*restored_manage, 'stop'], check=True)
@@ -251,6 +251,13 @@ def scenario(args, work):
             port_released=True,
             python_version=doctor.get('python', {}).get('version'),
         )
+    except Exception:
+        for log_name in ('manager.log', 'manager-err.log', 'web.log', 'worker.log', 'scheduler.log', 'lifecycle.log'):
+            lp = instance / 'logs' / log_name
+            if lp.is_file() and lp.stat().st_size > 0:
+                print(f'=== {log_name} ===', file=sys.stderr)
+                print(lp.read_text(encoding='utf-8', errors='replace')[-4000:], file=sys.stderr)
+        raise
     finally:
         for inst in (instance, restored_instance):
             launcher = inst / ('yanji.cmd' if IS_WIN else 'yanji')
