@@ -200,6 +200,7 @@ try {
         'runtime/bin/php.exe' = $true
         'runtime/bin/php8ts.dll' = $true
         'app/portable/preflight.php' = $true
+        'app/portable/publish.php' = $true
         'app/portable/src/Platform.php' = $true
         'app/portable/src/Instance.php' = $true
     }
@@ -262,7 +263,7 @@ try {
             }
         }
         [System.IO.File]::WriteAllText((Join-Path $stage '.archive-sha256'), "$pkgSha`n", [System.Text.Encoding]::ASCII)
-        & (Join-Path $stage 'runtime\bin\php.exe') -n (Join-Path $stage 'app\portable\publish.php') $stage $release
+        & $prePhp -n (Join-Path $scratch 'preflight\app\portable\publish.php') $stage $release
         if ($LASTEXITCODE -ne 0) { Fail '无法发布已核验的程序版本。' }
         if (-not (Test-Path -LiteralPath $stage)) { $stage = $null }
     }
