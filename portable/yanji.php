@@ -56,6 +56,7 @@ function runPortable(array $args): int
         if ($i->artisan(['yanji:ready','--portable'], quiet:true) !== 0) {
             throw new RuntimeException('恢复的实例密钥与数据库未通过就绪检查。');
         }
+        Instance::atomicFile($i->root.'/.portable-initialized', "verified\n");
         $services->start();
         echo "恢复完成 http://127.0.0.1:".$i->port()."\n";
         return 0;
@@ -118,6 +119,9 @@ function runPortable(array $args): int
     }
     $lock = $i->commandLock();
     try {
+        if ($command !== '__upgrade' && is_file($i->root.'/run/upgrade-hold') && $command !== 'stop') {
+            throw new RuntimeException('升级维护门仍在，请重新执行原升级命令恢复，或向新目录恢复备份。');
+        }
         switch ($command) {
             case '__install':
                 if (!file_exists($i->root.'/.portable-layout')) {

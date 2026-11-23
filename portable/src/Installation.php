@@ -41,6 +41,13 @@ final class Installation
             }
         }
         $db = $i->root.'/database/database.sqlite';
+        $initialized = $i->root.'/.portable-initialized';
+        if (is_file($initialized) && (!is_file($db) || filesize($db) === 0 || !is_file($i->root.'/.env'))) {
+            throw new RuntimeException('已初始化实例缺数据库或环境文件，请恢复配套备份。');
+        }
+        if (!is_file($db) && is_file($i->root.'/.env') && preg_match('/^APP_KEY=[^\r\n]+$/m', file_get_contents($i->root.'/.env'))) {
+            throw new RuntimeException('原环境密钥仍在，但数据库缺失，请恢复配套备份。');
+        }
         if (!is_file($i->root.'/.env') && is_file($db) && filesize($db) > 0) {
             throw new RuntimeException('现有数据库缺少原环境文件，请恢复配套备份。');
         }
@@ -81,6 +88,7 @@ final class Installation
             $this->securePath($path);
         }
         if ($i->artisan(['yanji:ready', '--portable', '--quiet'], quiet: true) === 0) {
+            Instance::atomicFile($initialized, "verified\n");
             return;
         }
         $args = ['yanji:install','--portable'];
@@ -91,6 +99,7 @@ final class Installation
         if ($i->artisan($args, $input) !== 0 || $i->artisan(['yanji:ready','--portable'], quiet: true) !== 0) {
             throw new RuntimeException('初始化未完成。请使用原实例目录重试或运行 yanji doctor。');
         }
+        Instance::atomicFile($initialized, "verified\n");
     }
 
     private function securePath(string $path): void

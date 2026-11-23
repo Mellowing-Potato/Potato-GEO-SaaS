@@ -304,6 +304,7 @@ final class Supervisor
             $services[$role] = ['pid' => $this->children[$role]['pid'] ?? null, 'heartbeat' => $heartbeat, 'healthy' => $heartbeat !== null];
         }
         return ['instance' => hash('sha256', $this->instance->root), 'manager_pid' => getmypid(),
+            'writes_enabled' => !is_file($this->instance->root.'/run/upgrade-hold'),
             'ready' => !$this->stopping && !in_array(false, array_column($services, 'healthy'), true), 'services' => $services];
     }
 
