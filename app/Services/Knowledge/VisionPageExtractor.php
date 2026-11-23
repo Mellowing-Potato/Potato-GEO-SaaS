@@ -311,7 +311,7 @@ class VisionPageExtractor
             $metadata['vision_attempts'][$attempt] = ['status' => 'prepared'];
             $current->update(['metadata' => $metadata]);
             return null;
-        });
+        }, attempts: 3);
         if ($saved !== null) {
             return new AiProviderCallResult(...$saved);
         }
@@ -323,7 +323,7 @@ class VisionPageExtractor
             $metadata = $current->metadata ?? [];
             $metadata['vision_attempts'][$attempt] = ['status' => 'recorded', 'result' => get_object_vars($result)];
             $current->update(['metadata' => $metadata]);
-        });
+        }, attempts: 3);
         $document->refresh();
         if ($document->project_id && $document->uploaded_by && ($result->gateway['request_sent'] ?? true) !== false) {
             app(\App\Services\Billing\AssistUsageRecorder::class)->record(
