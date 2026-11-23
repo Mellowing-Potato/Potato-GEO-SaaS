@@ -116,6 +116,19 @@ final class Platform
         return is_file($ps) ? $ps : 'powershell.exe';
     }
 
+    private static function windowsPowerShellEnv(array $env): array
+    {
+        $sysRoot = getenv('SystemRoot') ?: (getenv('WINDIR') ?: 'C:\\Windows');
+        $psMod = rtrim($sysRoot, '\\/').'\\System32\\WindowsPowerShell\\v1.0\\Modules';
+        foreach (array_keys($env) as $k) {
+            if (strcasecmp((string) $k, 'PSModulePath') === 0) {
+                unset($env[$k]);
+            }
+        }
+        $env['PSModulePath'] = $psMod;
+        return $env;
+    }
+
     public static function protectPrivate(string $path, bool $isDir, bool $executable = false): void
     {
         if (is_link($path) || ($isDir ? !is_dir($path) : !is_file($path))) {
@@ -263,9 +276,9 @@ final class Platform
     {
         $ps51 = <<<'PS'
 $ErrorActionPreference = 'Stop'
-$rawArgs = @((ConvertFrom-Json $env:YANJI_DETACH_ARGS))
-$quoted = foreach ($a in $rawArgs) {
-    $s = [string]$a
+$count = [int]$env:YANJI_DETACH_ARGC
+$quoted = for ($i = 0; $i -lt $count; $i++) {
+    $s = [string][Environment]::GetEnvironmentVariable("YANJI_DETACH_ARG_$i")
     if ($s -eq '' -or $s -match '[\s"]') {
         $s = $s -replace '(\\*)"', '$1$1\"'
         $s = $s -replace '(\\+)$', '$1$1'
@@ -278,13 +291,18 @@ $argString = ($quoted -join ' ')
 $p = Start-Process -FilePath $env:YANJI_DETACH_EXE -ArgumentList $argString -WorkingDirectory $env:YANJI_DETACH_CWD -WindowStyle Hidden -RedirectStandardOutput $env:YANJI_DETACH_OUT -RedirectStandardError $env:YANJI_DETACH_ERR -PassThru
 Write-Output $p.Id
 PS;
-        $launchEnv = $env + [
+        $values = array_values($args);
+        $extra = [
             'YANJI_DETACH_EXE' => self::nativePath($exe),
-            'YANJI_DETACH_ARGS' => json_encode(array_values($args), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            'YANJI_DETACH_ARGC' => (string) count($values),
             'YANJI_DETACH_CWD' => self::nativePath($cwd),
             'YANJI_DETACH_OUT' => self::nativePath($stdoutLog),
             'YANJI_DETACH_ERR' => self::nativePath($stderrLog),
         ];
+        foreach ($values as $idx => $val) {
+            $extra['YANJI_DETACH_ARG_'.$idx] = (string) $val;
+        }
+        $launchEnv = self::windowsPowerShellEnv($env + $extra);
         $proc = @proc_open(
             [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', $ps51],
             [0 => ['file', 'NUL', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
@@ -311,7 +329,7 @@ PS;
         if (is_dir($link) || is_link($link)) {
             @rmdir(self::nativePath($link));
         }
-        $env = getenv();
+        $env = self::windowsPowerShellEnv(getenv());
         $env['YANJI_J_LINK'] = self::nativePath($link);
         $env['YANJI_J_TARGET'] = self::nativePath($target);
         $ps = 'New-Item -ItemType Junction -Path $env:YANJI_J_LINK -Target $env:YANJI_J_TARGET -Force | Out-Null';

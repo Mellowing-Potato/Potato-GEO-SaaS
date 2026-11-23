@@ -16,6 +16,9 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+if ($PSVersionTable.PSEdition -eq 'Desktop' -and $env:SystemRoot) {
+    $env:PSModulePath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\Modules'
+}
 try {
     $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
     [Console]::OutputEncoding = $utf8NoBom
@@ -70,12 +73,49 @@ if ($ProgramHome -notmatch '^[A-Za-z]:[\\/]' -or $Instance -notmatch '^[A-Za-z]:
 }
 
 function Get-Sha256([string]$Path) {
-    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $bytes = $sha.ComputeHash($stream)
+        return ([System.BitConverter]::ToString($bytes) -replace '-', '').ToLowerInvariant()
+    } finally {
+        $stream.Dispose()
+        $sha.Dispose()
+    }
+}
+
+function Download-Https([string]$Url, [string]$Dest) {
+    $current = $Url
+    for ($hops = 0; $hops -lt 10; $hops++) {
+        if ($current -notmatch '^https://') {
+            Fail '远端安装材料与重定向仅接受 HTTPS。'
+        }
+        $req = [System.Net.HttpWebRequest]::Create($current)
+        $req.AllowAutoRedirect = $false
+        $req.UserAgent = 'Yanji-Installer/1.0'
+        $resp = $req.GetResponse()
+        try {
+            $code = [int]$resp.StatusCode
+            if ($code -in 301, 302, 303, 307, 308) {
+                $loc = $resp.Headers['Location']
+                if (-not $loc) { Fail '远端重定向缺少目标地址。' }
+                $current = ([System.Uri]::new([System.Uri]::new($current), $loc)).AbsoluteUri
+                continue
+            }
+            $inStream = $resp.GetResponseStream()
+            $outStream = [System.IO.File]::Create($Dest)
+            try { $inStream.CopyTo($outStream) } finally { $outStream.Dispose(); $inStream.Dispose() }
+            return
+        } finally {
+            $resp.Dispose()
+        }
+    }
+    Fail '远端下载重定向次数过多。'
 }
 
 function Fetch-Material([string]$Source, [string]$Dest) {
     if ($Source -match '^https://') {
-        Invoke-WebRequest -Uri $Source -OutFile $Dest -UseBasicParsing
+        Download-Https $Source $Dest
     } elseif ($Source -match '^[A-Za-z][A-Za-z0-9+.-]*://') {
         Fail '远端安装材料仅接受 HTTPS。'
     } else {
@@ -140,7 +180,8 @@ try {
             '-Upgrade', '-Manifest', $Manifest, '-ManifestSha256', $ManifestSha256,
             '-ProgramHome', $ProgramHome, '-Instance', $Instance)
         if ($Package) { $fwd += @('-Package', $Package) }
-        & powershell.exe @fwd
+        $psHost = if ($PSVersionTable.PSEdition -eq 'Core') { 'pwsh' } else { 'powershell.exe' }
+        & $psHost @fwd
         exit $LASTEXITCODE
     }
 

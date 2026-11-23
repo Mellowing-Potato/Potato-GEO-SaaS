@@ -72,12 +72,42 @@ fi
     New-Item -ItemType Directory -Force -Path $tmp | Out-Null
     try {{
         $installer = Join-Path $tmp 'install-local.ps1'
-        Invoke-WebRequest -Uri "$BaseUrl/install-local.ps1" -OutFile $installer -UseBasicParsing
-        $actual = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+        $current = "$BaseUrl/install-local.ps1"
+        for ($hops = 0; $hops -lt 10; $hops++) {{
+            if ($current -notmatch '^https://') {{ throw '远端安装脚本与重定向仅接受 HTTPS。' }}
+            $req = [System.Net.HttpWebRequest]::Create($current)
+            $req.AllowAutoRedirect = $false
+            $req.UserAgent = 'Yanji-Bootstrap/1.0'
+            $resp = $req.GetResponse()
+            try {{
+                $code = [int]$resp.StatusCode
+                if ($code -in 301, 302, 303, 307, 308) {{
+                    $loc = $resp.Headers['Location']
+                    if (-not $loc) {{ throw '远端重定向缺少目标地址。' }}
+                    $current = ([System.Uri]::new([System.Uri]::new($current), $loc)).AbsoluteUri
+                    continue
+                }}
+                $inStream = $resp.GetResponseStream()
+                $outStream = [System.IO.File]::Create($installer)
+                try {{ $inStream.CopyTo($outStream) }} finally {{ $outStream.Dispose(); $inStream.Dispose() }}
+                break
+            }} finally {{
+                $resp.Dispose()
+            }}
+        }}
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        $fs = [System.IO.File]::OpenRead($installer)
+        try {{
+            $actual = ([System.BitConverter]::ToString($sha.ComputeHash($fs)) -replace '-', '').ToLowerInvariant()
+        }} finally {{
+            $fs.Dispose()
+            $sha.Dispose()
+        }}
         if ($actual -ne $InstallerSha256) {{
             throw '安装脚本 SHA-256 校验失败。'
         }}
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Manifest "$BaseUrl/SHA256SUMS" -ManifestSha256 $ManifestSha256 @args
+        $psHost = if ($PSVersionTable.PSEdition -eq 'Core') {{ 'pwsh' }} else {{ 'powershell.exe' }}
+        & $psHost -NoProfile -ExecutionPolicy Bypass -File $installer -Manifest "$BaseUrl/SHA256SUMS" -ManifestSha256 $ManifestSha256 @args
         if ($LASTEXITCODE -ne 0) {{
             throw "安装脚本返回失败（退出码 $LASTEXITCODE）。"
         }}

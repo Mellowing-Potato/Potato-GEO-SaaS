@@ -50,12 +50,16 @@ jobs:
       - name: Build AGPL-free Windows FrankenPHP & PHP 8.5.13 runtime
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           New-Item -ItemType Directory -Force -Path D:\yanji-build\web-out | Out-Null
           & .\scripts\runtime\build-web-windows.ps1 -OutputDir D:\yanji-build\web-out -WorkDir D:\yanji-build\web-work
 
       - name: Build bundled Windows Python 3.12 & open-source report fonts
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           New-Item -ItemType Directory -Force -Path D:\yanji-build\py-out, D:\yanji-build\cache | Out-Null
           python .\scripts\runtime\build-portable-python.py --mode python --platform windows-x86_64 --output D:\yanji-build\py-out --cache-dir D:\yanji-build\cache
           python .\scripts\runtime\build-portable-python.py --mode fonts --output D:\yanji-build\py-out --cache-dir D:\yanji-build\cache
@@ -63,6 +67,8 @@ jobs:
       - name: Build production frontend, npm notices, skills and Composer vendor
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           npm ci --ignore-scripts
           npm run build
           New-Item -ItemType Directory -Force -Path D:\yanji-build\npm-licenses, D:\yanji-build\skills, D:\yanji-build\vendor-src | Out-Null
@@ -95,6 +101,8 @@ jobs:
       - name: Assemble verified yanji-windows-x86_64.zip package
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           $out = Get-Content D:\yanji-build\web-out\windows-web-outputs.json -Raw | ConvertFrom-Json
           $pySha = (Get-FileHash D:\yanji-build\py-out\yanji-python-windows-x86_64.tar.gz -Algorithm SHA256).Hash.ToLowerInvariant()
           $fontSha = (Get-FileHash D:\yanji-build\py-out\yanji-report-fonts.tar.gz -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -121,23 +129,29 @@ jobs:
       - name: Native Windows x64 full cold-install, timeout, private-404, 11-renderer and restore acceptance
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           $sumsSha = (Get-FileHash D:\yanji-build\candidate\SHA256SUMS -Algorithm SHA256).Hash.ToLowerInvariant()
           # Run full native Windows runtime suite WITHOUT -PythonBin
           python .\scripts\test-portable-runtime.py --package-dir D:\yanji-build\candidate --manifest-sha256 $sumsSha
+          if ($LASTEXITCODE -ne 0) { throw "Windows test-portable-runtime.py failed with exit code $LASTEXITCODE" }
 
           # Also run 11-skill render matrix using ONLY the bundled Windows Python + bundled fonts
           New-Item -ItemType Directory -Force -Path D:\yanji-build\render-check | Out-Null
           Expand-Archive -Path D:\yanji-build\candidate\yanji-windows-x86_64.zip -DestinationPath D:\yanji-build\render-check -Force
           Copy-Item D:\yanji-build\vendor-src\vendor .\vendor -Recurse -Force
           $env:YANJI_REPORT_FONTS_DIR = "D:\yanji-build\render-check\runtime\fonts"
-          & D:\yanji-build\render-check\runtime\bin\php.exe -n `
+          $renderOut = & D:\yanji-build\render-check\runtime\bin\php.exe -n `
             -d "extension_dir=D:\yanji-build\render-check\runtime\bin\ext" `
             -d extension=openssl -d extension=mbstring -d extension=sqlite3 -d extension=pdo_sqlite -d extension=zip -d extension=curl -d extension=fileinfo -d extension=gd `
             .\scripts\test-skill-render-matrix.php `
             --skills="D:\yanji-build\render-check\app\yao-geo-skills\skills" `
             --python="D:\yanji-build\render-check\runtime\python\python.exe" `
             --mode=optional
-          if ($LASTEXITCODE -ne 0) { throw "Windows 11-skill render matrix failed" }
+          if ($LASTEXITCODE -ne 0) { throw "Windows 11-skill render matrix failed with exit code $LASTEXITCODE" }
+          $renderLines = @($renderOut | Where-Object { $_ -match '^yao-geo-' })
+          $renderOut | ForEach-Object { Write-Host $_ }
+          if ($renderLines.Count -ne 11) { throw "Expected 11 rendered skill reports, got $($renderLines.Count)" }
 
   linux-native-python-and-render:
     name: Native Linux ${{ matrix.platform }} Bundled Python & 11-Renderer Verification

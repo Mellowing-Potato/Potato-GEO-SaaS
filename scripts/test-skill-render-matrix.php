@@ -41,10 +41,10 @@ foreach ([
     $_ENV[$key] = $_SERVER[$key] = $value;
 }
 require $root.'/vendor/autoload.php';
-$app = require $root.'/bootstrap/app.php';
-$app->make(Kernel::class)->bootstrap();
-
 try {
+    $app = require $root.'/bootstrap/app.php';
+    $app->make(Kernel::class)->bootstrap();
+
     $loader = app(SkillAssetLoader::class);
     $bridge = app(RenderBridgeService::class);
     $count = 0;
@@ -93,6 +93,9 @@ try {
     if ($count !== 11) {
         throw new RuntimeException("Expected eleven effective renderers, ran $count.");
     }
+} catch (Throwable $error) {
+    fwrite(STDERR, $error::class.': '.$error->getMessage().PHP_EOL);
+    exit(1);
 } finally {
     File::deleteDirectory($temp);
 }
