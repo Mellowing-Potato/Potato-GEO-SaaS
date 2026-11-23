@@ -41,6 +41,7 @@ final class Supervisor
             return $existing;
         }
         if ($existing === null) {
+            $this->assertNoOrphans();
             if ($this->instance->artisan(['yanji:ready', '--portable', '--quiet'], quiet: true) !== 0) {
                 throw new RuntimeException('实例密钥、管理员或数据库未就绪，请运行 yanji doctor。');
             }
@@ -83,6 +84,7 @@ final class Supervisor
     {
         if ($this->request('stop') === null) {
             // A stale PID or socket never authorizes killing a host process.
+            $this->assertNoOrphans();
             return;
         }
         $deadline = microtime(true) + self::DRAIN_SECONDS + 8;
@@ -97,6 +99,20 @@ final class Supervisor
     }
 
     // The production worker timeout is 540 seconds. Allow in-flight requests to complete.
+    private function assertNoOrphans(): void
+    {
+        $run = $this->instance->root.'/run';
+        if (!is_dir($run)) {
+            throw new RuntimeException('找不到实例。');
+        }
+        $lease = fopen($run.'/services.lock', 'ce');
+        if (!$lease || !flock($lease, LOCK_EX | LOCK_NB)) {
+            throw new RuntimeException('托管端点无法确认，但仍有服务持有实例锁；已暂停操作，请先核对后台进程。');
+        }
+        flock($lease, LOCK_UN);
+        fclose($lease);
+    }
+
     private const DRAIN_SECONDS = 570;
 
     /** Replacing the process avoids inherited terminal streams and shell interpolation of arguments. */
@@ -186,6 +202,12 @@ final class Supervisor
             pcntl_signal(SIGTERM, SIG_DFL);
             pcntl_signal(SIGINT, SIG_DFL);
             if (!posix_setpgid(0, 0)) {
+                exit(126);
+            }
+            // Deliberately inherit this shared lease across exec. A dead supervisor cannot authorize
+            // backups, upgrades or a second generation while its services still own the database.
+            $lease = fopen($this->instance->root.'/run/services.lock', 'c');
+            if (!$lease || !flock($lease, LOCK_SH | LOCK_NB)) {
                 exit(126);
             }
             $this->execLogged($cmd, $role, $role === 'worker' ? ['YANJI_WORKER_GENERATION'=>$generation] : []);

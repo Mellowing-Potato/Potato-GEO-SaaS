@@ -185,6 +185,7 @@ final class Instance
             'YANJI_PORT' => (string) $port, 'YANJI_ENV_PATH' => $this->root,
             'YANJI_UPGRADE_HOLD' => $this->root.'/run/upgrade-hold',
             'YANJI_PUBLIC_PATH' => $this->root.'/public', 'LARAVEL_STORAGE_PATH' => $storage,
+            'DB_SQLITE_TRANSACTION_MODE' => 'IMMEDIATE',
             'DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => $this->root.'/database/database.sqlite',
             'YANJI_BROWSER_COOKIE_NAME' => 'geo_session_'.substr(hash('sha256', $this->root), 0, 24),
             'SESSION_COOKIE' => 'yanji_'.substr(hash('sha256', $this->root), 0, 24),

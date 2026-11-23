@@ -6,9 +6,11 @@ use PHPUnit\Framework\TestCase;
 use Illuminate\Filesystem\Filesystem;
 use Yanji\Portable\Instance;
 use Yanji\Portable\Installation;
+use Yanji\Portable\Supervisor;
 
 require_once __DIR__.'/../../portable/src/Instance.php';
 require_once __DIR__.'/../../portable/src/Installation.php';
+require_once __DIR__.'/../../portable/src/Supervisor.php';
 
 class PortableRuntimeTest extends TestCase
 {
@@ -96,6 +98,20 @@ class PortableRuntimeTest extends TestCase
         file_put_contents($path.'/keep.txt', 'keep');
         $this->expectException(\RuntimeException::class);
         (new Instance($path))->validateDestination();
+    }
+
+    public function test_lost_supervisor_socket_does_not_authorize_backups_with_a_live_service_lease(): void
+    {
+        $i = new Instance($this->directory.'/instance');
+        $i->prepare();
+        $lease = fopen($i->root.'/run/services.lock', 'c');
+        flock($lease, LOCK_SH);
+        try {
+            $this->expectExceptionMessage('仍有服务持有实例锁');
+            (new Supervisor($i))->stop();
+        } finally {
+            fclose($lease);
+        }
     }
 
     public function test_password_file_must_be_private_and_is_consumed_using_stdin(): void
