@@ -550,8 +550,11 @@ final class Supervisor
             return;
         }
         $release = $this->instance->release();
+        $stdio = Platform::isWindows()
+            ? [0 => ['file', 'NUL', 'r'], 1 => ['file', $this->instance->root.'/logs/manager.log', 'a'], 2 => ['file', $this->instance->root.'/logs/manager-err.log', 'a']]
+            : [0 => ['file', Platform::nullDevice(), 'r'], 1 => STDOUT, 2 => STDERR];
         $p = proc_open([Platform::phpBinary($release), ...Platform::phpArgs($release, $this->instance->root), $release.'/app/portable/settle-timeout.php'],
-            [0 => ['file', Platform::nullDevice(), 'r'], 1 => STDOUT, 2 => STDERR], $pipes, $release.'/app', $this->instance->environment(), ['bypass_shell' => true]);
+            $stdio, $pipes, $release.'/app', $this->instance->environment(), ['bypass_shell' => true]);
         if (!is_resource($p) || proc_close($p) !== 0) {
             throw new RuntimeException('超时作业仍待确认，已暂停服务。');
         }

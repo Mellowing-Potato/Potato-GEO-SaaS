@@ -114,6 +114,8 @@ final class Platform
         ];
     }
 
+    private static array $shortPathCache = [];
+
     /** Resolve an ASCII Win32 8.3 short path when a Windows path contains non-ASCII characters. */
     public static function windowsShortPath(string $path): string
     {
@@ -125,13 +127,17 @@ final class Platform
         if (preg_match('/[^\x20-\x7e]/', $native) !== 1) {
             return $native;
         }
+        if (isset(self::$shortPathCache[$native])) {
+            return self::$shortPathCache[$native];
+        }
         $ps = <<<'PS'
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 $p = $env:YANJI_SP
-$fso = New-Object -ComObject Scripting.FileSystemObject
-if ([System.IO.Directory]::Exists($p)) { Write-Output $fso.GetFolder($p).ShortPath }
-elseif ([System.IO.File]::Exists($p)) { Write-Output $fso.GetFile($p).ShortPath }
-else { Write-Output $p }
+$fso = [Activator]::CreateInstance([Type]::GetTypeFromProgID('Scripting.FileSystemObject'))
+if ([System.IO.Directory]::Exists($p)) { [Console]::Out.WriteLine($fso.GetFolder($p).ShortPath) }
+elseif ([System.IO.File]::Exists($p)) { [Console]::Out.WriteLine($fso.GetFile($p).ShortPath) }
+else { [Console]::Out.WriteLine($p) }
 PS;
         $env = self::windowsPowerShellEnv(getenv());
         $env['YANJI_SP'] = $native;
@@ -144,11 +150,12 @@ PS;
             ['bypass_shell' => true],
         );
         if (!is_resource($proc)) {
-            return $native;
+            return self::$shortPathCache[$native] = $native;
         }
         $out = trim((string) stream_get_contents($pipes[1], 4096));
         fclose($pipes[1]);
-        return (proc_close($proc) === 0 && $out !== '') ? $out : $native;
+        $resolved = (proc_close($proc) === 0 && $out !== '') ? $out : $native;
+        return self::$shortPathCache[$native] = $resolved;
     }
 
     /** Return an ASCII PHPRC directory for FrankenPHP on Windows (containing php.ini). */
@@ -163,8 +170,9 @@ PS;
             @mkdir($fallback, 0700, true);
         }
         $srcIni = $instanceRoot.'/php.ini';
-        if (is_file($srcIni)) {
-            @copy($srcIni, $fallback.'\\php.ini');
+        $dstIni = $fallback.'\\php.ini';
+        if (is_file($srcIni) && (!is_file($dstIni) || @filemtime($dstIni) < @filemtime($srcIni) || @filesize($dstIni) !== @filesize($srcIni))) {
+            @copy($srcIni, $dstIni);
         }
         return $fallback;
     }
@@ -240,18 +248,19 @@ PS;
         $native = self::nativePath($real !== false ? $real : $path);
         $ps = <<<'PS'
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 $p = $env:YANJI_ACL_PATH
 $me = [Security.Principal.WindowsIdentity]::GetCurrent().User
 if ([System.IO.Directory]::Exists($p)) {
-    $acl = New-Object System.Security.AccessControl.DirectorySecurity
+    $acl = [System.Security.AccessControl.DirectorySecurity]::new()
     $acl.SetAccessRuleProtection($true, $false)
-    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($me, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
+    $rule = [System.Security.AccessControl.FileSystemAccessRule]::new($me, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
     $acl.SetAccessRule($rule)
     [System.IO.Directory]::SetAccessControl($p, $acl)
 } else {
-    $acl = New-Object System.Security.AccessControl.FileSecurity
+    $acl = [System.Security.AccessControl.FileSecurity]::new()
     $acl.SetAccessRuleProtection($true, $false)
-    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($me, 'FullControl', 'Allow')
+    $rule = [System.Security.AccessControl.FileSystemAccessRule]::new($me, 'FullControl', 'Allow')
     $acl.SetAccessRule($rule)
     [System.IO.File]::SetAccessControl($p, $acl)
 }
@@ -283,6 +292,7 @@ PS;
         $native = self::nativePath($real !== false ? $real : $path);
         $ps = <<<'PS'
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 $p = $env:YANJI_ACL_PATH
 $me = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 $allowed = @($me, 'S-1-3-4', 'S-1-5-18', 'S-1-5-32-544')
@@ -390,6 +400,7 @@ PS;
     {
         $ps51 = <<<'PS'
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 $code = @'
 using System;
 using System.ComponentModel;

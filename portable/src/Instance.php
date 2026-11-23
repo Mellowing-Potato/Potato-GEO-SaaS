@@ -334,7 +334,12 @@ final class Instance
                 if (is_dir($dst) && !is_link($dst)) {
                     throw new RuntimeException('实例 public 含非管理文件，拒绝覆盖。');
                 }
-                if (!copy($src, $dst)) {
+                if (str_ends_with(strtolower($name), '.php')) {
+                    // Forward into the release directory so __DIR__ resolves to <release>/app/public
+                    // (matching Unix symlink semantics without requiring Developer Mode or elevation).
+                    $stub = "<?php\n\ndeclare(strict_types=1);\n\nrequire ".var_export($src, true).";\n";
+                    self::atomicFile($dst, $stub, 0600);
+                } elseif (!copy($src, $dst)) {
                     throw new RuntimeException('不能同步实例公共文件。');
                 }
             }

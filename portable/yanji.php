@@ -58,6 +58,7 @@ function runPortable(array $args): int
         $setup->checkPython($release, $python);
         Backup::restore($i, $from, $release, $port);
         $setup->configure($release, $port);
+        $setup->protectInstancePaths();
         $setup->savePython($python);
         if ($i->artisan(['yanji:ready','--portable'], quiet:true) !== 0) {
             throw new RuntimeException('恢复的实例密钥与数据库未通过就绪检查。');

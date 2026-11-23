@@ -104,20 +104,7 @@ final class Installation
             }
             fclose($freshDb);
         }
-        foreach (['.env', 'database', 'storage', 'logs', 'bootstrap-cache'] as $name) {
-            $path = $i->root.'/'.$name;
-            if (is_dir($path) && !Platform::isWindows()) {
-                $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
-                    \RecursiveIteratorIterator::SELF_FIRST);
-                foreach ($files as $file) {
-                    $this->securePath($file->getPathname());
-                }
-            }
-            $this->securePath($path);
-        }
-        if (Platform::isWindows()) {
-            $this->securePath($db);
-        }
+        $this->protectInstancePaths();
         if ($i->artisan(['yanji:ready', '--portable', '--quiet'], quiet: true) === 0) {
             Instance::atomicFile($initialized, "verified\n");
             return;
@@ -132,6 +119,26 @@ final class Installation
             throw new RuntimeException('初始化未完成。请使用原实例目录重试或运行 yanji doctor。');
         }
         Instance::atomicFile($initialized, "verified\n");
+    }
+
+    public function protectInstancePaths(): void
+    {
+        $i = $this->instance;
+        $db = $i->root.'/database/database.sqlite';
+        foreach (['.env', 'database', 'storage', 'logs', 'bootstrap-cache'] as $name) {
+            $path = $i->root.'/'.$name;
+            if (is_dir($path) && !Platform::isWindows()) {
+                $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+                    \RecursiveIteratorIterator::SELF_FIRST);
+                foreach ($files as $file) {
+                    $this->securePath($file->getPathname());
+                }
+            }
+            $this->securePath($path);
+        }
+        if (Platform::isWindows() && is_file($db)) {
+            $this->securePath($db);
+        }
     }
 
     private function securePath(string $path): void

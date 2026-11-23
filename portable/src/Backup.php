@@ -309,20 +309,30 @@ final class Backup
 
     private static function removeWorkspace(string $dir): void
     {
+        $realDir = Platform::isWindows() ? realpath($dir) : false;
+        $realDirNorm = $realDir !== false ? Platform::normalize($realDir) : null;
         foreach (new FilesystemIterator($dir) as $file) {
-            if ($file->isLink()) {
+            $path = $file->getPathname();
+            $isReparse = $file->isLink();
+            if (!$isReparse && Platform::isWindows() && $file->isDir() && $realDirNorm !== null) {
+                $realChild = realpath($path);
+                if ($realChild !== false && strcasecmp(Platform::normalize($realChild), $realDirNorm.'/'.$file->getFilename()) !== 0) {
+                    $isReparse = true;
+                }
+            }
+            if ($isReparse) {
                 if (Platform::isWindows() && $file->isDir()) {
-                    rmdir($file->getPathname());
+                    rmdir(Platform::nativePath($path));
                 } else {
-                    unlink($file->getPathname());
+                    unlink($path);
                 }
             } elseif ($file->isDir()) {
-                self::removeWorkspace($file->getPathname());
+                self::removeWorkspace($path);
             } else {
                 if (Platform::isWindows()) {
-                    @chmod($file->getPathname(), 0600);
+                    @chmod($path, 0600);
                 }
-                unlink($file->getPathname());
+                unlink($path);
             }
         }
         rmdir($dir);
