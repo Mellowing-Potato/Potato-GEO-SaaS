@@ -12,11 +12,13 @@ import subprocess
 import tarfile
 import tempfile
 import os
+import zipfile
 
 
 APP_PATHS = (
     'app', 'artisan', 'bootstrap', 'browser-extension', 'composer.json', 'composer.lock', 'config',
-    'database', 'licenses', 'portable', 'public', 'resources', 'routes', 'scripts/install-local.sh', 'skill-overlays',
+    'database', 'licenses', 'portable', 'public', 'resources', 'routes', 'scripts/install-local.sh',
+    'scripts/install-local.ps1', 'skill-overlays',
     'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'VERSION',
 )
 
@@ -26,7 +28,77 @@ def digest(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
+class PackageWriter:
+    """Unified tar.gz (Unix) and zip (Windows) release writer with per-file SHA-256 recording."""
+
+    def __init__(self, target_path, is_zip=False):
+        self.target_path = Path(target_path)
+        self.is_zip = is_zip
+        self.file_hashes = {}
+        self._raw = None
+        self._gz = None
+        self._tar = None
+        self._zip = None
+
+    def __enter__(self):
+        if self.is_zip:
+            self._zip = zipfile.ZipFile(self.target_path, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=5)
+        else:
+            self._raw = self.target_path.open('wb')
+            self._gz = gzip.GzipFile(filename='', mode='wb', fileobj=self._raw, mtime=0, compresslevel=5)
+            self._tar = tarfile.open(fileobj=self._gz, mode='w')
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if self._zip is not None:
+            self._zip.close()
+        if self._tar is not None:
+            self._tar.close()
+        if self._gz is not None:
+            self._gz.close()
+        if self._raw is not None:
+            self._raw.close()
+
+    def add_stream(self, name, stream, size, mode=0o644):
+        if '\n' in name or '\r' in name or '\\' in name:
+            raise ValueError('Unsupported release file name')
+        if name in self.file_hashes:
+            raise ValueError('Duplicate release file: ' + name)
+        checksum = hashlib.sha256()
+        if self.is_zip:
+            info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = ((0o100000 | mode) & 0xFFFF) << 16
+            written = 0
+            with self._zip.open(info, 'w') as out:
+                while True:
+                    chunk = stream.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    checksum.update(chunk)
+                    out.write(chunk)
+                    written += len(chunk)
+            if written != size:
+                raise ValueError('Short read while archiving: ' + name)
+        else:
+            entry = tarfile.TarInfo(name)
+            entry.mode = mode
+            entry.size = size
+
+            class Reader:
+                def read(self, count):
+                    data = stream.read(count)
+                    checksum.update(data)
+                    return data
+
+            self._tar.addfile(entry, Reader())
+        self.file_hashes[name] = checksum.hexdigest()
+
+
 def save_file(archive, name, stream, size, mode=0o644):
+    if isinstance(archive, PackageWriter):
+        archive.add_stream(name, stream, size, mode)
+        return
     if '\n' in name or '\r' in name or '\\' in name:
         raise ValueError('Unsupported release file name')
     if name in archive.file_hashes:
@@ -124,7 +196,7 @@ def verify_web_build_info(info, platform):
     if not {'nomercure', 'novulcain'} <= tags or settings.get('CGO_ENABLED') != '1':
         raise ValueError('Web build must retain the explicit exclusion tags and CGO build info')
     expected = {'macos-arm64': ('darwin', 'arm64'), 'linux-aarch64': ('linux', 'arm64'),
-                'linux-x86_64': ('linux', 'amd64')}[platform]
+                'linux-x86_64': ('linux', 'amd64'), 'windows-x86_64': ('windows', 'amd64')}[platform]
     if (settings.get('GOOS'), settings.get('GOARCH')) != expected:
         raise ValueError('Web build target differs from the package platform')
     for module in ('github.com/caddyserver/caddy/v2', 'github.com/dunglas/frankenphp',
@@ -157,8 +229,9 @@ def inspect_web(args):
                     or '\\' in member.name or '\n' in member.name or '\r' in member.name
                     or set(path.parts) & {'.env', '.git', '.dev-records'}):
                 raise ValueError('Unsafe Web archive entry')
-        binaries = [m for m in members if PurePosixPath(m.name).parts[-2:] == ('bin', 'frankenphp')]
-        if len(binaries) != 1 or not binaries[0].mode & 0o111:
+        web_exe_name = 'frankenphp.exe' if args.platform == 'windows-x86_64' else 'frankenphp'
+        binaries = [m for m in members if PurePosixPath(m.name).parts[-2:] == ('bin', web_exe_name)]
+        if len(binaries) != 1 or (args.platform != 'windows-x86_64' and not (binaries[0].mode & 0o111)):
             raise ValueError('Expected one executable Web binary')
         strip = PurePosixPath(binaries[0].name).parent.parent
         relative = [PurePosixPath(m.name).relative_to(strip) for m in members]
@@ -166,7 +239,7 @@ def inspect_web(args):
                 p.parts[0] == 'notices' and len(p.parts) > 1 for p in relative):
             raise ValueError('Web runtime must include build provenance and license notices')
         with tempfile.TemporaryDirectory(prefix='yanji-web-inspect-') as temporary:
-            binary = Path(temporary) / 'frankenphp'
+            binary = Path(temporary) / web_exe_name
             with binary.open('wb') as output:
                 shutil.copyfileobj(archive.extractfile(binaries[0]), output)
             binary_digest = digest(binary)
@@ -272,7 +345,8 @@ def build(args):
     expected = {'skills/' + name: sha for name, sha in skills['files'].items()}
     expected.update({'registry/skills.json': skills['registry_sha256'], 'LICENSE': skills['license_sha256']})
     args.output.mkdir(mode=0o700, parents=True, exist_ok=True)
-    target = args.output / ('yanji-' + args.platform + '.tar.gz')
+    is_windows = args.platform == 'windows-x86_64'
+    target = args.output / ('yanji-' + args.platform + ('.zip' if is_windows else '.tar.gz'))
     if target.exists():
         raise ValueError('Choose a new output directory')
     if not (args.assets / 'manifest.json').is_file():
@@ -309,9 +383,7 @@ def build(args):
             if digest(staged_fonts) != args.fonts_sha256:
                 raise ValueError('Report fonts archive changed during staging')
         output_tar = Path(temporary) / target.name
-        with output_tar.open('wb') as output, gzip.GzipFile(filename='', mode='wb', fileobj=output,
-                    mtime=0, compresslevel=5) as zipped, tarfile.open(fileobj=zipped, mode='w') as archive:
-            archive.file_hashes = {}
+        with PackageWriter(output_tar, is_zip=is_windows) as archive:
             with tarfile.open(source_tar) as code:
                 copy_tar(code, archive, 'app')
             add_npm_notices(archive, args.npm_licenses, npm_lock)
@@ -330,7 +402,8 @@ def build(args):
                         save_path(archive, path, name + '/' + path.relative_to(directory).as_posix())
             with tarfile.open(args.cli) as cli:
                 names = cli.getnames()
-                binaries = [name for name in names if PurePosixPath(name).parts[-2:] == ('bin', 'php')]
+                cli_exe_name = 'php.exe' if is_windows else 'php'
+                binaries = [name for name in names if PurePosixPath(name).parts[-2:] == ('bin', cli_exe_name)]
                 if len(binaries) != 1:
                     raise ValueError('Expected one standalone CLI')
                 strip = str(PurePosixPath(binaries[0]).parent.parent)
@@ -349,8 +422,13 @@ def build(args):
                     if member.isdir():
                         continue
                     relative = PurePosixPath(member.name).relative_to(web_prefix)
-                    name = ('runtime/bin/frankenphp' if relative.as_posix() == 'bin/frankenphp'
-                            else 'runtime/web/' + relative.as_posix())
+                    rel_posix = relative.as_posix()
+                    if rel_posix == ('bin/frankenphp.exe' if is_windows else 'bin/frankenphp'):
+                        name = 'runtime/' + rel_posix
+                    elif is_windows and relative.parts[0] == 'bin' and rel_posix.lower().endswith('.dll'):
+                        name = 'runtime/' + rel_posix
+                    else:
+                        name = 'runtime/web/' + rel_posix
                     save_file(archive, name, web.extractfile(member), member.size,
                               0o755 if member.mode & 0o111 else 0o644)
             if staged_python_runtime is not None:
@@ -389,7 +467,7 @@ def build(args):
 
 if __name__ == '__main__':
     cli = argparse.ArgumentParser(description=__doc__)
-    cli.add_argument('--platform', required=True, choices=['macos-arm64', 'linux-aarch64', 'linux-x86_64'])
+    cli.add_argument('--platform', required=True, choices=['macos-arm64', 'linux-aarch64', 'linux-x86_64', 'windows-x86_64'])
     for name in ('source', 'vendor', 'skills', 'assets', 'npm-licenses', 'cli', 'cli-source-kit',
                  'web-runtime', 'web-source-kit', 'output'):
         cli.add_argument('--' + name, type=Path, required=True)

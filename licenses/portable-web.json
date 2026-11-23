@@ -52,7 +52,28 @@
   "brotli": {
     "version": "v1.2.0",
     "archive_sha256": "816c96e8e8f193b40151dad7e8ff37b1221d019dbcb9c35cd3fadbfe6477dfec",
+    "patched_version": "v1.2.1",
+    "patched_archive_url": "https://github.com/google/brotli/archive/refs/tags/v1.2.1.tar.gz",
+    "patched_archive_sha256": "98d35d11a78dc453aebb7d10c3748f3f73ff78c8267c0dc697b8631f67bf7e8f",
+    "cve_fix": "CVE-2026-111497",
     "license": "MIT"
+  },
+  "windows_php": {
+    "version": "8.5.13",
+    "runtime_url": "https://downloads.php.net/~windows/releases/php-8.5.13-Win32-vs17-x64.zip",
+    "runtime_archive_url": "https://downloads.php.net/~windows/releases/archives/php-8.5.13-Win32-vs17-x64.zip",
+    "runtime_sha256": "792fe1553895ee98f9bc3c9d50c539910f7d0066676a6523207ca91429d4d475",
+    "devel_url": "https://downloads.php.net/~windows/releases/php-devel-pack-8.5.13-Win32-vs17-x64.zip",
+    "devel_archive_url": "https://downloads.php.net/~windows/releases/archives/php-devel-pack-8.5.13-Win32-vs17-x64.zip",
+    "devel_sha256": "771a2834aaa0ba1fd1385c7bc6df3c2873a294c0838e99a553f43208769ea744",
+    "license": "PHP-3.01 AND Zend-2.0"
+  },
+  "ca_bundle": {
+    "filename": "cacert-2026-11-05.pem",
+    "url": "https://curl.se/ca/cacert-2026-11-05.pem",
+    "sha256": "427c064216761a1e72a8b30f0d954d08cb6e4435a82091fb865afd20c8497285",
+    "license": "MPL-2.0",
+    "license_url": "https://www.mozilla.org/media/MPL/2.0/index.f75d2927d3c1.txt"
   },
   "build_tags": [
     "nomercure",
@@ -69,7 +90,8 @@
   "target_platforms": [
     "macos-arm64",
     "linux-aarch64",
-    "linux-x86_64"
+    "linux-x86_64",
+    "windows-x86_64"
   ],
   "delivery_requirements": [
     "Runtime notices for every linked component, including transitive Go modules and embedded C code.",
