@@ -86,12 +86,9 @@ jobs:
 
       - name: Build production frontend, npm notices, skills and Composer vendor
         shell: pwsh
-        env:
-          GH_COMPOSER_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          $env:COMPOSER_AUTH = (@{ 'github-oauth' = @{ 'github.com' = $env:GH_COMPOSER_TOKEN } } | ConvertTo-Json -Compress)
           npm ci --ignore-scripts
           npm run build
           New-Item -ItemType Directory -Force -Path D:\yanji-build\npm-licenses, D:\yanji-build\skills, D:\yanji-build\vendor-src | Out-Null
@@ -118,7 +115,7 @@ jobs:
               D:\yanji-build\composer.phar install --no-dev --no-interaction --no-scripts --prefer-dist --optimize-autoloader
             if ($LASTEXITCODE -ne 0) { throw "composer install --no-dev failed on Windows" }
             # Strip any .git metadata if Composer fell back from a transient zipball 504 to git clone
-            Get-ChildItem -Path D:\yanji-build\vendor-src\vendor -Recurse -Force -Directory -Filter '.git' | Remove-Item -Recurse -Force
+            Get-ChildItem -Path D:\yanji-build\vendor-src\vendor -Recurse -Force -Directory -Filter '.git' -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
           } finally {
             Pop-Location
           }
