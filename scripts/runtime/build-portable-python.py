@@ -22,6 +22,7 @@ FONT_LICENSES_PATH = ROOT / 'licenses/font-sources.json'
 PRUNE_UNIX = (
     'include',
     'share/man',
+    'share/terminfo',
     'lib/pkgconfig',
     'lib/python3.12/test',
     'lib/python3.12/idlelib',
@@ -180,8 +181,10 @@ def prune_python_tree(python_root: Path, is_windows: bool) -> None:
                     shutil.rmtree(item)
                 else:
                     item.unlink()
-        for pattern in ('libtcl*', 'libtk*', 'tcl*', 'tk*', 'itcl*', 'tdbc*', 'thread*'):
+        for pattern in ('libtcl*', 'libtk*', 'tcl*', 'tk*', 'itcl*', 'tdbc*', 'thread*', 'libpython*.so'):
             for item in list((python_root / 'lib').glob(pattern)):
+                if item.name.endswith('.so') and not item.is_symlink():
+                    continue
                 if item.is_dir() and not item.is_symlink():
                     shutil.rmtree(item)
                 else:
