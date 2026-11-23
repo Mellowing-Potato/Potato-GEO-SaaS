@@ -162,4 +162,38 @@ class WorkerHeartbeatTest extends TestCase
 
         Carbon::setTestNow();
     }
+
+    public function test_upgrade_hold_cleans_up_queue_tenant_context_before_pausing_reservations(): void
+    {
+        $hold = tempnam(sys_get_temp_dir(), 'yanji-hold-');
+        $this->assertNotFalse($hold);
+        try {
+            $script = <<<'PHP'
+require $argv[1].'/vendor/autoload.php';
+$app = require $argv[1].'/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+App\Support\TenantContext::beginQueueJob();
+$before = App\Support\TenantContext::id();
+$result = $app['events']->until(new Illuminate\Queue\Events\Looping('database', 'default', new Illuminate\Queue\WorkerOptions()));
+$after = App\Support\TenantContext::id();
+echo json_encode(['before' => $before, 'result' => $result, 'after' => $after]);
+PHP;
+            $process = new \Symfony\Component\Process\Process(
+                [PHP_BINARY, '-r', $script, base_path()],
+                env: [
+                    'APP_ENV' => 'testing',
+                    'DB_CONNECTION' => 'sqlite',
+                    'DB_DATABASE' => ':memory:',
+                    'YANJI_UPGRADE_HOLD' => $hold,
+                ],
+            );
+            $process->mustRun();
+            $payload = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+            $this->assertSame(-1, $payload['before']);
+            $this->assertFalse($payload['result'], '升级门存在时 Looping 应返回 false 暂停拉取新任务');
+            $this->assertNull($payload['after'], '升级门生效前必须先执行 TenantContext::endQueueJob()');
+        } finally {
+            @unlink($hold);
+        }
+    }
 }
