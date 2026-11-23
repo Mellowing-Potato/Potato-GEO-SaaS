@@ -51,9 +51,13 @@ sh scripts/install-local.sh --manifest "$MANIFEST" --manifest-sha256 "$MANIFEST_
 ```sh
 python3 scripts/build-local-package.py --source "$CHECKOUT" --platform macos-arm64 \
   --vendor "$PRODUCTION_VENDOR" --assets "$FRONTEND_BUILD" --npm-licenses "$NPM_LICENSES" --skills "$SKILLS" \
-  --cli "$CLI_ARCHIVE" --cli-sha256 "$CLI_SHA256" --web "$WEB_BINARY" \
-  --web-sha256 "$WEB_SHA256" --cli-source-kit "$CLI_SOURCE_RELINK" \
+  --cli "$CLI_ARCHIVE" --cli-sha256 "$CLI_SHA256" \
+  --web-runtime "$WEB_RUNTIME_ARCHIVE" --web-runtime-sha256 "$WEB_RUNTIME_SHA256" \
+  --web-source-kit "$WEB_SOURCE_RELINK" --web-source-kit-sha256 "$WEB_SOURCE_RELINK_SHA256" \
+  --cli-source-kit "$CLI_SOURCE_RELINK" \
   --cli-source-kit-sha256 "$CLI_SOURCE_RELINK_SHA256" --output "$NEW_OUTPUT_DIRECTORY"
 ```
 
-若相应平台 CLI 归档使用系统 CA，构建机还要传入 `--ca`、`--ca-sha256` 和 `--ca-notice` 指定已核验的可信证书包与许可。发行目录会保留该平台原名的 CLI 对应源码、构建资料与可替换对象包。程序内 release.json 和同目录 SHA256SUMS 均列出其名称及摘要。维护者须核对最终归档、对应源码和重链接材料、Web/Python/其他第三方许可、依赖漏洞和签名；跟踪仓库只保存构建及管理源码。
+构建机还需要 Go 来读取目标二进制的真实构建信息，无需在构建机执行其他架构的 Web。Web 归档必须含可执行的 `bin/frankenphp`、`build-manifest.json` 和 `notices/`。打包器检查目标架构、`nomercure,novulcain` 标签及实际链接模块，拒绝带 Mercure/Vulcain 的旧二进制；保留固定的 Brotli 插件以适配现有 Caddy 配置。这项检查不能替代逐项源码、许可、重链接和漏洞审计。
+
+若相应平台 CLI 归档使用系统 CA，构建机还要传入 `--ca`、`--ca-sha256` 和 `--ca-notice` 指定已核验的可信证书包与许可。发行目录会并列保留该平台的 CLI 和 Web 对应源码、构建资料与可替换对象包。程序内 release.json 和同目录 SHA256SUMS 均列出其名称及摘要；Web 许可和构建清单同时进入应用包的 `runtime/web/`。维护者须核对最终归档、对应源码和重链接材料、Web/Python/其他第三方许可、依赖漏洞和签名；跟踪仓库只保存构建及管理源码。

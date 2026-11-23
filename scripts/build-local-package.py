@@ -11,6 +11,7 @@ from pathlib import Path, PurePosixPath
 import subprocess
 import tarfile
 import tempfile
+import os
 
 
 APP_PATHS = (
@@ -28,6 +29,8 @@ def digest(path):
 def save_file(archive, name, stream, size, mode=0o644):
     if '\n' in name or '\r' in name or '\\' in name:
         raise ValueError('Unsupported release file name')
+    if name in archive.file_hashes:
+        raise ValueError('Duplicate release file: ' + name)
     entry = tarfile.TarInfo(name)
     entry.mode = mode
     entry.size = size
@@ -105,10 +108,70 @@ def add_npm_notices(archive, directory, lock):
         save_path(archive, path, 'app/licenses/npm/' + name)
 
 
+def read_go_build_info(binary):
+    # Reading build info does not execute a foreign-architecture binary.
+    return subprocess.check_output(['go', 'version', '-m', str(binary)], text=True,
+                                   env=dict(os.environ, GOTOOLCHAIN='local'), timeout=30)
+
+
+def verify_web_build_info(info, platform):
+    if re.search(r'github\.com/dunglas/(?:mercure|vulcain)(?:[/\s]|$)', info, re.I):
+        raise ValueError('Web binary still links Mercure or Vulcain')
+    settings = dict(re.findall(r'^\s*build\s+([^=\s]+)=(.*)$', info, re.M))
+    tags = set(settings.get('-tags', '').strip('"').split(','))
+    if not {'nomercure', 'novulcain'} <= tags or settings.get('CGO_ENABLED') != '1':
+        raise ValueError('Web build must retain the explicit exclusion tags and CGO build info')
+    expected = {'macos-arm64': ('darwin', 'arm64'), 'linux-aarch64': ('linux', 'arm64'),
+                'linux-x86_64': ('linux', 'amd64')}[platform]
+    if (settings.get('GOOS'), settings.get('GOARCH')) != expected:
+        raise ValueError('Web build target differs from the package platform')
+    for module in ('github.com/caddyserver/caddy/v2', 'github.com/dunglas/frankenphp',
+                   'github.com/dunglas/caddy-cbrotli'):
+        if not re.search(r'^\s*(?:path|mod|dep)\s+' + re.escape(module) + r'(?:[/\s]|$)', info, re.M):
+            raise ValueError('Missing required Web module: ' + module)
+
+
+def inspect_web(args):
+    if not getattr(args, 'web_runtime', None) or not getattr(args, 'web_source_kit', None):
+        raise ValueError('A verified Web runtime and corresponding-source/relink kit are required')
+    for name in ('web_runtime', 'web_source_kit'):
+        if digest(getattr(args, name)) != getattr(args, name + '_sha256'):
+            raise ValueError('Web material digest mismatch: ' + name)
+    kit = args.web_source_kit.name
+    if not re.fullmatch(r'[A-Za-z0-9_.-]+\.tar\.(?:gz|zst)', kit) or args.platform not in kit:
+        raise ValueError('Expected a platform-specific Web corresponding-source/relink kit')
+    with tarfile.open(args.web_runtime) as archive:
+        members = [m for m in archive if not m.isdir()]
+        names = [m.name for m in members]
+        if len(set(names)) != len(names):
+            raise ValueError('Duplicate Web archive entry')
+        for member in members:
+            path = PurePosixPath(member.name)
+            if (not member.isfile() or path.is_absolute() or '..' in path.parts
+                    or '\\' in member.name or '\n' in member.name or '\r' in member.name
+                    or set(path.parts) & {'.env', '.git', '.dev-records'}):
+                raise ValueError('Unsafe Web archive entry')
+        binaries = [m for m in members if PurePosixPath(m.name).parts[-2:] == ('bin', 'frankenphp')]
+        if len(binaries) != 1 or not binaries[0].mode & 0o111:
+            raise ValueError('Expected one executable Web binary')
+        strip = PurePosixPath(binaries[0].name).parent.parent
+        relative = [PurePosixPath(m.name).relative_to(strip) for m in members]
+        if PurePosixPath('build-manifest.json') not in relative or not any(
+                p.parts[0] == 'notices' and len(p.parts) > 1 for p in relative):
+            raise ValueError('Web runtime must include build provenance and license notices')
+        with tempfile.TemporaryDirectory(prefix='yanji-web-inspect-') as temporary:
+            binary = Path(temporary) / 'frankenphp'
+            with binary.open('wb') as output:
+                shutil.copyfileobj(archive.extractfile(binaries[0]), output)
+            binary_digest = digest(binary)
+            verify_web_build_info(read_go_build_info(binary), args.platform)
+    return strip.as_posix(), binary_digest
+
+
 def build(args):
-    for path, checksum in ((args.cli, args.cli_sha256), (args.web, args.web_sha256)):
-        if digest(path) != checksum:
-            raise ValueError('Platform input digest mismatch')
+    web_prefix, web_digest = inspect_web(args)
+    if digest(args.cli) != args.cli_sha256:
+        raise ValueError('Platform input digest mismatch')
     kit_name = args.cli_source_kit.name
     if not re.fullmatch(r'[A-Za-z0-9_.-]+\.tar\.(?:gz|zst)', kit_name) or args.platform not in kit_name:
         raise ValueError('Expected a matching platform-specific corresponding-source/relink kit')
@@ -138,6 +201,17 @@ def build(args):
         shutil.copyfile(args.cli_source_kit, staged_kit)
         if digest(staged_kit) != args.cli_source_kit_sha256 or kit_name == target.name:
             raise ValueError('CLI corresponding-source/relink kit digest or name mismatch')
+        web_kit_name = args.web_source_kit.name
+        if web_kit_name in (kit_name, target.name, 'install-local.sh', 'install-local.ps1'):
+            raise ValueError('Web material name collides with another release input')
+        staged_web_kit = Path(temporary) / web_kit_name
+        shutil.copyfile(args.web_source_kit, staged_web_kit)
+        if digest(staged_web_kit) != args.web_source_kit_sha256:
+            raise ValueError('Web corresponding-source/relink kit changed during staging')
+        staged_web_runtime = Path(temporary) / 'web-runtime.tar.gz'
+        shutil.copyfile(args.web_runtime, staged_web_runtime)
+        if digest(staged_web_runtime) != args.web_runtime_sha256:
+            raise ValueError('Web runtime changed during staging')
         output_tar = Path(temporary) / target.name
         with output_tar.open('wb') as output, gzip.GzipFile(filename='', mode='wb', fileobj=output,
                     mtime=0, compresslevel=5) as zipped, tarfile.open(fileobj=zipped, mode='w') as archive:
@@ -174,20 +248,31 @@ def build(args):
                     entry = cli.getmember(ca[0])
                     save_file(archive, 'runtime/ca/cacert.pem', cli.extractfile(entry), entry.size)
                 copy_tar(cli, archive, 'runtime', strip)
-            save_path(archive, args.web, 'runtime/bin/frankenphp')
+            with tarfile.open(staged_web_runtime) as web:
+                for member in web:
+                    if member.isdir():
+                        continue
+                    relative = PurePosixPath(member.name).relative_to(web_prefix)
+                    name = ('runtime/bin/frankenphp' if relative.as_posix() == 'bin/frankenphp'
+                            else 'runtime/web/' + relative.as_posix())
+                    save_file(archive, name, web.extractfile(member), member.size,
+                              0o755 if member.mode & 0o111 else 0o644)
             receipt = json.dumps(dict(commit=ref, platform=args.platform, cli_sha256=args.cli_sha256,
-                                      web_sha256=args.web_sha256, cli_source_kit=kit_name,
+                                      web_sha256=web_digest, web_runtime_sha256=args.web_runtime_sha256,
+                                      web_source_kit=web_kit_name, web_source_kit_sha256=args.web_source_kit_sha256,
+                                      cli_source_kit=kit_name,
                                       cli_source_kit_sha256=args.cli_source_kit_sha256), indent=2).encode() + b'\n'
             save_file(archive, 'release.json', io.BytesIO(receipt), len(receipt))
             inventory = ''.join(sha + '  ' + name + '\n' for name, sha in sorted(archive.file_hashes.items())).encode()
             save_file(archive, 'PACKAGE-FILES.sha256', io.BytesIO(inventory), len(inventory))
-        checks = [(digest(output_tar), target.name), (args.cli_source_kit_sha256, kit_name)]
+        checks = [(digest(output_tar), target.name), (args.cli_source_kit_sha256, kit_name),
+                  (args.web_source_kit_sha256, web_kit_name)]
         for name in ('install-local.sh', 'install-local.ps1'):
             data = subprocess.check_output(['git', 'show', ref + ':scripts/' + name], cwd=root)
             (Path(temporary) / name).write_bytes(data)
             checks.append((hashlib.sha256(data).hexdigest(), name))
         manifest = (''.join(sha + '  ' + name + '\n' for sha, name in checks)).encode()
-        for name in ('install-local.sh', 'install-local.ps1', kit_name, target.name):
+        for name in ('install-local.sh', 'install-local.ps1', kit_name, web_kit_name, target.name):
             (Path(temporary) / name).replace(args.output / name)
         (args.output / 'SHA256SUMS').write_bytes(manifest)
         print('SHA256SUMS', hashlib.sha256(manifest).hexdigest())
@@ -196,11 +281,12 @@ def build(args):
 if __name__ == '__main__':
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument('--platform', required=True, choices=['macos-arm64', 'linux-aarch64', 'linux-x86_64'])
-    for name in ('source', 'vendor', 'skills', 'assets', 'npm-licenses', 'cli', 'web', 'cli-source-kit', 'output'):
+    for name in ('source', 'vendor', 'skills', 'assets', 'npm-licenses', 'cli', 'cli-source-kit',
+                 'web-runtime', 'web-source-kit', 'output'):
         cli.add_argument('--' + name, type=Path, required=True)
     cli.add_argument('--ca', type=Path)
     cli.add_argument('--ca-notice', type=Path)
     cli.add_argument('--ca-sha256')
-    for name in ('cli-sha256', 'web-sha256', 'cli-source-kit-sha256'):
+    for name in ('cli-sha256', 'cli-source-kit-sha256', 'web-runtime-sha256', 'web-source-kit-sha256'):
         cli.add_argument('--' + name, required=True)
     build(cli.parse_args())
