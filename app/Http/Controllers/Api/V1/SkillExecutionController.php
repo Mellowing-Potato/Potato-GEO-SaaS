@@ -636,9 +636,9 @@ class SkillExecutionController extends Controller
 
         return response()->json([
             'execution' => $this->executionPayload($saved),
-            'message' => $saved->status === 'completed'
-                ? '已重新排版并保存文章编辑稿；本次未调用模型。'
-                : $saved->error_message,
+            'message' => data_get($saved->output_data, 'render_recovery.kind') === 'formats'
+                ? '已从原报告补齐下载格式，本次未调用模型。'
+                : ($saved->status === 'completed' ? '已重新排版并保存文章编辑稿，本次未调用模型。' : $saved->error_message),
         ]);
     }
 
