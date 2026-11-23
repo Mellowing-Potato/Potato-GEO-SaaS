@@ -204,7 +204,10 @@ def scenario(args, work):
 
         def finished_rotation():
             if counts.exists():
-                rows = [line.split() for line in counts.read_text(encoding='utf-8').splitlines()]
+                try:
+                    rows = [line.split() for line in counts.read_text(encoding='utf-8').splitlines()]
+                except PermissionError:
+                    return None
                 return rows if len(rows) == 501 else None
 
         rows = until(finished_rotation, 90 if IS_WIN else 45)
