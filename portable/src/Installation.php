@@ -54,17 +54,26 @@ final class Installation
             throw new RuntimeException('现有数据库缺少原环境文件，请恢复配套备份。');
         }
         if (is_link($i->root.'/current') && $i->release() !== $release) {
-            throw new RuntimeException('实例已有其他程序版本，请使用 yanji upgrade。');
+            $keyed = is_file($i->root.'/.env') && preg_match('/^APP_KEY=[^\r\n]+$/m', file_get_contents($i->root.'/.env'));
+            if (is_file($initialized) || $keyed || is_file($db) && filesize($db) > 0) {
+                throw new RuntimeException('实例已有其他程序版本，请使用 yanji upgrade。');
+            }
         }
         $fresh = !is_file($i->root.'/.env');
         $template = $fresh ? @file_get_contents($release.'/app/portable/instance.env.example') : null;
         if ($fresh && (!is_string($template) || !str_contains($template, 'DB_DATABASE='))) {
             throw new RuntimeException('程序缺少实例环境模板。');
         }
-        if ($email !== null && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new RuntimeException('管理员邮箱格式无效。');
-        }
         $password = ($fresh || $passwordFile !== null) ? self::passwordInput([], $passwordFile) : null;
+        if ($fresh && $passwordFile !== null && $email === null) {
+            throw new RuntimeException('非交互初始化需要 --email 指定管理员邮箱。');
+        }
+        if ($fresh && $password !== null && $password[1] !== null) {
+            $length = mb_strlen(rtrim($password[1], "\r\n"));
+            if ($length < 8 || $length > 128) {
+                throw new RuntimeException('管理员密码长度应为 8 至 128 个字符。');
+            }
+        }
         $this->checkPython($release, $python);
         $this->configure($release, $port);
         $this->savePython($python);

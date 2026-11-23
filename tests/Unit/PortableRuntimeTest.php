@@ -79,6 +79,30 @@ class PortableRuntimeTest extends TestCase
         self::assertSame(8031, $i->port());
     }
 
+    public function test_empty_interrupted_install_can_select_a_new_release_and_retain_the_database_path(): void
+    {
+        $instance = new Instance($this->directory."/it's 中文");
+        $instance->prepare();
+        $instance->activate($this->program('old'));
+        Instance::atomicFile($instance->root.'/instance.json', '{"port":8030}');
+        $release = $this->program('new');
+        mkdir($release.'/runtime/ca');
+        mkdir($release.'/app/portable');
+        touch($release.'/runtime/ca/cacert.pem');
+        file_put_contents($release.'/app/portable/yanji', "#!/bin/sh\n");
+        file_put_contents($release.'/app/portable/instance.env.example', "DB_DATABASE=\n");
+        file_put_contents($release.'/runtime/bin/php', "#!/bin/sh\nexit 0\n");
+        $python = $this->directory.'/python';
+        file_put_contents($python, "#!/bin/sh\nprintf '%s' '{\"basic\":true}'\n");
+        chmod($python, 0700);
+        $password = $this->directory.'/password';
+        Instance::atomicFile($password, "test-retry-only\n");
+        (new Installation($instance))->install($release, 8030, 'admin@example.com', $password, $python);
+        self::assertSame($release, $instance->release());
+        $env = \Dotenv\Dotenv::parse(file_get_contents($instance->root.'/.env'));
+        self::assertSame($instance->root.'/database/database.sqlite', $env['DB_DATABASE']);
+    }
+
     public function test_public_conflict_keeps_the_served_version_and_all_managed_links(): void
     {
         $i = new Instance($this->directory.'/中文 instance');
