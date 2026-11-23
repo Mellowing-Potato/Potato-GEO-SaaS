@@ -100,6 +100,12 @@ class VisionPageExtractor
                 continue;
             }
 
+            // A missing rasterizer must never start a paid vision request.
+            if (app(PopplerTools::class)->missing(['pdftoppm']) !== []) {
+                $pages[$page] = $this->pageEntry('skipped', null, 'poppler_missing', 0, 0);
+                continue;
+            }
+
             // ── B4-1 渲染 ──
             $jpg = $this->renderPage($document, $pdfAbsPath, (int) $page);
             if ($jpg === null) {
@@ -258,7 +264,7 @@ class VisionPageExtractor
         }
 
         $process = new Process([
-            'pdftoppm', '-jpeg', '-r', '150', '-scale-to', (string) $scaleTo,
+            app(PopplerTools::class)->command('pdftoppm'), '-jpeg', '-r', '150', '-scale-to', (string) $scaleTo,
             '-f', (string) $page, '-l', (string) $page,
             $pdfAbsPath, $tmpPrefix,
         ]);

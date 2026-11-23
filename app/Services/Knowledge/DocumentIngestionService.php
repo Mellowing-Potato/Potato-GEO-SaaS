@@ -472,7 +472,12 @@ class DocumentIngestionService
             $vision = null;
             $visionApplicable = $this->visionApplicable($document);
             $visionNotice = null;
-            if ($document->mime_type === 'application/pdf' || str_starts_with((string) $document->mime_type, 'image/')) {
+            $poppler = app(PopplerTools::class);
+            $missingPoppler = $visionApplicable ? $poppler->missing() : [];
+            if ($missingPoppler !== []) {
+                $visionNotice = $poppler->notice($missingPoppler);
+                $document->update(['metadata' => array_replace($document->metadata ?? [], ['vision_notice' => $visionNotice])]);
+            } elseif ($document->mime_type === 'application/pdf' || str_starts_with((string) $document->mime_type, 'image/')) {
                 $availability = app(ModelConnectionResolver::class)->availability(
                     'vision', $document->tenant_id,
                     snapshot: $document->metadata['vision_connection_snapshot'] ?? null,
@@ -484,7 +489,7 @@ class DocumentIngestionService
                 }
             }
             // A saved per-page result is local and remains usable after the source changes.
-            if ($visionApplicable && ($visionNotice === null || ! empty($document->metadata['vision_attempts']))) {
+            if ($visionApplicable && $missingPoppler === [] && ($visionNotice === null || ! empty($document->metadata['vision_attempts']))) {
                 try {
                     $vision = $this->extractWithVision($document);
                 } catch (\Throwable $e) {
