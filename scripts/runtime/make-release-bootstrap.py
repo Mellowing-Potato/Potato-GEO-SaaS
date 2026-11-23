@@ -30,11 +30,16 @@ def generate(base_url: str, sums_path: Path, output_dir: Path) -> dict[str, str]
         raise ValueError('Release base URL must use HTTPS')
     sums_sha = sha256_file(sums_path)
     entries = parse_sums(sums_path)
-    for required in ('install-local.sh', 'install-local.ps1'):
-        if required not in entries:
-            raise ValueError('SHA256SUMS missing required installer entry: ' + required)
+    has_sh = 'install-local.sh' in entries
+    has_ps1 = 'install-local.ps1' in entries
+    if not has_sh and not has_ps1:
+        raise ValueError('SHA256SUMS missing install-local.sh and install-local.ps1')
 
-    sh_script = f'''#!/bin/sh
+    output_dir.mkdir(parents=True, exist_ok=True)
+    result = {'manifest_sha256': sums_sha}
+
+    if has_sh:
+        sh_script = f'''#!/bin/sh
 set -eu
 umask 077
 BASE_URL='{base_url}'
@@ -60,8 +65,13 @@ else
     exec /bin/sh "$tmp/install-local.sh" --manifest "$BASE_URL/SHA256SUMS" --manifest-sha256 "$MANIFEST_SHA256" "$@"
 fi
 '''
+        sh_out = output_dir / 'get-yanji.sh'
+        sh_out.write_text(sh_script, encoding='utf-8', newline='\n')
+        sh_out.chmod(0o755)
+        result['get-yanji.sh'] = sha256_file(sh_out)
 
-    ps1_script = f'''#Requires -Version 5.1
+    if has_ps1:
+        ps1_script = f'''#Requires -Version 5.1
 & {{
     $ErrorActionPreference = 'Stop'
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -73,6 +83,7 @@ fi
     try {{
         $installer = Join-Path $tmp 'install-local.ps1'
         $current = "$BaseUrl/install-local.ps1"
+        $downloaded = $false
         for ($hops = 0; $hops -lt 10; $hops++) {{
             if ($current -notmatch '^https://') {{ throw '远端安装脚本与重定向仅接受 HTTPS。' }}
             $req = [System.Net.HttpWebRequest]::Create($current)
@@ -90,11 +101,13 @@ fi
                 $inStream = $resp.GetResponseStream()
                 $outStream = [System.IO.File]::Create($installer)
                 try {{ $inStream.CopyTo($outStream) }} finally {{ $outStream.Dispose(); $inStream.Dispose() }}
+                $downloaded = $true
                 break
             }} finally {{
                 $resp.Dispose()
             }}
         }}
+        if (-not $downloaded) {{ throw '远端下载重定向次数过多。' }}
         $sha = [System.Security.Cryptography.SHA256]::Create()
         $fs = [System.IO.File]::OpenRead($installer)
         try {{
@@ -118,18 +131,11 @@ fi
     }}
 }}
 '''
+        ps1_out = output_dir / 'get-yanji.ps1'
+        ps1_out.write_text(ps1_script, encoding='utf-8', newline='\r\n')
+        result['get-yanji.ps1'] = sha256_file(ps1_out)
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    sh_out = output_dir / 'get-yanji.sh'
-    ps1_out = output_dir / 'get-yanji.ps1'
-    sh_out.write_text(sh_script, encoding='utf-8', newline='\n')
-    ps1_out.write_text(ps1_script, encoding='utf-8', newline='\r\n')
-    sh_out.chmod(0o755)
-    return {
-        'manifest_sha256': sums_sha,
-        'get-yanji.sh': sha256_file(sh_out),
-        'get-yanji.ps1': sha256_file(ps1_out),
-    }
+    return result
 
 
 def main() -> None:

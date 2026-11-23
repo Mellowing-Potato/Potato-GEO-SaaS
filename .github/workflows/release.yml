@@ -1,4 +1,4 @@
-name: Release images
+name: Release images and portable packages
 on:
   push:
     tags: ['v*']
@@ -9,6 +9,7 @@ jobs:
     uses: ./.github/workflows/tests.yml
     permissions:
       contents: read
+
   publish:
     needs: tests
     runs-on: ubuntu-24.04
@@ -55,3 +56,339 @@ jobs:
           tags: ${{ steps.image.outputs.tag }}
           provenance: mode=max
           sbom: true
+
+  portable-windows-x64:
+    name: Build & Verify Windows x64 Portable Release
+    needs: tests
+    runs-on: windows-2025
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - name: Fetch source
+        shell: pwsh
+        env:
+          SOURCE_SERVER: ${{ github.server_url }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_TOKEN: ${{ github.token }}
+        run: |
+          git init .
+          $auth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$env:SOURCE_TOKEN"))
+          Write-Host "::add-mask::$auth"
+          git -c protocol.version=2 -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --no-tags --depth=1 "$env:SOURCE_SERVER/$env:SOURCE_REPOSITORY.git" "$env:SOURCE_COMMIT"
+          git switch --detach FETCH_HEAD
+
+      - name: Setup Go 1.27.4
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: '1.27.4'
+          check-latest: false
+
+      - name: Setup Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+
+      - name: Setup Python 3.12 (build host)
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Build AGPL-free Windows FrankenPHP & PHP 8.5.13 runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          New-Item -ItemType Directory -Force -Path D:\yanji-build\web-out | Out-Null
+          & .\scripts\runtime\build-web-windows.ps1 -OutputDir D:\yanji-build\web-out -WorkDir D:\yanji-build\web-work
+
+      - name: Build bundled Windows Python 3.12 & open-source report fonts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          New-Item -ItemType Directory -Force -Path D:\yanji-build\py-out, D:\yanji-build\cache | Out-Null
+          python .\scripts\runtime\build-portable-python.py --mode python --platform windows-x86_64 --output D:\yanji-build\py-out --cache-dir D:\yanji-build\cache
+          python .\scripts\runtime\build-portable-python.py --mode fonts --output D:\yanji-build\py-out --cache-dir D:\yanji-build\cache
+
+      - name: Build production frontend, npm notices, skills and Composer vendor
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm ci --ignore-scripts
+          npm run build
+          New-Item -ItemType Directory -Force -Path D:\yanji-build\npm-licenses, D:\yanji-build\skills, D:\yanji-build\vendor-src, D:\yanji-build\php-tmp | Out-Null
+          python .\scripts\collect-licenses.py npm . D:\yanji-build\npm-licenses
+          python .\scripts\fetch-skills.py resources\skills\upstream-lock.json D:\yanji-build\skills
+
+          $out = Get-Content D:\yanji-build\web-out\windows-web-outputs.json -Raw | ConvertFrom-Json
+          & tar -xzf ("D:\yanji-build\web-out\" + $out.cli_runtime.name) -C D:\yanji-build\php-tmp
+          & tar -xzf ("D:\yanji-build\web-out\" + $out.web_runtime.name) -C D:\yanji-build\php-tmp
+          $phpExe = "D:\yanji-build\php-tmp\bin\php.exe"
+          $env:YANJI_EXT_DIR = "D:\yanji-build\php-tmp\bin\ext"
+          $env:YANJI_CA_BUNDLE = "D:\yanji-build\php-tmp\ca\cacert.pem"
+          Invoke-WebRequest -Uri https://getcomposer.org/download/2.8.12/composer.phar -OutFile D:\yanji-build\composer.phar -UseBasicParsing
+          if ((Get-FileHash D:\yanji-build\composer.phar -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'f446ea719708bb85fcbf4ef18def5d0515f1f9b4d703f6d820c9c1656e10a2f2') {
+            throw "composer.phar SHA-256 mismatch"
+          }
+          Copy-Item composer.json, composer.lock D:\yanji-build\vendor-src\
+          Push-Location D:\yanji-build\vendor-src
+          try {
+            & $phpExe -n -d 'extension_dir=${YANJI_EXT_DIR}' -d 'curl.cainfo=${YANJI_CA_BUNDLE}' -d 'openssl.cafile=${YANJI_CA_BUNDLE}' `
+              -d extension=openssl -d extension=mbstring -d extension=curl -d extension=zip -d extension=fileinfo -d extension=gd `
+              D:\yanji-build\composer.phar install --no-dev --no-interaction --no-scripts --prefer-dist --optimize-autoloader
+            if ($LASTEXITCODE -ne 0) { throw "composer install --no-dev failed on Windows" }
+            Get-ChildItem -Path D:\yanji-build\vendor-src\vendor -Recurse -Force -Directory -Filter '.git' -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+          } finally {
+            Pop-Location
+          }
+
+      - name: Assemble verified yanji-windows-x86_64.zip package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $out = Get-Content D:\yanji-build\web-out\windows-web-outputs.json -Raw | ConvertFrom-Json
+          $pySha = (Get-FileHash D:\yanji-build\py-out\yanji-python-windows-x86_64.tar.gz -Algorithm SHA256).Hash.ToLowerInvariant()
+          $fontSha = (Get-FileHash D:\yanji-build\py-out\yanji-report-fonts.tar.gz -Algorithm SHA256).Hash.ToLowerInvariant()
+          python .\scripts\build-local-package.py `
+            --source . --platform windows-x86_64 `
+            --vendor D:\yanji-build\vendor-src\vendor `
+            --assets public\build `
+            --npm-licenses D:\yanji-build\npm-licenses `
+            --skills D:\yanji-build\skills `
+            --cli ("D:\yanji-build\web-out\" + $out.cli_runtime.name) `
+            --cli-sha256 $out.cli_runtime.sha256 `
+            --cli-source-kit ("D:\yanji-build\web-out\" + $out.cli_source_kit.name) `
+            --cli-source-kit-sha256 $out.cli_source_kit.sha256 `
+            --web-runtime ("D:\yanji-build\web-out\" + $out.web_runtime.name) `
+            --web-runtime-sha256 $out.web_runtime.sha256 `
+            --web-source-kit ("D:\yanji-build\web-out\" + $out.web_source_kit.name) `
+            --web-source-kit-sha256 $out.web_source_kit.sha256 `
+            --python-runtime D:\yanji-build\py-out\yanji-python-windows-x86_64.tar.gz `
+            --python-runtime-sha256 $pySha `
+            --fonts D:\yanji-build\py-out\yanji-report-fonts.tar.gz `
+            --fonts-sha256 $fontSha `
+            --output D:\yanji-build\candidate
+
+      - name: Verify 11-skill render matrix and full Windows x64 acceptance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          New-Item -ItemType Directory -Force -Path D:\yanji-build\render-check | Out-Null
+          Expand-Archive -Path D:\yanji-build\candidate\yanji-windows-x86_64.zip -DestinationPath D:\yanji-build\render-check -Force
+          Copy-Item D:\yanji-build\vendor-src\vendor .\vendor -Recurse -Force
+          $env:YANJI_REPORT_FONTS_DIR = "D:\yanji-build\render-check\runtime\fonts"
+          $env:YANJI_EXT_DIR = "D:\yanji-build\render-check\runtime\bin\ext"
+          $renderOut = & D:\yanji-build\render-check\runtime\bin\php.exe -n -d 'extension_dir=${YANJI_EXT_DIR}' `
+            -d extension=openssl -d extension=mbstring -d extension=sqlite3 -d extension=pdo_sqlite -d extension=zip -d extension=curl -d extension=fileinfo -d extension=gd `
+            .\scripts\test-skill-render-matrix.php `
+            --skills="D:\yanji-build\render-check\app\yao-geo-skills\skills" `
+            --python="D:\yanji-build\render-check\runtime\python\python.exe" `
+            --mode=optional
+          if ($LASTEXITCODE -ne 0) { throw "Windows 11-skill render matrix failed with exit code $LASTEXITCODE" }
+          $renderLines = @($renderOut | Where-Object { $_ -match '^yao-geo-' })
+          $renderOut | ForEach-Object { Write-Host $_ }
+          if ($renderLines.Count -ne 11) { throw "Expected 11 rendered skill reports, got $($renderLines.Count)" }
+
+          $sumsSha = (Get-FileHash D:\yanji-build\candidate\SHA256SUMS -Algorithm SHA256).Hash.ToLowerInvariant()
+          python .\scripts\test-portable-runtime.py --package-dir D:\yanji-build\candidate --manifest-sha256 $sumsSha
+          if ($LASTEXITCODE -ne 0) { throw "Windows test-portable-runtime.py failed with exit code $LASTEXITCODE" }
+
+      - name: Upload verified Windows x64 portable release artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: portable-windows-x86_64
+          path: D:\yanji-build\candidate
+          if-no-files-found: error
+
+  portable-unix:
+    name: Assemble & Verify ${{ matrix.platform }} Portable Release
+    needs: tests
+    if: vars.YANJI_UNIX_RUNTIME_MANIFEST_URL != '' && vars.YANJI_UNIX_RUNTIME_MANIFEST_SHA256 != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: macos-arm64
+          - runner: ubuntu-24.04-arm
+            platform: linux-aarch64
+          - runner: ubuntu-24.04
+            platform: linux-x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Fetch source
+        env:
+          SOURCE_SERVER: ${{ github.server_url }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_TOKEN: ${{ github.token }}
+        run: |
+          git init .
+          source_auth=$(printf 'x-access-token:%s' "$SOURCE_TOKEN" | base64 | tr -d '\n')
+          echo "::add-mask::$source_auth"
+          git -c protocol.version=2 -c "http.extraheader=AUTHORIZATION: basic $source_auth" fetch --no-tags --depth=1 "$SOURCE_SERVER/$SOURCE_REPOSITORY.git" "$SOURCE_COMMIT"
+          unset SOURCE_TOKEN source_auth
+          git switch --detach FETCH_HEAD
+
+      - name: Setup Go 1.27.4
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: '1.27.4'
+          check-latest: false
+
+      - name: Setup Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+
+      - name: Setup Python 3.12 (build host)
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Fetch verified self-built Unix CLI & Web runtime kits
+        env:
+          MANIFEST_URL: ${{ vars.YANJI_UNIX_RUNTIME_MANIFEST_URL }}
+          MANIFEST_SHA256: ${{ vars.YANJI_UNIX_RUNTIME_MANIFEST_SHA256 }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
+        run: |
+          python3 scripts/runtime/fetch-unix-runtime.py \
+            --manifest-url "$MANIFEST_URL" \
+            --manifest-sha256 "$MANIFEST_SHA256" \
+            --platform "$TARGET_PLATFORM" \
+            --output /tmp/yanji-rt
+
+      - name: Build bundled Python 3.12, fonts, frontend, skills and Composer vendor
+        env:
+          TARGET_PLATFORM: ${{ matrix.platform }}
+        run: |
+          mkdir -p /tmp/yanji-py /tmp/yanji-cache /tmp/yanji-npm /tmp/yanji-skills /tmp/yanji-vendor /tmp/yanji-php
+          python3 scripts/runtime/build-portable-python.py --mode python --platform "$TARGET_PLATFORM" --output /tmp/yanji-py --cache-dir /tmp/yanji-cache
+          python3 scripts/runtime/build-portable-python.py --mode fonts --output /tmp/yanji-py --cache-dir /tmp/yanji-cache
+          npm ci --ignore-scripts
+          npm run build
+          python3 scripts/collect-licenses.py npm . /tmp/yanji-npm
+          python3 scripts/fetch-skills.py resources/skills/upstream-lock.json /tmp/yanji-skills
+
+          cli_path=$(python3 -c "import json; print(json.load(open('/tmp/yanji-rt/${TARGET_PLATFORM}-inputs.json'))['cli']['path'])")
+          tar -xzf "$cli_path" -C /tmp/yanji-php
+          php_bin=$(find /tmp/yanji-php -path '*/bin/php' -type f | head -n 1)
+          test -x "$php_bin"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --output /tmp/composer.phar https://getcomposer.org/download/2.8.12/composer.phar
+          actual_composer=$(python3 -c "import hashlib; print(hashlib.file_digest(open('/tmp/composer.phar','rb'),'sha256').hexdigest())")
+          test "$actual_composer" = "f446ea719708bb85fcbf4ef18def5d0515f1f9b4d703f6d820c9c1656e10a2f2"
+          cp composer.json composer.lock /tmp/yanji-vendor/
+          (cd /tmp/yanji-vendor && "$php_bin" /tmp/composer.phar install --no-dev --no-interaction --no-scripts --prefer-dist --optimize-autoloader)
+          find /tmp/yanji-vendor/vendor -type d -name .git -exec rm -rf {} +
+
+      - name: Assemble and verify portable package
+        env:
+          TARGET_PLATFORM: ${{ matrix.platform }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          plat = os.environ['TARGET_PLATFORM']
+          inp = json.loads(Path(f'/tmp/yanji-rt/{plat}-inputs.json').read_text(encoding='utf-8'))
+          py_path = Path(f'/tmp/yanji-py/yanji-python-{plat}.tar.gz')
+          fonts_path = Path('/tmp/yanji-py/yanji-report-fonts.tar.gz')
+          def sha(p: Path) -> str:
+              return hashlib.file_digest(p.open('rb'), 'sha256').hexdigest()
+          cmd = [
+              'python3', 'scripts/build-local-package.py',
+              '--source', '.', '--platform', plat,
+              '--vendor', '/tmp/yanji-vendor/vendor',
+              '--assets', 'public/build',
+              '--npm-licenses', '/tmp/yanji-npm',
+              '--skills', '/tmp/yanji-skills',
+              '--cli', inp['cli']['path'], '--cli-sha256', inp['cli']['sha256'],
+              '--cli-source-kit', inp['cli_source_kit']['path'], '--cli-source-kit-sha256', inp['cli_source_kit']['sha256'],
+              '--web-runtime', inp['web_runtime']['path'], '--web-runtime-sha256', inp['web_runtime']['sha256'],
+              '--web-source-kit', inp['web_source_kit']['path'], '--web-source-kit-sha256', inp['web_source_kit']['sha256'],
+              '--python-runtime', str(py_path), '--python-runtime-sha256', sha(py_path),
+              '--fonts', str(fonts_path), '--fonts-sha256', sha(fonts_path),
+              '--output', '/tmp/yanji-candidate',
+          ]
+          if 'ca' in inp and 'ca_notice' in inp:
+              cmd.extend(['--ca', inp['ca']['path'], '--ca-sha256', inp['ca']['sha256'], '--ca-notice', inp['ca_notice']['path']])
+          subprocess.run(cmd, check=True)
+          PY
+          sums_sha=$(python3 -c "import hashlib; print(hashlib.file_digest(open('/tmp/yanji-candidate/SHA256SUMS','rb'),'sha256').hexdigest())")
+          python3 scripts/test-portable-runtime.py --package-dir /tmp/yanji-candidate --manifest-sha256 "$sums_sha"
+
+      - name: Upload verified Unix portable release artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: portable-${{ matrix.platform }}
+          path: /tmp/yanji-candidate
+          if-no-files-found: error
+
+  publish-release:
+    name: Merge SHA256SUMS, Generate Bootstrappers & Publish GitHub Release
+    needs: [publish, portable-windows-x64, portable-unix]
+    if: >-
+      always()
+      && needs.publish.result == 'success'
+      && needs.portable-windows-x64.result == 'success'
+      && (needs.portable-unix.result == 'success' || needs.portable-unix.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Fetch source
+        env:
+          SOURCE_SERVER: ${{ github.server_url }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_TOKEN: ${{ github.token }}
+        run: |
+          git init .
+          source_auth=$(printf 'x-access-token:%s' "$SOURCE_TOKEN" | base64 -w0)
+          echo "::add-mask::$source_auth"
+          git -c protocol.version=2 -c "http.extraheader=AUTHORIZATION: basic $source_auth" fetch --no-tags --depth=1 "$SOURCE_SERVER/$SOURCE_REPOSITORY.git" "$SOURCE_COMMIT"
+          unset SOURCE_TOKEN source_auth
+          git switch --detach FETCH_HEAD
+
+      - name: Download verified portable release artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: portable-*
+          path: /tmp/yanji-artifacts
+
+      - name: Merge release directories and generate pinned one-line bootstrappers
+        env:
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          args=()
+          for dir in /tmp/yanji-artifacts/portable-*; do
+            test -d "$dir" && args+=(--input "$dir")
+          done
+          test "${#args[@]}" -gt 0
+          python3 scripts/runtime/merge-release-dir.py \
+            "${args[@]}" \
+            --base-url "https://github.com/${REPOSITORY}/releases/download/${VERSION}" \
+            --output /tmp/yanji-release
+
+      - name: Upload verified portable assets to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release upload "$VERSION" /tmp/yanji-release/* --clobber
+          else
+            gh release create "$VERSION" /tmp/yanji-release/* --title "$VERSION" --generate-notes
+          fi

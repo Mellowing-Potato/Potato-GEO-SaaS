@@ -22,6 +22,10 @@ boot_spec = importlib.util.spec_from_file_location('release_bootstrap', ROOT / '
 bootstrap = importlib.util.module_from_spec(boot_spec)
 boot_spec.loader.exec_module(bootstrap)
 
+merge_spec = importlib.util.spec_from_file_location('release_merge', ROOT / 'scripts/runtime/merge-release-dir.py')
+merger = importlib.util.module_from_spec(merge_spec)
+merge_spec.loader.exec_module(merger)
+
 
 def write_tar(path: Path, files: dict[str, bytes], symlinks: dict[str, str] | None = None) -> None:
     with tarfile.open(path, 'w:gz') as out:
@@ -228,6 +232,60 @@ class PortablePythonMaterialsTest(unittest.TestCase):
         subprocess.run(['sh', '-n', str(sh_file)], check=True)
         with self.assertRaisesRegex(ValueError, 'HTTPS'):
             bootstrap.generate('http://example.com/release', sums, boot_out)
+
+    def test_merge_release_dirs_unifies_multi_platform_sums_and_rejects_conflicts(self):
+        win_dir = self.root / 'cand-win'
+        mac_dir = self.root / 'cand-mac'
+        win_dir.mkdir()
+        mac_dir.mkdir()
+
+        def write_cand(d: Path, files: dict[str, bytes]) -> None:
+            lines = []
+            for name, content in sorted(files.items()):
+                p = d / name
+                p.write_bytes(content)
+                lines.append(f'{hashlib.sha256(content).hexdigest()}  {name}\n')
+            (d / 'SHA256SUMS').write_text(''.join(lines), encoding='utf-8')
+
+        write_cand(win_dir, {
+            'install-local.ps1': b'# win installer\r\n',
+            'yanji-windows-x86_64.zip': b'win-zip-bytes',
+        })
+        write_cand(mac_dir, {
+            'install-local.sh': b'#!/bin/sh\necho ok\n',
+            'yanji-macos-arm64.tar.gz': b'mac-tar-bytes',
+        })
+
+        # Windows-only merge works without requiring install-local.sh
+        win_only = self.root / 'merged-win-only'
+        win_res = merger.merge_release_dirs([win_dir], win_only, 'https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.0')
+        self.assertTrue((win_only / 'get-yanji.ps1').is_file())
+        self.assertFalse((win_only / 'get-yanji.sh').exists())
+        self.assertIn(win_res['manifest_sha256'], (win_only / 'get-yanji.ps1').read_text(encoding='utf-8'))
+
+        # Combined Windows + macOS merge generates both pinned bootstrappers
+        combined = self.root / 'merged-all'
+        all_res = merger.merge_release_dirs([win_dir, mac_dir], combined, 'https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.0')
+        self.assertEqual(
+            ['install-local.ps1', 'install-local.sh', 'yanji-macos-arm64.tar.gz', 'yanji-windows-x86_64.zip'],
+            all_res['files'],
+        )
+        self.assertTrue((combined / 'get-yanji.sh').is_file() and (combined / 'get-yanji.ps1').is_file())
+        self.assertIn(all_res['manifest_sha256'], (combined / 'get-yanji.sh').read_text(encoding='utf-8'))
+        self.assertIn(all_res['manifest_sha256'], (combined / 'get-yanji.ps1').read_text(encoding='utf-8'))
+        subprocess.run(['sh', '-n', str(combined / 'get-yanji.sh')], check=True)
+
+        # Conflicting shared filename with different content must be rejected
+        conflict_dir = self.root / 'cand-conflict'
+        conflict_dir.mkdir()
+        write_cand(conflict_dir, {'install-local.ps1': b'# tampered installer\r\n'})
+        with self.assertRaisesRegex(ValueError, 'Conflicting content'):
+            merger.merge_release_dirs([win_dir, conflict_dir], self.root / 'merged-conflict')
+
+        # Tampered file mismatching input SHA256SUMS must be rejected
+        (win_dir / 'yanji-windows-x86_64.zip').write_bytes(b'corrupted')
+        with self.assertRaisesRegex(ValueError, 'SHA-256 mismatch'):
+            merger.merge_release_dirs([win_dir], self.root / 'merged-tampered')
 
 
 if __name__ == '__main__':

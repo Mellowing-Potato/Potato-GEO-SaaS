@@ -38,7 +38,7 @@ bash scripts/install.sh
 
 文本和视觉也可分别选用同机开源工具 [Magpie](https://github.com/yetone/magpie)。启动 Magpie 并完成工作区授权后，在「模型配置」保存连接并读取目录，选定模型后保存并设为当前来源。原直连配置会保留，可以切回。 [Magpie 安装与授权说明](INSTALL.md#可选的-magpie-工作区授权)
 
-免 Docker 的本机候选安装与 `yanji` 管理命令见 [PORTABLE.md](PORTABLE.md)。当前尚未发布正式便携下载包，需维护者提供经过核验的平台材料与清单摘要；随包 Python、原生依赖漏洞审计与各平台真机发行验收仍在推进。Docker 安装和原有开发流程继续保留。
+免 Docker 的本机便携安装（面向 **macOS Apple Silicon**、**Windows x64** 及 Linux，随包内置独立 Python 3.12.16 与开源字体，提供 `yanji` / `yanji.cmd` 管理命令）见 [PORTABLE.md](PORTABLE.md)。macOS arm64 实机与原生 Windows x64 CI 完整便携验收均已通过，待维护者推送 `v0.1.0` 标签后正式发布下载包；Docker 安装与原有开发流程继续完整保留。
 
 模型调用与联网搜索费用由你选择的供应商收取，言及不维护价格表、不代付模型费用，也没有充值和订购功能。文本、视觉、向量和监测可以分别配置。Key 加密保存于各自工作区；没有配置时会提示未配置。
 
@@ -114,8 +114,12 @@ GEOFlow 更侧重企业官网与多站点的持续内容运营，将知识库、
 - **自动化测试：** SQLite、PostgreSQL、前端、字体与技能快照都有测试入口；本地运行见 [贡献指南](CONTRIBUTING.md)。测试通过不等于全部真实平台均已验收。
 - **界面实测：** 新安装、登录与退出、三种真实模型连接、材料入库和检索、豆包监测、标题内容生成、报告下载、用量、未知结果不自动重发、窄屏模型表单。
 - **Magpie 实测：** 原生回环接入已实测文本请求、队列生成结构化标题报告和合成扫描件识别。
-- **平台：** Apple 芯片 Mac / Linux arm64 容器已验证。CI 已配置 Linux amd64 和 arm64 的自动化测试，运行结果以对应提交的 CI 为准；Linux amd64 的安装及主要业务流程仍待实测，自动化测试不能替代这项验收。
-- **未验证：** Magpie 容器接入的真实 Gateway Key 鉴权和推理、其他视觉模型、上表注明的真实渠道、正式公开发布与 GitHub 镜像发行。旧版工作台预览入口默认关闭。
+- **便携版平台验收：**
+  - **macOS Apple Silicon (`macos-arm64`)**：实机冷安装（无宿主机 Python）、`doctor`、私有静态 404 护栏、501 作业轮换、2 秒超时接替、热停排水、备份恢复、篡改拒绝、11 技能渲染、真实浏览器登录/工作台/模型配置（直连 + Magpie）/建项均已实测通过。
+  - **Windows x64 (`windows-x86_64`)**：原生 `windows-2025` 全套构建（无 Mercure/Vulcain FrankenPHP + Brotli 1.2.1 + PHP 8.5.13 ZTS + 随包 Python 3.12.16 + 字体）、11 技能渲染矩阵、中文空格路径冷安装、`yanji.cmd` 帮助与 `doctor`、私有静态 404 护栏、501 作业轮换、2 秒超时接替、热停排水、备份恢复与篡改拒绝已通过；Windows 本机桌面浏览器手工点击与真实付费模型调用未在此阶段实测。
+  - **Linux (`linux-aarch64` / `linux-x86_64`)**：arm64 原架构 VM 冷安装及原架构 CI 均已通过；x86_64 原生 CI 双库测试与随包 Python / WOFF2 子集化已通过，原生 x86_64 实机冷安装待发布前补齐。Intel Mac (`macos-x64`) 不纳入首批发布范围。
+- **Docker 平台：** Apple 芯片 Mac / Linux arm64 容器及独立冷安装回归已验证。CI 已配置 Linux amd64 和 arm64 的自动化测试，运行结果以对应提交的 CI 为准；Linux amd64 的 Docker 安装及主要业务流程仍待实测，自动化测试不能替代这项验收。
+- **未验证：** Magpie 容器接入的真实 Gateway Key 鉴权和推理、其他视觉模型、上表注明的真实渠道、正式公开发布与 GitHub Release / GHCR 镜像发行（待推送 `v0.1.0` 标签）。旧版工作台预览入口默认关闭。
 
 
 ## 许可、来源与品牌
