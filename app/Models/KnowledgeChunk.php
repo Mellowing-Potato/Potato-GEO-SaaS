@@ -36,7 +36,7 @@ class KnowledgeChunk extends Model
         static::saving(function (self $chunk): void {
             if ($chunk->isDirty('embedding') && $chunk->embedding !== null
                 && ! \App\Services\AI\EmbeddingModelPolicy::validVector($chunk->embedding)) {
-                throw new \InvalidArgumentException('Knowledge vectors must contain exactly 1024 finite numbers.');
+                throw new \InvalidArgumentException('Knowledge vectors must contain exactly 1024 finite numbers and at least one nonzero coordinate.');
             }
         });
     }
@@ -59,7 +59,7 @@ class KnowledgeChunk extends Model
     public function nearestNeighbors(array $queryVector, int $limit = 5): Builder
     {
         if (! \App\Services\AI\EmbeddingModelPolicy::validVector($queryVector)) {
-            throw new \InvalidArgumentException('Query vectors must contain exactly 1024 finite numbers.');
+            throw new \InvalidArgumentException('Query vectors must contain exactly 1024 finite numbers and at least one nonzero coordinate.');
         }
         if (DB::connection()->getDriverName() !== 'pgsql') {
             if (! $this->nonPgvectorFallbackEnabled()) {

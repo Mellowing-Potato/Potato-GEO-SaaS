@@ -349,7 +349,7 @@ class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalContract
             $unit = $this->unitVector($vector);
             $score = 0.0;
             foreach ($unit as $i => $coordinate) {
-                $score += $coordinate * ($queryUnit[$i] ?? 0.0);
+                $score += $coordinate * $queryUnit[$i];
             }
             $score = max(-1.0, min(1.0, $score));
             $best->insert([$chunk->id, $score], [-$score, $chunk->id]);
@@ -399,10 +399,6 @@ class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalContract
     private function unitVector(array $vector): array
     {
         $scale = max(max($vector), -min($vector));
-        if ($scale == 0.0) {
-            return [];
-        }
-
         $squares = 0.0;
         foreach ($vector as &$value) {
             $value /= $scale;

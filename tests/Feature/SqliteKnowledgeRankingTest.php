@@ -61,12 +61,28 @@ class SqliteKnowledgeRankingTest extends TestCase
         $document = $this->document($tenant);
         $query = array_pad([1], 1024, 0);
         $valid = $this->chunk($document, $query);
-        foreach (['[1]', 'not-json', json_encode(array_pad(['1'], 1024, 0)), '{"x":1}'] as $i => $bad) {
+        foreach (['[1]', 'not-json', json_encode(array_fill(0, 1024, 0)), json_encode(array_pad(['1'], 1024, 0)), '{"x":1}'] as $i => $bad) {
             DB::table('knowledge_chunks')->insert(['tenant_id' => $tenant->id, 'document_id' => $document->id,
                 'chunk_index' => $i + 1, 'content' => '历史切片', 'embedding' => $bad]);
         }
         $hits = $this->retrieval($query, 1)->retrieve('查询', 5, 0, ['project_id' => $document->project_id]);
         $this->assertSame([$valid->id], array_column($hits, 'chunkId'));
+    }
+
+    public function test_zero_vectors_have_no_cosine_direction_but_tiny_and_large_finite_vectors_do(): void
+    {
+        $tenant = $this->useWorkspaceModels();
+        $document = $this->document($tenant);
+        $tiny = array_pad([1e-310, -1e-310], 1024, 0);
+        $huge = array_pad([1e308, -1e308], 1024, 0);
+        $this->chunk($document, $tiny);
+        $this->chunk($document, $huge, 1);
+        $hits = $this->retrieval($huge, 1)->retrieve('同一方向', 5, 0.999, ['project_id' => $document->project_id]);
+        $this->assertCount(2, $hits);
+        $zero = array_fill(0, 1024, 0);
+        $this->assertFalse(\App\Services\AI\EmbeddingModelPolicy::validVector($zero));
+        $this->expectException(\InvalidArgumentException::class);
+        $this->chunk($document, $zero, 2);
     }
 
     private function document(Tenant $tenant, ?int $projectId = null): KnowledgeDocument
