@@ -310,7 +310,13 @@ final class Backup
     private static function removeWorkspace(string $dir): void
     {
         foreach (new FilesystemIterator($dir) as $file) {
-            if (! $file->isLink() && $file->isDir()) {
+            if ($file->isLink()) {
+                if (Platform::isWindows() && $file->isDir()) {
+                    rmdir($file->getPathname());
+                } else {
+                    unlink($file->getPathname());
+                }
+            } elseif ($file->isDir()) {
                 self::removeWorkspace($file->getPathname());
             } else {
                 if (Platform::isWindows()) {

@@ -140,10 +140,36 @@ final class Platform
             }
             return;
         }
-        $sid = self::windowsUserSid();
-        $grant = '*'.$sid.($isDir ? ':(OI)(CI)F' : ':F');
-        $proc = @proc_open(['icacls', self::nativePath($path), '/inheritance:r', '/grant:r', $grant],
-            [0 => ['file', 'NUL', 'r'], 1 => ['file', 'NUL', 'w'], 2 => ['file', 'NUL', 'w']], $pipes);
+        $real = realpath($path);
+        $native = self::nativePath($real !== false ? $real : $path);
+        $ps = <<<'PS'
+$ErrorActionPreference = 'Stop'
+$p = $env:YANJI_ACL_PATH
+$me = [Security.Principal.WindowsIdentity]::GetCurrent().User
+if ([System.IO.Directory]::Exists($p)) {
+    $acl = New-Object System.Security.AccessControl.DirectorySecurity
+    $acl.SetAccessRuleProtection($true, $false)
+    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($me, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
+    $acl.SetAccessRule($rule)
+    [System.IO.Directory]::SetAccessControl($p, $acl)
+} else {
+    $acl = New-Object System.Security.AccessControl.FileSecurity
+    $acl.SetAccessRuleProtection($true, $false)
+    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($me, 'FullControl', 'Allow')
+    $acl.SetAccessRule($rule)
+    [System.IO.File]::SetAccessControl($p, $acl)
+}
+PS;
+        $env = self::windowsPowerShellEnv(getenv());
+        $env['YANJI_ACL_PATH'] = $native;
+        $proc = @proc_open(
+            [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', $ps],
+            [0 => ['file', 'NUL', 'r'], 1 => ['file', 'NUL', 'w'], 2 => ['file', 'NUL', 'w']],
+            $pipes,
+            null,
+            $env,
+            ['bypass_shell' => true],
+        );
         if (!is_resource($proc) || proc_close($proc) !== 0) {
             throw new RuntimeException('无法在 Windows 上设置实例目录或文件的独占权限。');
         }
@@ -157,44 +183,31 @@ final class Platform
         if (!self::isWindows()) {
             return fileowner($path) === posix_geteuid() && (fileperms($path) & 0077) === 0;
         }
-        $proc = @proc_open(['icacls', self::nativePath($path)],
-            [0 => ['file', 'NUL', 'r'], 1 => ['pipe', 'w'], 2 => ['file', 'NUL', 'w']], $pipes);
-        if (!is_resource($proc)) {
-            return false;
-        }
-        $output = (string) stream_get_contents($pipes[1], 16384);
-        fclose($pipes[1]);
-        if (proc_close($proc) !== 0 || $output === '') {
-            return false;
-        }
-        $lines = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', $output) ?: [])));
-        // Strip trailing summary line (e.g., "Successfully processed 1 files...").
-        if (count($lines) > 1) {
-            array_pop($lines);
-        }
-        if ($lines === []) {
-            return false;
-        }
-        $native = self::nativePath($path);
-        if (str_starts_with(strtolower($lines[0]), strtolower($native))) {
-            $lines[0] = ltrim(substr($lines[0], strlen($native)));
-        }
-        $identity = self::windowsUserIdentity();
-        $allowed = [strtolower($identity['account']), strtolower($identity['sid'])];
-        foreach ($lines as $ace) {
-            if ($ace === '') {
-                continue;
-            }
-            $colon = strpos($ace, ':');
-            if ($colon === false) {
-                return false;
-            }
-            $principal = strtolower(trim(substr($ace, 0, $colon)));
-            if (!in_array($principal, $allowed, true)) {
-                return false;
-            }
-        }
-        return true;
+        $real = realpath($path);
+        $native = self::nativePath($real !== false ? $real : $path);
+        $ps = <<<'PS'
+$ErrorActionPreference = 'Stop'
+$p = $env:YANJI_ACL_PATH
+$me = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$acl = if ([System.IO.Directory]::Exists($p)) { [System.IO.Directory]::GetAccessControl($p) } else { [System.IO.File]::GetAccessControl($p) }
+$rules = @($acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]))
+if ($rules.Count -eq 0) { exit 2 }
+foreach ($r in $rules) {
+    if ($r.IdentityReference.Value -ne $me) { exit 3 }
+}
+exit 0
+PS;
+        $env = self::windowsPowerShellEnv(getenv());
+        $env['YANJI_ACL_PATH'] = $native;
+        $proc = @proc_open(
+            [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', $ps],
+            [0 => ['file', 'NUL', 'r'], 1 => ['file', 'NUL', 'w'], 2 => ['file', 'NUL', 'w']],
+            $pipes,
+            null,
+            $env,
+            ['bypass_shell' => true],
+        );
+        return is_resource($proc) && proc_close($proc) === 0;
     }
 
     public static function assertProtectedAncestors(string $path): void
