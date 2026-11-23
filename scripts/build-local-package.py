@@ -170,7 +170,9 @@ def inspect_web(args):
             with binary.open('wb') as output:
                 shutil.copyfileobj(archive.extractfile(binaries[0]), output)
             binary_digest = digest(binary)
-            manifest = json.load(archive.extractfile((strip / 'build-manifest.json').as_posix()))
+            manifest_member = next(m for m, p in zip(members, relative)
+                                   if p == PurePosixPath('build-manifest.json'))
+            manifest = json.load(archive.extractfile(manifest_member))
             if (not isinstance(manifest, dict) or manifest.get('binary_sha256') != binary_digest
                     or manifest.get('source_kit') != {'name': kit, 'sha256': args.web_source_kit_sha256}):
                 raise ValueError('Web binary and corresponding-source/relink kit are not paired')

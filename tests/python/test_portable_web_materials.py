@@ -141,6 +141,17 @@ class PortableWebMaterialsTest(unittest.TestCase):
                 self.build()
         self.assertFalse(self.args.output.exists())
 
+    def test_standard_tar_dot_prefix_keeps_web_provenance_and_notices(self):
+        with tarfile.open(self.args.web_runtime) as original:
+            files = {m.name.replace('web/', './', 1): original.extractfile(m).read() for m in original}
+        archive(self.args.web_runtime, files)
+        self.args.web_runtime_sha256 = package.digest(self.args.web_runtime)
+        with patch.object(package, 'read_go_build_info', return_value=INFO):
+            self.build()
+        with tarfile.open(self.args.output / 'yanji-linux-aarch64.tar.gz') as built:
+            self.assertEqual(b'fixture notice', built.extractfile('runtime/web/notices/LICENSE').read())
+            self.assertEqual(b'fixture web', built.extractfile('runtime/bin/frankenphp').read())
+
     def test_unsafe_web_archive_cannot_escape_its_namespace(self):
         for bad_name, kind in [('web/notices/../../../escape', tarfile.REGTYPE),
                                ('web/notices/link', tarfile.SYMTYPE),
