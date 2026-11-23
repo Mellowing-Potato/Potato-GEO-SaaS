@@ -93,7 +93,7 @@ mkdir -p "$program/releases"
 program=$(cd "$program" && pwd -P)
 release=$program/releases/$digest
 if [ ! -d "$release" ]; then
-    stage=$(mktemp -d "$program/.incoming.XXXXXXXX")
+    stage=$(mktemp -d "$program/releases/.incoming.XXXXXXXX")
     tar -xzf "$scratch/package" -C "$stage"
     [ -x "$stage/runtime/bin/php" ] && [ -x "$stage/runtime/bin/frankenphp" ] && [ -f "$stage/app/portable/yanji.php" ] || fail '安装包布局无效。'
     printf '%s\n' "$digest" > "$stage/.archive-sha256"

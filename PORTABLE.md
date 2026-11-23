@@ -52,7 +52,8 @@ sh scripts/install-local.sh --manifest "$MANIFEST" --manifest-sha256 "$MANIFEST_
 python3 scripts/build-local-package.py --source "$CHECKOUT" --platform macos-arm64 \
   --vendor "$PRODUCTION_VENDOR" --assets "$FRONTEND_BUILD" --skills "$SKILLS" \
   --cli "$CLI_ARCHIVE" --cli-sha256 "$CLI_SHA256" --web "$WEB_BINARY" \
-  --web-sha256 "$WEB_SHA256" --output "$NEW_OUTPUT_DIRECTORY"
+  --web-sha256 "$WEB_SHA256" --cli-source-kit "$CLI_SOURCE_RELINK" \
+  --cli-source-kit-sha256 "$CLI_SOURCE_RELINK_SHA256" --output "$NEW_OUTPUT_DIRECTORY"
 ```
 
-若相应平台 CLI 归档使用系统 CA，构建机还要传入 `--ca`、`--ca-sha256` 和 `--ca-notice` 指定已核验的可信证书包与许可。维护者须核对最终归档、对应源码和重链接材料、Web/Python/其他第三方许可、依赖漏洞和签名；跟踪仓库只保存构建及管理源码。
+若相应平台 CLI 归档使用系统 CA，构建机还要传入 `--ca`、`--ca-sha256` 和 `--ca-notice` 指定已核验的可信证书包与许可。发行目录会保留该平台原名的 CLI 对应源码、构建资料与可替换对象包。程序内 release.json 和同目录 SHA256SUMS 均列出其名称及摘要。维护者须核对最终归档、对应源码和重链接材料、Web/Python/其他第三方许可、依赖漏洞和签名；跟踪仓库只保存构建及管理源码。

@@ -5,6 +5,8 @@ import gzip
 import hashlib
 import io
 import json
+import re
+import shutil
 from pathlib import Path, PurePosixPath
 import subprocess
 import tarfile
@@ -71,6 +73,9 @@ def build(args):
     for path, checksum in ((args.cli, args.cli_sha256), (args.web, args.web_sha256)):
         if digest(path) != checksum:
             raise ValueError('Platform input digest mismatch')
+    kit_name = args.cli_source_kit.name
+    if not re.fullmatch(r'[A-Za-z0-9_.-]+\.tar\.(?:gz|zst)', kit_name) or args.platform not in kit_name:
+        raise ValueError('Expected a matching platform-specific corresponding-source/relink kit')
     root = args.source.resolve()
     ref = subprocess.check_output(['git', 'rev-parse', '--verify', 'HEAD^{commit}'], cwd=root, text=True).strip()
     lock = json.loads(subprocess.check_output(['git', 'show', ref + ':composer.lock'], cwd=root))
@@ -92,6 +97,10 @@ def build(args):
         source_tar = Path(temporary) / 'app.tar'
         subprocess.run(['git', 'archive', '--format=tar', '--output', str(source_tar), ref, '--', *APP_PATHS],
                        cwd=root, check=True)
+        staged_kit = Path(temporary) / kit_name
+        shutil.copyfile(args.cli_source_kit, staged_kit)
+        if digest(staged_kit) != args.cli_source_kit_sha256 or kit_name == target.name:
+            raise ValueError('CLI corresponding-source/relink kit digest or name mismatch')
         output_tar = Path(temporary) / target.name
         with output_tar.open('wb') as output, gzip.GzipFile(filename='', mode='wb', fileobj=output,
                     mtime=0, compresslevel=5) as zipped, tarfile.open(fileobj=zipped, mode='w') as archive:
@@ -129,17 +138,18 @@ def build(args):
                 copy_tar(cli, archive, 'runtime', strip)
             save_path(archive, args.web, 'runtime/bin/frankenphp')
             receipt = json.dumps(dict(commit=ref, platform=args.platform, cli_sha256=args.cli_sha256,
-                                      web_sha256=args.web_sha256), indent=2).encode() + b'\n'
+                                      web_sha256=args.web_sha256, cli_source_kit=kit_name,
+                                      cli_source_kit_sha256=args.cli_source_kit_sha256), indent=2).encode() + b'\n'
             save_file(archive, 'release.json', io.BytesIO(receipt), len(receipt))
             inventory = ''.join(sha + '  ' + name + '\n' for name, sha in sorted(archive.file_hashes.items())).encode()
             save_file(archive, 'PACKAGE-FILES.sha256', io.BytesIO(inventory), len(inventory))
-        checks = [(digest(output_tar), target.name)]
+        checks = [(digest(output_tar), target.name), (args.cli_source_kit_sha256, kit_name)]
         for name in ('install-local.sh', 'install-local.ps1'):
             data = subprocess.check_output(['git', 'show', ref + ':scripts/' + name], cwd=root)
             (Path(temporary) / name).write_bytes(data)
             checks.append((hashlib.sha256(data).hexdigest(), name))
         manifest = (''.join(sha + '  ' + name + '\n' for sha, name in checks)).encode()
-        for name in ('install-local.sh', 'install-local.ps1', target.name):
+        for name in ('install-local.sh', 'install-local.ps1', kit_name, target.name):
             (Path(temporary) / name).replace(args.output / name)
         (args.output / 'SHA256SUMS').write_bytes(manifest)
         print('SHA256SUMS', hashlib.sha256(manifest).hexdigest())
@@ -148,11 +158,11 @@ def build(args):
 if __name__ == '__main__':
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument('--platform', required=True, choices=['macos-arm64', 'linux-aarch64', 'linux-x86_64'])
-    for name in ('source', 'vendor', 'skills', 'assets', 'cli', 'web', 'output'):
+    for name in ('source', 'vendor', 'skills', 'assets', 'cli', 'web', 'cli-source-kit', 'output'):
         cli.add_argument('--' + name, type=Path, required=True)
     cli.add_argument('--ca', type=Path)
     cli.add_argument('--ca-notice', type=Path)
     cli.add_argument('--ca-sha256')
-    for name in ('cli-sha256', 'web-sha256'):
+    for name in ('cli-sha256', 'web-sha256', 'cli-source-kit-sha256'):
         cli.add_argument('--' + name, required=True)
     build(cli.parse_args())
