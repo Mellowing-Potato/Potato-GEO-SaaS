@@ -53,7 +53,7 @@ function runPortable(array $args): int
         Backup::restore($i, $from, $release, $port);
         $setup->configure($release, $port);
         $setup->configurePython($options['python-bin'] ?? null);
-        if ($i->artisan(['yanji:ready'], quiet:true) !== 0) {
+        if ($i->artisan(['yanji:ready','--portable'], quiet:true) !== 0) {
             throw new RuntimeException('恢复的实例密钥与数据库未通过就绪检查。');
         }
         $services->start();
@@ -102,7 +102,7 @@ function runPortable(array $args): int
         $i->release();
         $required = ['pdo_sqlite','sqlite3','gd','zip','curl','mbstring','openssl','fileinfo','xml','dom','ctype','tokenizer','pcntl','posix'];
         $missing = array_values(array_filter($required, static fn ($name) => !extension_loaded($name)));
-        $ready = $i->artisan(['yanji:ready'], quiet: true) === 0;
+        $ready = $i->artisan(['yanji:ready','--portable'], quiet: true) === 0;
         $skill = $i->artisan(['geo:audit-skill-assets'], quiet:true) === 0;
         $python = Installation::pythonStatus($i);
         $permissions = true;
@@ -164,7 +164,7 @@ function runPortable(array $args): int
                 break;
             case 'reset-password':
                 $email = $options['email'] ?? throw new RuntimeException('请指定要改密的 --email。');
-                [$args,$input] = Installation::passwordInput(['yanji:reset-password', $email], $options['password-file'] ?? null);
+                [$args,$input] = Installation::passwordInput(['yanji:reset-password', $email, '--portable'], $options['password-file'] ?? null);
                 return $i->artisan($args, $input);
             case 'magpie':
                 $args = ['yanji:magpie'];

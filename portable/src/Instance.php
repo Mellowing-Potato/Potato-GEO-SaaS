@@ -181,6 +181,7 @@ final class Instance
         $env = array_merge($env, [
             'PATH' => $release.'/runtime/bin:'.($env['PATH'] ?? '/usr/bin:/bin'),
             'APP_ENV' => 'production', 'APP_DEBUG' => 'false', 'APP_URL' => 'http://127.0.0.1:'.$port,
+            'YANJI_PORTABLE_INSTANCE' => 'true',
             'YANJI_PORT' => (string) $port, 'YANJI_ENV_PATH' => $this->root,
             'YANJI_UPGRADE_HOLD' => $this->root.'/run/upgrade-hold',
             'YANJI_PUBLIC_PATH' => $this->root.'/public', 'LARAVEL_STORAGE_PATH' => $storage,

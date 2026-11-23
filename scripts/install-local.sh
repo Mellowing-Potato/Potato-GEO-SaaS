@@ -53,6 +53,11 @@ stage=
 cleanup() { rm -rf "$scratch"; if [ -n "$stage" ] && [ -d "$stage" ]; then rm -rf "$stage"; fi; }
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
+case "$program" in /|*/../*|*/./*|*/..|*/.) fail '程序路径无效。';; esac
+case "$instance" in /|*/../*|*/./*|*/..|*/.) fail '实例路径无效。';; esac
+if [ -d "$program" ] && [ ! -d "$program/releases" ] && [ -n "$(ls -A "$program")" ]; then
+    fail '程序目录已有其他文件，请选择单独的程序目录。'
+fi
 get "$manifest" "$scratch/sums"
 [ "$(hash "$scratch/sums")" = "$pin" ] || fail '发行清单校验失败。'
 entry() {

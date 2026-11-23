@@ -38,7 +38,7 @@ final class Upgrade
         Instance::atomicFile($hold, "blocked\n");
         try {
             $setup->configure($candidate, $port);
-            foreach ([['migrate', '--force'], ['yanji:ready'], ['yanji:worker','--check'], ['schedule:list']] as $args) {
+            foreach ([['migrate', '--force'], ['yanji:ready','--portable'], ['yanji:worker','--check'], ['schedule:list']] as $args) {
                 if ($i->artisan($args, quiet: true) !== 0) {
                     throw new RuntimeException('候选版本迁移或就绪检查失败。');
                 }
@@ -66,7 +66,7 @@ final class Upgrade
                 }
             }
             $setup->configure($old, $port);
-            if ($i->artisan(['yanji:ready'], quiet:true) !== 0) {
+            if ($i->artisan(['yanji:ready','--portable'], quiet:true) !== 0) {
                 throw new RuntimeException('恢复后就绪检查失败，保留维护门和原备份 '.$backup);
             }
             unlink($hold);

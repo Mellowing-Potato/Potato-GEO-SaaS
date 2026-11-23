@@ -41,7 +41,7 @@ final class Supervisor
             return $existing;
         }
         if ($existing === null) {
-            if ($this->instance->artisan(['yanji:ready', '--quiet'], quiet: true) !== 0) {
+            if ($this->instance->artisan(['yanji:ready', '--portable', '--quiet'], quiet: true) !== 0) {
                 throw new RuntimeException('实例密钥、管理员或数据库未就绪，请运行 yanji doctor。');
             }
             $probe = @stream_socket_server('tcp://127.0.0.1:'.$this->instance->port(), $errno, $error);

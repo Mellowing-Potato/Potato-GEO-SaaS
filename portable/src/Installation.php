@@ -72,15 +72,15 @@ final class Installation
             }
             $this->securePath($path);
         }
-        if ($i->artisan(['yanji:ready', '--quiet'], quiet: true) === 0) {
+        if ($i->artisan(['yanji:ready', '--portable', '--quiet'], quiet: true) === 0) {
             return;
         }
-        $args = ['yanji:install'];
+        $args = ['yanji:install','--portable'];
         if ($email !== null) {
             $args[] = '--email='.$email;
         }
         [$args, $input] = self::passwordInput($args, $passwordFile);
-        if ($i->artisan($args, $input) !== 0 || $i->artisan(['yanji:ready'], quiet: true) !== 0) {
+        if ($i->artisan($args, $input) !== 0 || $i->artisan(['yanji:ready','--portable'], quiet: true) !== 0) {
             throw new RuntimeException('初始化未完成。请使用原实例目录重试或运行 yanji doctor。');
         }
     }

@@ -33,7 +33,7 @@ if ($action === 'verify-key') {
     exit(hash_equals('sk-test-portable-embedding', $saved->getDecryptedKey()) ? 0 : 1);
 }
 $input = json_decode(stream_get_contents(STDIN), true, flags: JSON_THROW_ON_ERROR);
-$other = app(LocalAccounts::class)->create('other@example.com', $input['other_password'], 'Test');
+$other = app(LocalAccounts::class)->create($input['other_email'], $input['other_password'], 'Test');
 $project = Project::forceCreate(['tenant_id'=>$user->tenant_id,'owner_id'=>$user->id,'name'=>'Fixture project','status'=>'active']);
 $task = Task::create(['tenant_id'=>$user->tenant_id,'project_id'=>$project->id,'user_id'=>$user->id,
     'name'=>'Fixture schedule','skill_id'=>Project::GEO_ANALYSIS_SKILL_ID,'cadence'=>'daily','status'=>'active',
@@ -49,7 +49,7 @@ $port = filter_var($input['embedding_port'], FILTER_VALIDATE_INT, ['options'=>['
 if (!$port) {
     throw new RuntimeException('Invalid loopback fixture port');
 }
-TenantAiKey::create(['tenant_id'=>$user->tenant_id,'provider'=>'custom','slot'=>'embedding','is_active'=>true,
+TenantAiKey::withoutGlobalScopes()->updateOrCreate(['tenant_id'=>$user->tenant_id,'slot'=>'embedding'],['provider'=>'custom','is_active'=>true,
     'encrypted_key'=>'sk-test-portable-embedding','metadata'=>['base_url'=>'http://127.0.0.1:'.$port.'/v1',
     'model'=>'fixture-embedding','dimensions'=>1024]]);
 echo json_encode(['report'=>$report->id,'task'=>$task->id, 'kb'=>$base->id,'project'=>$project->id,'tenant'=>$user->tenant->subdomain,
