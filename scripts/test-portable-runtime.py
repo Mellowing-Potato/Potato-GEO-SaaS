@@ -102,7 +102,21 @@ def scenario(args, work):
         with socket.socket() as released:
             released.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             released.bind(('127.0.0.1', port))
-        return dict(ready=True, completed_jobs=len(rows), worker_generations=2, blocked_requests=len(requests),
+        release = (instance / 'current').resolve()
+        asset = release / 'app/VERSION'
+        if asset.stat().st_mode & 0o222:
+            raise AssertionError('Installed program files must be read-only')
+        asset.chmod(0o600)
+        original_bytes = asset.read_bytes()
+        asset.write_bytes(original_bytes + b'fixture alteration')
+        try:
+            changed = subprocess.run(install, capture_output=True)
+            if changed.returncode == 0 or status().get('state') != 'stopped':
+                raise AssertionError('The installer executed a modified version from its program cache')
+        finally:
+            asset.write_bytes(original_bytes)
+            asset.chmod(0o400)
+        return dict(ready=True, cached_tampering_rejected=True, completed_jobs=len(rows), worker_generations=2, blocked_requests=len(requests),
                     next_job_seconds=round(elapsed, 3), active_job_drained=True, port_released=True)
     finally:
         server.shutdown()

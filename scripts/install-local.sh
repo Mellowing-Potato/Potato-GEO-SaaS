@@ -37,9 +37,11 @@ case "$instance/" in "$program/"*) fail '数据目录必须与程序目录分开
 case "$program/" in "$instance/"*) fail '程序目录必须与数据目录分开。';; esac
 if command -v sha256sum >/dev/null 2>&1; then
     hash() { sha256sum < "$1" | awk '{print $1}'; }
+    check_files() { sha256sum -c "$1" > /dev/null; }
 else
     command -v shasum >/dev/null 2>&1 || fail '缺少系统 SHA-256 验证工具。'
     hash() { shasum -a 256 < "$1" | awk '{print $1}'; }
+    check_files() { shasum -a 256 -c "$1" > /dev/null; }
 fi
 get() {
     case "$1" in
@@ -50,7 +52,7 @@ get() {
 }
 scratch=$(mktemp -d)
 stage=
-cleanup() { rm -rf "$scratch"; if [ -n "$stage" ] && [ -d "$stage" ]; then rm -rf "$stage"; fi; }
+cleanup() { rm -rf "$scratch"; if [ -n "$stage" ] && [ -d "$stage" ]; then chmod -R u+w "$stage"; rm -rf "$stage"; fi; }
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 case "$program" in /|*/../*|*/./*|*/..|*/.) fail '程序路径无效。';; esac
@@ -95,10 +97,19 @@ if [ ! -d "$release" ]; then
     tar -xzf "$scratch/package" -C "$stage"
     [ -x "$stage/runtime/bin/php" ] && [ -x "$stage/runtime/bin/frankenphp" ] && [ -f "$stage/app/portable/yanji.php" ] || fail '安装包布局无效。'
     printf '%s\n' "$digest" > "$stage/.archive-sha256"
+    chmod -R a-w "$stage"
     "$stage/runtime/bin/php" -n "$stage/app/portable/publish.php" "$stage" "$release"
     if [ ! -d "$stage" ]; then stage=; fi
 fi
 [ ! -L "$release" ] && [ "$(cat "$release/.archive-sha256")" = "$digest" ] || fail '程序版本校验失败。'
+# Always verify cached bytes with the inventory from the authenticated archive, never its cached copy.
+tar -xOzf "$scratch/package" PACKAGE-FILES.sha256 > "$scratch/files.sha256"
+cmp -s "$scratch/files.sha256" "$release/PACKAGE-FILES.sha256" || fail '程序文件清单已更改。'
+[ -z "$(find "$release" ! -type d ! -type f -print -quit)" ] || fail '程序目录包含未认证的链接或设备。'
+(cd "$release" && check_files "$scratch/files.sha256") || fail '程序字节与发行清单不同，请选择新的程序目录。'
+expected=$(wc -l < "$scratch/files.sha256")
+actual=$(find "$release" -type f | wc -l)
+[ "$actual" -eq "$((expected + 2))" ] || fail '程序目录存在额外文件，请选择新的程序目录。'
 set -- "$release/runtime/bin/php" "$release/app/portable/yanji.php" "__$mode" --instance "$instance" --release "$release"
 if [ -n "$port" ]; then set -- "$@" --port "$port"; fi
 if [ -n "$email" ]; then set -- "$@" --email "$email"; fi

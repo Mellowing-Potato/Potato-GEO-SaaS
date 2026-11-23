@@ -197,6 +197,7 @@ final class Instance
             'CACHE_PREFIX' => 'yanji_'.substr(hash('sha256', $this->root), 0, 24).'_',
             'QUEUE_CONNECTION' => 'database', 'WORKER_ID' => 'portable-worker', 'GEO_WORKER_HEARTBEAT_ENABLED' => 'true',
             'XDG_CONFIG_HOME' => $this->root.'/xdg/config', 'XDG_DATA_HOME' => $this->root.'/xdg/data',
+            'PYTHONDONTWRITEBYTECODE' => '1',
             'PHPRC' => $this->root.'/php.ini', 'PHP_INI_SCAN_DIR' => '',
         ]);
         $pythonPath = $this->root.'/python-path';

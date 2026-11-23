@@ -24,10 +24,23 @@ def digest(path):
 
 
 def save_file(archive, name, stream, size, mode=0o644):
+    if '\n' in name or '\r' in name or '\\' in name:
+        raise ValueError('Unsupported release file name')
     entry = tarfile.TarInfo(name)
     entry.mode = mode
     entry.size = size
-    archive.addfile(entry, stream)
+    checksum = hashlib.sha256()
+
+    class Reader:
+        def read(self, count):
+            data = stream.read(count)
+            checksum.update(data)
+            return data
+
+    archive.addfile(entry, Reader())
+    if name in archive.file_hashes:
+        raise ValueError('Duplicate release path: ' + name)
+    archive.file_hashes[name] = checksum.hexdigest()
 
 
 def save_path(archive, path, name):
@@ -82,6 +95,7 @@ def build(args):
         output_tar = Path(temporary) / target.name
         with output_tar.open('wb') as output, gzip.GzipFile(filename='', mode='wb', fileobj=output,
                     mtime=0, compresslevel=5) as zipped, tarfile.open(fileobj=zipped, mode='w') as archive:
+            archive.file_hashes = {}
             with tarfile.open(source_tar) as code:
                 copy_tar(code, archive, 'app')
             for name, sha in expected.items():
@@ -117,6 +131,8 @@ def build(args):
             receipt = json.dumps(dict(commit=ref, platform=args.platform, cli_sha256=args.cli_sha256,
                                       web_sha256=args.web_sha256), indent=2).encode() + b'\n'
             save_file(archive, 'release.json', io.BytesIO(receipt), len(receipt))
+            inventory = ''.join(sha + '  ' + name + '\n' for name, sha in sorted(archive.file_hashes.items())).encode()
+            save_file(archive, 'PACKAGE-FILES.sha256', io.BytesIO(inventory), len(inventory))
         checks = [(digest(output_tar), target.name)]
         for name in ('install-local.sh', 'install-local.ps1'):
             data = subprocess.check_output(['git', 'show', ref + ':scripts/' + name], cwd=root)
