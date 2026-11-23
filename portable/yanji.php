@@ -34,6 +34,9 @@ function runPortable(array $args): int
             throw new RuntimeException('参数未知或重复，请运行 yanji help。');
         }
         if (in_array($key, $booleans, true)) {
+            if ($value !== null) {
+                throw new RuntimeException('授权开关仅接受不带值的形式。');
+            }
             $options[$key] = true;
         } else {
             $options[$key] = $value ?? array_shift($args) ?? throw new RuntimeException('选项缺少参数。');

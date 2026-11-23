@@ -114,6 +114,36 @@ class PortableRuntimeTest extends TestCase
         }
     }
 
+    public function test_boolean_arguments_with_values_do_not_probe_or_write_authorization(): void
+    {
+        $release = $this->program('release');
+        unlink($release.'/runtime/bin/php');
+        symlink(PHP_BINARY, $release.'/runtime/bin/php');
+        $i = new Instance($this->directory.'/instance');
+        $i->prepare();
+        $i->activate($release);
+        Instance::atomicFile($i->root.'/instance.json', '{"port":8100}');
+        $endpoint = stream_socket_server('tcp://127.0.0.1:0');
+        $address = stream_socket_get_name($endpoint, false);
+        // This local stand-in records exactly what reached Artisan, without accessing a host service.
+        $artisan = '<?php $socket=stream_socket_client('.var_export('tcp://'.$address, true).');'
+            .'fwrite($socket,"fixture"); fclose($socket); file_put_contents(getenv("YANJI_ENV_PATH")."/run/authorized","yes");';
+        file_put_contents($release.'/app/artisan', $artisan);
+        try {
+            foreach ([['--probe=false'], ['--probe','--authorize=false'], ['--probe=true']] as $flags) {
+                $proc = new \Symfony\Component\Process\Process([PHP_BINARY, dirname(__DIR__, 2).'/portable/yanji.php',
+                    'magpie', '--instance', $i->root, '--tenant=1', ...$flags]);
+                $proc->run();
+                self::assertSame(1, $proc->getExitCode());
+                self::assertStringContainsString('开关仅接受不带值的形式', $proc->getErrorOutput());
+                self::assertFalse(@stream_socket_accept($endpoint, 0));
+                self::assertFileDoesNotExist($i->root.'/run/authorized');
+            }
+        } finally {
+            fclose($endpoint);
+        }
+    }
+
     public function test_password_file_must_be_private_and_is_consumed_using_stdin(): void
     {
         $path = $this->directory.'/password';
