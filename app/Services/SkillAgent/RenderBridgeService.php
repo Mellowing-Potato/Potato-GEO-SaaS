@@ -195,7 +195,12 @@ class RenderBridgeService
                 $this->commandFor($assets, $jsonData, $tempDir, $inputFile, $outputDir)
             );
             $process->setTimeout(180);
-            $process->setEnv(['PYTHONIOENCODING' => 'utf-8']);
+            $env = ['PYTHONIOENCODING' => 'utf-8'];
+            $fontsDir = trim((string) config('geo.report_fonts_dir', ''));
+            if ($fontsDir !== '') {
+                $env['YANJI_REPORT_FONTS_DIR'] = $fontsDir;
+            }
+            $process->setEnv($env);
 
             Log::info('RenderBridge: invoking Python script', [
                 'script' => basename($assets->renderScript),

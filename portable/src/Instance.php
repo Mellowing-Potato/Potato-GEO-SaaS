@@ -292,6 +292,9 @@ final class Instance
             'PHPRC' => $this->root.'/php.ini', 'PHP_INI_SCAN_DIR' => '',
         ]);
         $env['PYTHON_BIN'] = $this->pythonBin($release);
+        if (is_dir($release.'/runtime/fonts')) {
+            $env['YANJI_REPORT_FONTS_DIR'] = $release.'/runtime/fonts';
+        }
         foreach (['SERVICES', 'PACKAGES', 'CONFIG', 'ROUTES', 'EVENTS'] as $kind) {
             $env['APP_'.$kind.'_CACHE'] = $this->root.'/bootstrap-cache/'.strtolower($kind).'.php';
         }
@@ -305,9 +308,14 @@ final class Instance
     public function pythonBin(string $release): string
     {
         $pythonPath = $this->root.'/python-path';
-        return is_file($pythonPath) && !is_link($pythonPath)
-            ? rtrim(file_get_contents($pythonPath), "\r\n")
-            : (is_executable($release.'/runtime/python/bin/python3') ? $release.'/runtime/python/bin/python3' : 'python3');
+        if (is_file($pythonPath) && !is_link($pythonPath)) {
+            return rtrim(file_get_contents($pythonPath), "\r\n");
+        }
+        if (PHP_OS_FAMILY === 'Windows') {
+            $bundled = $release.'/runtime/python/python.exe';
+            return is_file($bundled) ? $bundled : 'python';
+        }
+        return is_executable($release.'/runtime/python/bin/python3') ? $release.'/runtime/python/bin/python3' : 'python3';
     }
 
     public function discardConfigurationCache(): void

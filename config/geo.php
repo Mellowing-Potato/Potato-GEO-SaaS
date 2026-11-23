@@ -132,6 +132,7 @@ return [
     // 存在过（另外 18 个技能的渲染脚本都在上游、正常跟踪）。上游哪天补齐了，删掉这里
     // 对应目录即可自动回落，不需要改代码。
     'python_bin' => env('PYTHON_BIN') ?: (PHP_OS_FAMILY === 'Windows' ? 'python' : 'python3'),
+    'report_fonts_dir' => env('YANJI_REPORT_FONTS_DIR', ''),
     'skills_repo_path' => env('SKILLS_REPO_PATH', ''),
     'skill_overlay_path' => env('GEO_SKILL_OVERLAY_PATH') ?: base_path('skill-overlays'),
     'analysis_pipeline_mode' => env('GEO_ANALYSIS_PIPELINE_MODE', 'legacy'),

@@ -15,7 +15,9 @@ import argparse
 import datetime as dt
 import hashlib
 import html
+import importlib.util
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -89,11 +91,23 @@ PAGE_HEIGHT_DXA = 16838
 PAGE_MARGIN_DXA = 1134
 DOCX_CONTENT_WIDTH_DXA = PAGE_WIDTH_DXA - PAGE_MARGIN_DXA * 2
 DOCX_CELL_MARGIN_DXA = 90
-PACKAGED_FONTS = {
-    "NotoSerifCJK-Regular.ttc": Path("/usr/share/fonts/noto/NotoSerifCJK-Regular.ttc"),
-    "DejaVuSans.ttf": Path("/usr/share/fonts/dejavu/DejaVuSans.ttf"),
-    "DejaVuSans-Bold.ttf": Path("/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf"),
-}
+def _resolve_packaged_fonts() -> dict[str, Path]:
+    override = os.environ.get("YANJI_REPORT_FONTS_DIR", "").strip()
+    if override:
+        base = Path(override)
+        return {
+            "NotoSerifCJK-Regular.ttc": base / "NotoSerifCJK-Regular.ttc",
+            "DejaVuSans.ttf": base / "DejaVuSans.ttf",
+            "DejaVuSans-Bold.ttf": base / "DejaVuSans-Bold.ttf",
+        }
+    return {
+        "NotoSerifCJK-Regular.ttc": Path("/usr/share/fonts/noto/NotoSerifCJK-Regular.ttc"),
+        "DejaVuSans.ttf": Path("/usr/share/fonts/dejavu/DejaVuSans.ttf"),
+        "DejaVuSans-Bold.ttf": Path("/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf"),
+    }
+
+
+PACKAGED_FONTS = _resolve_packaged_fonts()
 KAMI_FONT_FILES = list(PACKAGED_FONTS)
 # NotoSerifCJK-Regular.ttc 是 5 合 1 字体集（JP/KR/SC/TC/HK），子集化需指定 font-number。
 # 其余单字体（DejaVuSans*.ttf）font-number 为 None，即默认 0。
@@ -1067,6 +1081,11 @@ def subset_fonts(html_text: str, html_dir: Path) -> dict[str, str]:
         return {}
     text = "".join(chars)
 
+    subsetter = (
+        [sys.executable, "-m", "fontTools.subset"]
+        if importlib.util.find_spec("fontTools.subset") is not None
+        else ["pyftsubset"]
+    )
     font_dir = html_dir / "fonts"
     result: dict[str, str] = {}
     for output_name, source in PACKAGED_FONTS.items():
@@ -1075,7 +1094,7 @@ def subset_fonts(html_text: str, html_dir: Path) -> dict[str, str]:
         out_name = SUBSET_FONT_NAMES[output_name]
         out_path = font_dir / out_name
         cmd = [
-            "pyftsubset",
+            *subsetter,
             str(source),
             f"--text={text}",
             f"--output-file={out_path}",
