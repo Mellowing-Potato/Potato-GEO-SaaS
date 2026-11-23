@@ -80,6 +80,62 @@ class PortableRuntimeTest extends TestCase
         }
     }
 
+    public function test_physical_destinations_cannot_overlap_a_private_instance_or_replace_a_source_checkout(): void
+    {
+        $existing = new Instance($this->directory.'/first');
+        $existing->prepare();
+        Instance::atomicFile($existing->root.'/.portable-layout', "yanji-portable-v1\n");
+        symlink($existing->root.'/storage/app/public', $this->directory.'/alias');
+        foreach ([$existing->root.'/storage/app/public/new', $this->directory.'/alias/new'] as $path) {
+            try {
+                (new Instance($path))->validateDestination();
+                self::fail('Managed descendant accepted');
+            } catch (\RuntimeException) {
+                self::assertDirectoryDoesNotExist($path);
+            }
+        }
+        $source = $this->directory.'/source';
+        mkdir($source.'/database', 0755, true);
+        file_put_contents($source.'/.env', 'APP_ENV=local');
+        $before = fileperms($source);
+        try {
+            (new Instance($source))->validateDestination();
+            self::fail('Unrelated Laravel source directory accepted');
+        } catch (\RuntimeException) {
+            self::assertSame('APP_ENV=local', file_get_contents($source.'/.env'));
+            self::assertSame($before, fileperms($source));
+            self::assertDirectoryDoesNotExist($source.'/run');
+        }
+        self::assertSame($this->directory.'/program', Instance::programPath($this->directory.'/program', new Instance($this->directory.'/second')));
+    }
+
+    public function test_legacy_database_url_cannot_redirect_a_restored_process_to_another_database(): void
+    {
+        $release = $this->program('release');
+        $i = new Instance($this->directory.'/restored');
+        $i->prepare();
+        $i->activate($release);
+        Instance::atomicFile($i->root.'/instance.json', '{"port":8100}');
+        $old = $this->directory.'/original.sqlite';
+        $target = $i->root.'/database/database.sqlite';
+        foreach ([$old=>'old',$target=>'restored'] as $file=>$label) {
+            $db = new \SQLite3($file);
+            $db->exec("CREATE TABLE marker (value TEXT)");
+            $db->exec("INSERT INTO marker VALUES ('$label')");
+            $db->close();
+        }
+        Instance::atomicFile($i->root.'/.env', 'DB_URL=sqlite://localhost/'.$old."\n");
+        $script = <<<'PHP'
+require $argv[1].'/vendor/autoload.php';
+$app = require $argv[1].'/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+echo $app['db']->connection()->table('marker')->value('value');
+PHP;
+        $proc = new \Symfony\Component\Process\Process([PHP_BINARY, '-r', $script, dirname(__DIR__, 2)], env: $i->environment() + ['DB_URL'=>false]);
+        $proc->mustRun();
+        self::assertSame('restored', $proc->getOutput());
+    }
+
     public function test_framework_public_path_is_the_selected_instance_public_root(): void
     {
         $public = $this->directory.'/public';

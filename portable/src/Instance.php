@@ -13,43 +13,91 @@ final class Instance
 
     public function __construct(string $root)
     {
-        if (!str_starts_with($root, '/') || preg_match('/[\x00-\x1f]|(?:^|\/)\.\.?(?:\/|$)/', $root)
-            || is_link($root)) {
-            throw new RuntimeException('实例需要本地绝对路径。');
+        if (is_link($root)) {
+            throw new RuntimeException('实例根目录不能是符号链接。');
         }
-        $path = rtrim($root, '/');
+        $this->root = self::physicalPath($root);
+    }
+
+    public static function physicalPath(string $value): string
+    {
+        if (!str_starts_with($value, '/') || preg_match('/[\x00-\x1f]|(?:^|\/)\.\.?(?:\/|$)/', $value)) {
+            throw new RuntimeException('需要不含控制字符的本地绝对路径。');
+        }
+        $path = rtrim($value, '/');
+        if ($path === '') {
+            throw new RuntimeException('不能将文件系统根目录用于实例或程序。');
+        }
         $missing = [];
-        while ($path !== '' && !file_exists($path)) {
+        while (!file_exists($path)) {
+            if (is_link($path)) {
+                throw new RuntimeException('目标路径含无效符号链接。');
+            }
             $missing[] = basename($path);
             $path = dirname($path);
         }
         $parent = realpath($path);
-        if ($path === '' || $parent === false || !is_dir($parent)) {
-            throw new RuntimeException('实例目录无效。');
+        if ($parent === false || $missing && !is_dir($parent)) {
+            throw new RuntimeException('目标路径不可用。');
         }
-        $this->root = rtrim($parent, '/').($missing ? '/'.implode('/', array_reverse($missing)) : '');
+        return rtrim($parent, '/').($missing ? '/'.implode('/',array_reverse($missing)) : '');
+    }
+
+    private static function managedInstance(string $root): bool
+    {
+        $marker = $root.'/.portable-layout';
+        return is_file($marker) && !is_link($marker) && fileowner($marker) === posix_geteuid()
+                && file_get_contents($marker) === "yanji-portable-v1\n"
+            || (is_link($root.'/current') && is_file($root.'/instance.json') && is_file($root.'/yanji')
+                && is_file($root.'/current/.archive-sha256') && is_file($root.'/current/release.json'));
+    }
+
+    private static function managedProgram(string $root): bool
+    {
+        return is_file($root.'/.yanji-program') || is_file($root.'/releases/.publish.lock')
+            || (is_file($root.'/release.json') && is_file($root.'/runtime/bin/php') && is_dir($root.'/app/portable'));
+    }
+
+    public static function assertOutsideManagedTrees(string $path): void
+    {
+        $parent = self::physicalPath($path);
+        while ($parent !== '' && $parent !== '/') {
+            if (self::managedInstance($parent) || self::managedProgram($parent)) {
+                throw new RuntimeException('目标在已有实例或程序内部，请选择独立的同级目录。');
+            }
+            $parent = dirname($parent);
+        }
     }
 
     public function validateDestination(): void
     {
-        if (!is_dir($this->root) || count(scandir($this->root)) === 2) {
-            return;
+        if (dirname($this->root) !== '/') {
+            self::assertOutsideManagedTrees(dirname($this->root));
         }
-        $layout = $this->root.'/.portable-layout';
-        if (is_file($layout) && !is_link($layout) && fileowner($layout) === posix_geteuid()
-            && file_get_contents($layout) === "yanji-portable-v1\n") {
-            return;
-        }
-        if (is_file($this->root.'/instance.json') || is_file($this->root.'/.env') && is_dir($this->root.'/database')) {
-            return;
-        }
-        // A concurrent installer may have created only its initial operation lock.
-        $entries = array_diff(scandir($this->root), ['.', '..', 'run']);
-        if (!$entries && is_dir($this->root.'/run') && !is_link($this->root.'/run')
-            && !array_diff(scandir($this->root.'/run'), ['.', '..', 'operation.lock'])) {
+        if (!file_exists($this->root) || is_dir($this->root) && count(scandir($this->root)) === 2 || self::managedInstance($this->root)) {
             return;
         }
         throw new RuntimeException('目标目录已有其他文件，请选择空目录或已有言及实例。');
+    }
+
+    public static function programPath(string $program, Instance $instance): string
+    {
+        if (is_link($program)) {
+            throw new RuntimeException('程序根目录不能是符号链接。');
+        }
+        $root = self::physicalPath($program);
+        if ($root === $instance->root || str_starts_with($root.'/', $instance->root.'/')
+            || str_starts_with($instance->root.'/', $root.'/')) {
+            throw new RuntimeException('实例和程序必须使用分开的物理目录。');
+        }
+        if (dirname($root) !== '/') {
+            self::assertOutsideManagedTrees(dirname($root));
+        }
+        if (file_exists($root) && (!is_dir($root) || !self::managedProgram($root) && count(scandir($root)) !== 2)) {
+            throw new RuntimeException('程序目标含其他数据，请选择空目录。');
+        }
+        $instance->validateDestination();
+        return $root;
     }
 
     public static function privateDir(string $path): void
@@ -191,12 +239,15 @@ final class Instance
             'YANJI_UPGRADE_HOLD' => $this->root.'/run/upgrade-hold',
             'YANJI_PUBLIC_PATH' => $this->root.'/public', 'LARAVEL_STORAGE_PATH' => $storage,
             'DB_SQLITE_TRANSACTION_MODE' => 'IMMEDIATE',
+            'DB_URL' => '', 'DB_QUEUE_CONNECTION' => 'sqlite',
+            'SESSION_DRIVER' => 'file', 'CACHE_STORE' => 'file',
             'DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => $this->root.'/database/database.sqlite',
             'YANJI_BROWSER_COOKIE_NAME' => 'geo_session_'.substr(hash('sha256', $this->root), 0, 24),
             'SESSION_COOKIE' => 'yanji_'.substr(hash('sha256', $this->root), 0, 24),
             'CACHE_PREFIX' => 'yanji_'.substr(hash('sha256', $this->root), 0, 24).'_',
             'QUEUE_CONNECTION' => 'database', 'WORKER_ID' => 'portable-worker', 'GEO_WORKER_HEARTBEAT_ENABLED' => 'true',
             'XDG_CONFIG_HOME' => $this->root.'/xdg/config', 'XDG_DATA_HOME' => $this->root.'/xdg/data',
+            'YANJI_CA_BUNDLE' => $release.'/runtime/ca/cacert.pem',
             'PYTHONDONTWRITEBYTECODE' => '1',
             'PHPRC' => $this->root.'/php.ini', 'PHP_INI_SCAN_DIR' => '',
         ]);

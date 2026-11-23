@@ -57,9 +57,6 @@ trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 case "$program" in /|*/../*|*/./*|*/..|*/.) fail '程序路径无效。';; esac
 case "$instance" in /|*/../*|*/./*|*/..|*/.) fail '实例路径无效。';; esac
-if [ -d "$program" ] && [ ! -d "$program/releases" ] && [ -n "$(ls -A "$program")" ]; then
-    fail '程序目录已有其他文件，请选择单独的程序目录。'
-fi
 get "$manifest" "$scratch/sums"
 [ "$(hash "$scratch/sums")" = "$pin" ] || fail '发行清单校验失败。'
 entry() {
@@ -88,8 +85,15 @@ tar -tzf "$scratch/package" > "$scratch/names"
 awk '/^\// || /(^|\/)\.\.(\/|$)/ || /[[:cntrl:]\\]/ {exit 1} END {if(!NR) exit 1}' "$scratch/names" || fail '安装包路径无效。'
 tar -tvzf "$scratch/package" > "$scratch/types"
 awk 'substr($0,1,1)!="-" && substr($0,1,1)!="d" {exit 1}' "$scratch/types" || fail '安装包含链接或设备。'
+# Resolve both physical destinations before changing directories supplied by the user.
+# The checker and standalone CLI come directly from the already authenticated archive.
+mkdir "$scratch/preflight"
+tar -xzf "$scratch/package" -C "$scratch/preflight" runtime/bin/php app/portable/preflight.php app/portable/src/Instance.php
+"$scratch/preflight/runtime/bin/php" -n "$scratch/preflight/app/portable/preflight.php" "$program" "$instance" > "$scratch/paths"
+{ IFS= read -r program; IFS= read -r instance; } < "$scratch/paths"
 [ ! -L "$program" ] && [ ! -L "$program/releases" ] || fail '程序目录不能为符号链接。'
 mkdir -p "$program/releases"
+printf '%s\n' yanji-program-v1 > "$program/.yanji-program"
 program=$(cd "$program" && pwd -P)
 release=$program/releases/$digest
 if [ ! -d "$release" ]; then
