@@ -51,6 +51,13 @@ class AppServiceProvider extends ServiceProvider
         // Looping 每轮循环都发（空闲时也发），正是「我还活着」语义，挂它而非 JobProcessed/WorkerStarting。
         // 🔴 红线 1：监听器 : void 无 return，禁止返回 false（否则整台 worker 永久停摆）。
         Event::listen(Looping::class, [RecordWorkerHeartbeat::class, 'handleLooping']);
+        if ($hold = getenv('YANJI_UPGRADE_HOLD')) {
+            // Record the real loop heartbeat, then pause before reserving any new job.
+            Event::listen(Looping::class, static function () use ($hold): ?bool {
+                clearstatcache(true, $hold);
+                return is_file($hold) ? false : null;
+            });
+        }
         if ($generation = getenv('YANJI_WORKER_GENERATION')) {
             $run = getenv('YANJI_ENV_PATH').'/run';
             require_once base_path('portable/src/Instance.php');

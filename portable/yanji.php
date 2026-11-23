@@ -9,7 +9,7 @@ use Yanji\Portable\Supervisor;
 use Yanji\Portable\Upgrade;
 
 umask(0077);
-foreach (['Instance','Supervisor','Installation','JobClock'] as $class) {
+foreach (['Instance','Supervisor','Installation','Upgrade','JobClock'] as $class) {
     require __DIR__.'/src/'.$class.'.php';
 }
 if (is_file(__DIR__.'/src/Backup.php')) {
@@ -63,6 +63,18 @@ function runPortable(array $args): int
     if ($command === '__supervise') {
         $services->serve();
         return 0;
+    }
+    if ($command === 'upgrade') {
+        $installed = $i->release();
+        $script = $installed.'/app/scripts/install-local.sh';
+        $forward = ['/bin/sh', $script, '--upgrade', '--program-home', dirname($installed,2), '--instance', $i->root];
+        foreach (['manifest','manifest-sha256','package'] as $key) {
+            if (isset($options[$key])) {
+                array_push($forward, '--'.$key, $options[$key]);
+            }
+        }
+        $p = proc_open($forward, [STDIN,STDOUT,STDERR], $pipes);
+        return is_resource($p) ? proc_close($p) : 1;
     }
     if ($command === '__install') {
         $i->validateDestination();
@@ -119,6 +131,12 @@ function runPortable(array $args): int
                 $setup->install($release, $port, $options['email'] ?? null, $options['password-file'] ?? null, $options['python-bin'] ?? null);
                 $services->start();
                 echo "已就绪 http://127.0.0.1:".$port."  管理命令 ".$i->root."/yanji\n";
+                break;
+            case '__upgrade':
+                if ($release !== ($options['release'] ?? '')) {
+                    throw new RuntimeException('升级版本路径不匹配。');
+                }
+                Upgrade::run($i, $release, $services);
                 break;
             case 'start':
                 $services->start();

@@ -12,6 +12,14 @@ http://127.0.0.1:{$YANJI_PORT} {
     header -Server
 
     route {
+        @upgradeHold {
+            not path /up
+            file {
+                root {env.YANJI_ENV_PATH}/run
+                try_files upgrade-hold
+            }
+        }
+        respond @upgradeHold 503
         @privateReports path /storage/executions /storage/executions/* /storage/analysis /storage/analysis/*
         respond @privateReports 404
         php_server
