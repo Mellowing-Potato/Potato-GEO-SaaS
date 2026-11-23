@@ -199,12 +199,17 @@ PS;
 $ErrorActionPreference = 'Stop'
 $p = $env:YANJI_ACL_PATH
 $me = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$allowed = @($me, 'S-1-3-4', 'S-1-5-18', 'S-1-5-32-544')
 $acl = if ([System.IO.Directory]::Exists($p)) { [System.IO.Directory]::GetAccessControl($p) } else { [System.IO.File]::GetAccessControl($p) }
 $rules = @($acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]))
 if ($rules.Count -eq 0) { exit 2 }
+$hasMe = $false
 foreach ($r in $rules) {
-    if ($r.IdentityReference.Value -ne $me) { exit 3 }
+    $sid = $r.IdentityReference.Value
+    if ($sid -eq $me) { $hasMe = $true }
+    if ($allowed -notcontains $sid) { exit 3 }
 }
+if (-not $hasMe) { exit 4 }
 exit 0
 PS;
         $env = self::windowsPowerShellEnv(getenv());
