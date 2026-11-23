@@ -374,12 +374,29 @@ final class Instance
         $keep = ['HOME', 'USER', 'LANG', 'LC_ALL', 'PATH', 'TMPDIR', 'TZ',
             'SystemRoot', 'COMSPEC', 'PATHEXT', 'WINDIR', 'TEMP', 'TMP',
             'LOCALAPPDATA', 'APPDATA', 'USERPROFILE', 'SystemDrive', 'NUMBER_OF_PROCESSORS', 'PROCESSOR_ARCHITECTURE'];
-        $env = array_intersect_key(getenv(), array_flip($keep));
+        if (Platform::isWindows()) {
+            $keepUpper = array_flip(array_map('strtoupper', $keep));
+            $env = [];
+            $existingPath = null;
+            foreach (getenv() as $k => $v) {
+                $upper = strtoupper($k);
+                if (!isset($keepUpper[$upper])) {
+                    continue;
+                }
+                if ($upper === 'PATH') {
+                    $existingPath = $v;
+                } else {
+                    $env[$k] = $v;
+                }
+            }
+            $existingPath ??= 'C:\\Windows\\System32;C:\\Windows;C:\\Windows\\System32\\WindowsPowerShell\\v1.0';
+        } else {
+            $env = array_intersect_key(getenv(), array_flip($keep));
+            $existingPath = $env['PATH'] ?? '/usr/bin:/bin';
+        }
         $port = $this->port();
         $storage = $this->root.'/storage';
         $binPath = Platform::nativePath($release.'/runtime/bin');
-        $pathKey = isset($env['PATH']) ? 'PATH' : (isset($env['Path']) ? 'Path' : 'PATH');
-        $existingPath = $env[$pathKey] ?? (Platform::isWindows() ? 'C:\\Windows\\System32;C:\\Windows' : '/usr/bin:/bin');
         $env = array_merge($env, [
             'PATH' => $binPath.PATH_SEPARATOR.$existingPath,
             'APP_ENV' => 'production', 'APP_DEBUG' => 'false', 'APP_URL' => 'http://127.0.0.1:'.$port,

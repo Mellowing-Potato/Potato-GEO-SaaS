@@ -1,5 +1,6 @@
 @echo off
-setlocal enabledelayedexpansion
+chcp 65001 >nul 2>&1
+setlocal
 set "ROOT=%~dp0"
 if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 if not exist "%ROOT%\current-release.txt" (
@@ -7,6 +8,7 @@ if not exist "%ROOT%\current-release.txt" (
   exit /b 1
 )
 set /p RELEASE=<"%ROOT%\current-release.txt"
+set "RELEASE=%RELEASE:/=\%"
 set "PHPRC="
 set "PHP_INI_SCAN_DIR="
 set "YANJI_CA_BUNDLE=%RELEASE%\runtime\ca\cacert.pem"

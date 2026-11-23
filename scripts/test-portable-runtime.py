@@ -110,7 +110,7 @@ def scenario(args, work):
         subprocess.run(cmd, check=True, env=env, stdout=subprocess.DEVNULL)
 
     def status():
-        return json.loads(subprocess.check_output([*manage, 'status'], text=True))
+        return json.loads(subprocess.check_output([*manage, 'status'], text=True, encoding='utf-8'))
 
     requests = []
 
@@ -137,12 +137,12 @@ def scenario(args, work):
             (instance / '.portable-acceptance').chmod(0o600)
 
         # Verify no-arg launcher prints help cleanly
-        help_res = subprocess.run(manage, capture_output=True, text=True, check=True)
+        help_res = subprocess.run(manage, capture_output=True, text=True, encoding='utf-8', check=True)
         if 'yanji start | stop' not in help_res.stdout:
             raise AssertionError('No-arg launcher did not print usage help')
 
         # Verify doctor passes with bundled Python and permissions
-        doctor_out = subprocess.check_output([*manage, 'doctor'], text=True)
+        doctor_out = subprocess.check_output([*manage, 'doctor'], text=True, encoding='utf-8')
         doctor = json.loads(doctor_out)
         if not doctor.get('permissions') or not doctor.get('database_key_admin_ready') or not doctor.get('python', {}).get('basic'):
             raise AssertionError(f'Doctor failed: {doctor_out}')

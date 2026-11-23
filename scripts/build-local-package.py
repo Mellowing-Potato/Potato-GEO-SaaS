@@ -262,7 +262,10 @@ def inspect_python_runtime(args):
         raise ValueError('Both --python-runtime and --python-runtime-sha256 are required together')
     if digest(runtime) != runtime_sha:
         raise ValueError('Python runtime digest mismatch')
-    expected_exe = ('python.exe',) if args.platform == 'windows-x86_64' else ('bin', 'python3')
+    if args.platform == 'windows-x86_64':
+        expected_exe = ('python.exe',)
+    else:
+        expected_exe = ('bin', 'python3')
     with tarfile.open(runtime) as archive:
         members = [m for m in archive if not m.isdir()]
         names = [m.name for m in members]
@@ -274,7 +277,10 @@ def inspect_python_runtime(args):
                     or '\\' in member.name or '\n' in member.name or '\r' in member.name
                     or set(path.parts) & {'.env', '.git', '.dev-records'}):
                 raise ValueError('Unsafe Python archive entry')
-        exes = [m for m in members if PurePosixPath(m.name).parts[-len(expected_exe):] == expected_exe]
+        if args.platform == 'windows-x86_64':
+            exes = [m for m in members if PurePosixPath(m.name).parts in (('python', 'python.exe'), ('python.exe',))]
+        else:
+            exes = [m for m in members if PurePosixPath(m.name).parts[-2:] == ('bin', 'python3') and len(PurePosixPath(m.name).parts) <= 3]
         if len(exes) != 1 or (args.platform != 'windows-x86_64' and not (exes[0].mode & 0o111)):
             raise ValueError('Expected one executable bundled Python interpreter')
         strip = PurePosixPath(exes[0].name)

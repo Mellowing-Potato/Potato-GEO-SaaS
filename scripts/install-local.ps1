@@ -16,6 +16,13 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+try {
+    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+    [Console]::OutputEncoding = $utf8NoBom
+    [Console]::InputEncoding = $utf8NoBom
+    $OutputEncoding = $utf8NoBom
+} catch {
+}
 
 if ($Help) {
     Write-Output 'install-local.ps1 -Manifest SHA256SUMS -ManifestSha256 SHA [-Package ZIP] [-ProgramHome DIR] [-Instance DIR] [-Port PORT] [-Email EMAIL] [-PasswordFile FILE] [-PythonBin PYTHON] [-Upgrade] [-Diagnosis]'
@@ -233,7 +240,7 @@ try {
         if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { Fail "程序文件缺失：$rel" }
         if ((Get-Sha256 $full) -ne $Matches[1]) { Fail "程序字节与发行清单不同：$rel" }
     }
-    $actualFiles = @(Get-ChildItem -LiteralPath $release -Recurse -File)
+    $actualFiles = @(Get-ChildItem -LiteralPath $release -Recurse -File -Force)
     if ($actualFiles.Count -ne ($expectedMap.Count + 2)) {
         Fail '程序目录存在额外文件，请选择新的程序目录。'
     }

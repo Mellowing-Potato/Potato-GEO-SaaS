@@ -48,11 +48,15 @@ class PortablePythonMaterialsTest(unittest.TestCase):
     def _valid_python_tar(self, platform='macos-arm64'):
         exe = 'python/python.exe' if platform == 'windows-x86_64' else 'python/bin/python3'
         path = self.root / f'python-{platform}.tar.gz'
-        write_tar(path, {
+        files = {
             exe: b'#!/bin/sh\n',
             'python/build-manifest.json': json.dumps({'platform': platform}).encode(),
             'python/notices/CPython-LICENSE.txt': b'PSF-2.0',
-        })
+        }
+        if platform == 'windows-x86_64':
+            # Mirror real python-build-standalone layout which ships nested venv launchers.
+            files['python/Lib/venv/scripts/nt/python.exe'] = b'venv-launcher'
+        write_tar(path, files)
         return path
 
     def _valid_fonts_tar(self):
@@ -217,7 +221,10 @@ class PortablePythonMaterialsTest(unittest.TestCase):
         ps1_file = boot_out / 'get-yanji.ps1'
         self.assertTrue(sh_file.is_file() and ps1_file.is_file())
         self.assertIn(res['manifest_sha256'], sh_file.read_text(encoding='utf-8'))
-        self.assertIn(res['manifest_sha256'], ps1_file.read_text(encoding='utf-8'))
+        ps1_text = ps1_file.read_text(encoding='utf-8')
+        self.assertIn(res['manifest_sha256'], ps1_text)
+        self.assertIn('& {', ps1_text)
+        self.assertNotIn('exit $LASTEXITCODE', ps1_text)
         subprocess.run(['sh', '-n', str(sh_file)], check=True)
         with self.assertRaisesRegex(ValueError, 'HTTPS'):
             bootstrap.generate('http://example.com/release', sums, boot_out)

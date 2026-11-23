@@ -9,8 +9,6 @@ use RuntimeException;
 /** Isolate OS-specific paths, permissions, process groups and detachment between Unix and Windows. */
 final class Platform
 {
-    private static ?string $windowsSid = null;
-
     public static function isWindows(): bool
     {
         return PHP_OS_FAMILY === 'Windows';
@@ -85,10 +83,12 @@ final class Platform
         return self::isWindows() ? 'yanji.cmd' : 'yanji';
     }
 
-    public static function windowsUserSid(): string
+    private static ?array $windowsIdentity = null;
+
+    public static function windowsUserIdentity(): array
     {
-        if (self::$windowsSid !== null) {
-            return self::$windowsSid;
+        if (self::$windowsIdentity !== null) {
+            return self::$windowsIdentity;
         }
         $proc = @proc_open(['whoami', '/user', '/fo', 'csv', '/nh'],
             [0 => ['file', 'NUL', 'r'], 1 => ['pipe', 'w'], 2 => ['file', 'NUL', 'w']], $pipes);
@@ -97,11 +97,23 @@ final class Platform
         }
         $out = trim((string) stream_get_contents($pipes[1], 1024));
         fclose($pipes[1]);
-        if (proc_close($proc) !== 0 || !preg_match('/"(S-1-[0-9-]+)"/', $out, $m)) {
+        if (proc_close($proc) !== 0 || !preg_match('/\A"([^"]+)","(S-1-[0-9-]+)"\z/', $out, $m)) {
             throw new RuntimeException('无法解析当前 Windows 用户安全标识（SID）。');
         }
-        self::$windowsSid = $m[1];
-        return self::$windowsSid;
+        self::$windowsIdentity = ['account' => $m[1], 'sid' => $m[2]];
+        return self::$windowsIdentity;
+    }
+
+    public static function windowsUserSid(): string
+    {
+        return self::windowsUserIdentity()['sid'];
+    }
+
+    private static function windowsPowerShell(): string
+    {
+        $sysRoot = getenv('SystemRoot') ?: (getenv('WINDIR') ?: 'C:\\Windows');
+        $ps = rtrim($sysRoot, '\\/').'\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
+        return is_file($ps) ? $ps : 'powershell.exe';
     }
 
     public static function protectPrivate(string $path, bool $isDir, bool $executable = false): void
@@ -150,12 +162,26 @@ final class Platform
         if ($lines === []) {
             return false;
         }
-        $aclBlock = implode("\n", $lines);
-        // Reject inherited ACEs or broad Windows principals.
-        if (preg_match('/\(I\)|Everyone|BUILTIN\\\\Users|Authenticated Users|NT AUTHORITY\\\\Authenticated Users|S-1-1-0|S-1-5-32-545|S-1-5-11/i', $aclBlock)) {
-            return false;
+        $native = self::nativePath($path);
+        if (str_starts_with(strtolower($lines[0]), strtolower($native))) {
+            $lines[0] = ltrim(substr($lines[0], strlen($native)));
         }
-        return count($lines) <= 2;
+        $identity = self::windowsUserIdentity();
+        $allowed = [strtolower($identity['account']), strtolower($identity['sid'])];
+        foreach ($lines as $ace) {
+            if ($ace === '') {
+                continue;
+            }
+            $colon = strpos($ace, ':');
+            if ($colon === false) {
+                return false;
+            }
+            $principal = strtolower(trim(substr($ace, 0, $colon)));
+            if (!in_array($principal, $allowed, true)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static function assertProtectedAncestors(string $path): void
@@ -235,29 +261,32 @@ final class Platform
 
     public static function spawnDetachedWindows(string $exe, array $args, string $cwd, string $stdoutLog, string $stderrLog, array $env): int
     {
-        $ps = <<<'PS'
-$ErrorActionPreference = 'Stop'
-$argList = [System.Text.Json.JsonSerializer]::Deserialize($env:YANJI_DETACH_ARGS, [string[]])
-$p = Start-Process -FilePath $env:YANJI_DETACH_EXE -ArgumentList $argList -WorkingDirectory $env:YANJI_DETACH_CWD -WindowStyle Hidden -RedirectStandardOutput $env:YANJI_DETACH_OUT -RedirectStandardError $env:YANJI_DETACH_ERR -PassThru
-Write-Output $p.Id
-PS;
-        // Fallback JSON parser compatible with Windows PowerShell 5.1 (.NET Framework without System.Text.Json)
         $ps51 = <<<'PS'
 $ErrorActionPreference = 'Stop'
-$argList = @((ConvertFrom-Json $env:YANJI_DETACH_ARGS))
-$p = Start-Process -FilePath $env:YANJI_DETACH_EXE -ArgumentList $argList -WorkingDirectory $env:YANJI_DETACH_CWD -WindowStyle Hidden -RedirectStandardOutput $env:YANJI_DETACH_OUT -RedirectStandardError $env:YANJI_DETACH_ERR -PassThru
+$rawArgs = @((ConvertFrom-Json $env:YANJI_DETACH_ARGS))
+$quoted = foreach ($a in $rawArgs) {
+    $s = [string]$a
+    if ($s -eq '' -or $s -match '[\s"]') {
+        $s = $s -replace '(\\*)"', '$1$1\"'
+        $s = $s -replace '(\\+)$', '$1$1'
+        '"' + $s + '"'
+    } else {
+        $s
+    }
+}
+$argString = ($quoted -join ' ')
+$p = Start-Process -FilePath $env:YANJI_DETACH_EXE -ArgumentList $argString -WorkingDirectory $env:YANJI_DETACH_CWD -WindowStyle Hidden -RedirectStandardOutput $env:YANJI_DETACH_OUT -RedirectStandardError $env:YANJI_DETACH_ERR -PassThru
 Write-Output $p.Id
 PS;
-        unset($ps);
         $launchEnv = $env + [
             'YANJI_DETACH_EXE' => self::nativePath($exe),
-            'YANJI_DETACH_ARGS' => json_encode(array_values($args), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+            'YANJI_DETACH_ARGS' => json_encode(array_values($args), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
             'YANJI_DETACH_CWD' => self::nativePath($cwd),
             'YANJI_DETACH_OUT' => self::nativePath($stdoutLog),
             'YANJI_DETACH_ERR' => self::nativePath($stderrLog),
         ];
         $proc = @proc_open(
-            ['powershell.exe', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', $ps51],
+            [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', $ps51],
             [0 => ['file', 'NUL', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             $cwd,
@@ -282,9 +311,18 @@ PS;
         if (is_dir($link) || is_link($link)) {
             @rmdir(self::nativePath($link));
         }
-        $cmd = 'mklink /J '.escapeshellarg(self::nativePath($link)).' '.escapeshellarg(self::nativePath($target));
-        $proc = @proc_open(['cmd.exe', '/d', '/s', '/c', $cmd],
-            [0 => ['file', 'NUL', 'r'], 1 => ['file', 'NUL', 'w'], 2 => ['file', 'NUL', 'w']], $pipes);
+        $env = getenv();
+        $env['YANJI_J_LINK'] = self::nativePath($link);
+        $env['YANJI_J_TARGET'] = self::nativePath($target);
+        $ps = 'New-Item -ItemType Junction -Path $env:YANJI_J_LINK -Target $env:YANJI_J_TARGET -Force | Out-Null';
+        $proc = @proc_open(
+            [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', $ps],
+            [0 => ['file', 'NUL', 'r'], 1 => ['file', 'NUL', 'w'], 2 => ['file', 'NUL', 'w']],
+            $pipes,
+            null,
+            $env,
+            ['bypass_shell' => true],
+        );
         if (!is_resource($proc) || proc_close($proc) !== 0 || !is_dir($link)) {
             throw new RuntimeException('无法创建 Windows 公共存储目录联接。');
         }

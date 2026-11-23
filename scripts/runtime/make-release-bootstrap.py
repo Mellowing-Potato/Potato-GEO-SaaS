@@ -62,26 +62,29 @@ fi
 '''
 
     ps1_script = f'''#Requires -Version 5.1
-$ErrorActionPreference = 'Stop'
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$BaseUrl = '{base_url}'
-$ManifestSha256 = '{sums_sha}'
-$InstallerSha256 = '{entries["install-local.ps1"]}'
-$tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("yanji-get-" + [Guid]::NewGuid().ToString("N").Substring(0, 12))
-New-Item -ItemType Directory -Force -Path $tmp | Out-Null
-try {{
-    $installer = Join-Path $tmp 'install-local.ps1'
-    Invoke-WebRequest -Uri "$BaseUrl/install-local.ps1" -OutFile $installer -UseBasicParsing
-    $actual = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($actual -ne $InstallerSha256) {{
-        Write-Error '安装脚本 SHA-256 校验失败。'
-        exit 1
-    }}
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Manifest "$BaseUrl/SHA256SUMS" -ManifestSha256 $ManifestSha256 @args
-    exit $LASTEXITCODE
-}} finally {{
-    if (Test-Path -LiteralPath $tmp) {{
-        Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+& {{
+    $ErrorActionPreference = 'Stop'
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $BaseUrl = '{base_url}'
+    $ManifestSha256 = '{sums_sha}'
+    $InstallerSha256 = '{entries["install-local.ps1"]}'
+    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("yanji-get-" + [Guid]::NewGuid().ToString("N").Substring(0, 12))
+    New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+    try {{
+        $installer = Join-Path $tmp 'install-local.ps1'
+        Invoke-WebRequest -Uri "$BaseUrl/install-local.ps1" -OutFile $installer -UseBasicParsing
+        $actual = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($actual -ne $InstallerSha256) {{
+            throw '安装脚本 SHA-256 校验失败。'
+        }}
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Manifest "$BaseUrl/SHA256SUMS" -ManifestSha256 $ManifestSha256 @args
+        if ($LASTEXITCODE -ne 0) {{
+            throw "安装脚本返回失败（退出码 $LASTEXITCODE）。"
+        }}
+    }} finally {{
+        if (Test-Path -LiteralPath $tmp) {{
+            Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        }}
     }}
 }}
 '''
