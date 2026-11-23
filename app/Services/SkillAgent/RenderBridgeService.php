@@ -75,7 +75,7 @@ class RenderBridgeService
 
     public function __construct()
     {
-        $this->pythonBin = env('PYTHON_BIN', 'python3');
+        $this->pythonBin = (string) config('geo.python_bin');
         $this->schemaRegistry = new RenderSchemaRegistry;
         $this->markdownBuilder = new StructuredMarkdownBuilder;
     }

@@ -54,6 +54,7 @@ class TitleCompactDeliveryTest extends TestCase
             $this->markTestSkipped('Set GEO_TEST_TITLE_PYTHON to an isolated Python with WeasyPrint or ReportLab.');
         }
         $previous = getenv('PYTHON_BIN');
+        config(['geo.python_bin' => getenv('GEO_TEST_TITLE_PYTHON')]);
         putenv('PYTHON_BIN='.getenv('GEO_TEST_TITLE_PYTHON'));
         Storage::fake('reports');
         try {
