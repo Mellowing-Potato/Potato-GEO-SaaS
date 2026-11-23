@@ -1,0 +1,17 @@
+{
+  "source": "https://github.com/yaojingang/yao-geo-skills",
+  "commit": "136eb92c90946ea56ec63f912d5025bcbc884f39",
+  "license": "MIT",
+  "license_file": "skill-overlays/LICENSE",
+  "upstream_sha256_by_path": {
+    "yao-geo-brand-graph/scripts/render_yao_geo_brand_graph.py": "ad0f6b423492d2173c5abfa616650db525562d54911b374ef39a8c5b88aed347",
+    "yao-geo-content-refiner/scripts/render_content_refiner_bundle.py": "475aa5ec90bbee8914812af6e185b902833a515c791fac30a98af60701500053",
+    "yao-geo-execution-roadmap/scripts/render_yao_geo_execution_roadmap.py": "f0fba8c79e473720e145375b0c68b81f24619ce477283a636f0e8b6c6be92e68",
+    "yao-geo-explainer-builder/scripts/render_yao_geo_explainer_builder.py": "d44d4b8c2a40194750a0167d04d7a99743c14a91e755dc96c734ddbec0b2fbb5",
+    "yao-geo-intent-miner/scripts/render_intent_miner_report.py": "39c211a98009dbadd2c9a8826f73280bdb4fbfb6b3f45d8f2baee18683efc397",
+    "yao-geo-knowledge-base-builder/scripts/render_four_format.py": "e9f0d77023217fbd0d3fed546cf52a7c57f263ea1a0f9655f01fc09525acbdc3",
+    "yao-geo-page-blueprint/scripts/render_yao_geo_page_blueprint.py": "94006a2c32ef5fe0a2e4de286fca136ac675a970e7bdd40c2af7ee981a93538b",
+    "yao-geo-ranking-article-builder/scripts/render_ranking_article_pack.py": "ad793afc7937d2580e77e6d3a3598b3d349018a6fc92b2f692426d86b78aa412",
+    "yao-geo-title-optimizer/scripts/render_yao_geo_title_optimizer.py": "3f4a46a433740e7b93a7b02eb14773feb55b6d743009f01edd37b58a387f90ab"
+  }
+}

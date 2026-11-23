@@ -11,7 +11,11 @@ import html
 import json
 import re
 import zipfile
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from render_formats import OutputFormats
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
 
@@ -143,7 +147,7 @@ def write_docx(data: dict, path: Path) -> None:
 def write_pdf(page: str, data: dict, path: Path, base_url: Path) -> None:
     try:
         from weasyprint import HTML
-    except ImportError:
+    except (ImportError, OSError):
         # Local verification runtime may only have ReportLab. Keep the same
         # candidate rows and recommendation when rendering the fallback PDF.
         from reportlab.lib import colors
@@ -188,19 +192,21 @@ def main() -> None:
     page = render_html(data)
     paths['markdown'].write_text(markdown, encoding='utf-8')
     paths['html'].write_text(page, encoding='utf-8')
-    write_docx(data, paths['docx'])
-    write_pdf(page, data, paths['pdf'], out)
+    formats = OutputFormats(out)
+    formats.write("docx", paths["docx"], lambda: write_docx(data, paths["docx"]))
+    formats.write("pdf", paths["pdf"], lambda: write_pdf(page, data, paths["pdf"], out))
     with zipfile.ZipFile(paths['docx']) as z:
         ET.fromstring(z.read('word/document.xml'))
-    if paths['pdf'].read_bytes()[:4] != b'%PDF':
+    if paths['pdf'].exists() and paths['pdf'].read_bytes()[:4] != b'%PDF':
         raise ValueError('PDF 格式无效')
     quality = {'skill_id': 'yao-geo-title-optimizer', 'checked_at': dt.datetime.now().isoformat(timespec='seconds'),
-               'passed': True, 'blocking': False, 'issues': [],
-               'files': {key: {'name': path.name, 'exists': path.exists(), 'size': path.stat().st_size}
+               'passed': not formats.issues, 'blocking': bool(formats.issues), 'issues': list(formats.issues),
+               'files': {key: {'name': path.name, 'exists': path.exists(), 'size': path.stat().st_size if path.is_file() else 0}
                          for key, path in paths.items()}}
     (out / 'quality-report.json').write_text(json.dumps(quality, ensure_ascii=False, indent=2), encoding='utf-8')
     for key, path in paths.items():
-        print(f'Rendered {key}: {path}')
+        if path.is_file():
+            print(f'Rendered {key}: {path}')
 
 
 if __name__ == '__main__':
