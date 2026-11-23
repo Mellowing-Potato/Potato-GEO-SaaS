@@ -60,4 +60,12 @@ python3 scripts/build-local-package.py --source "$CHECKOUT" --platform macos-arm
 
 构建机还需要 Go 来读取目标二进制的真实构建信息，无需在构建机执行其他架构的 Web。Web 归档必须含可执行的 `bin/frankenphp`、`build-manifest.json` 和 `notices/`。打包器检查目标架构、`nomercure,novulcain` 标签及实际链接模块，拒绝带 Mercure/Vulcain 的旧二进制；保留固定的 Brotli 插件以适配现有 Caddy 配置。这项检查不能替代逐项源码、许可、重链接和漏洞审计。
 
+Web 的源提交、归档摘要、依赖锁和工具链版本见 `licenses/portable-web.json`。先按该平台的对应源码套件构建 PHP 8.5.13 **ZTS embed** 和静态库，设置套件中记录的 `CGO_CFLAGS`、`CGO_LDFLAGS` 与 `WEB_LINKER` 后，可用同一份 Go 入口：
+
+```sh
+sh scripts/runtime/build-web-go.sh "$FRANKENPHP_SOURCE" "$NEW_WEB_BINARY"
+```
+
+该入口核对上游四个依赖锁文件，使用未经修改的 `caddy/frankenphp` 源入口和固定 Go 1.27.4。Linux musl 的平台链接器须加入套件中记录的 static-pie 参数；最终检查解释器段和动态库依赖。现有 NTS CLI 继续独立用于队列和调度，不能拿它的对象替代 Web ZTS 材料。各平台套件须同时提供原始 C/Go 源、实际补丁和配置、原始声明、对象/静态库、链接命令与映射，以及在新目录替换 LGPL 库后实际重链接和运行的证明。
+
 若相应平台 CLI 归档使用系统 CA，构建机还要传入 `--ca`、`--ca-sha256` 和 `--ca-notice` 指定已核验的可信证书包与许可。发行目录会并列保留该平台的 CLI 和 Web 对应源码、构建资料与可替换对象包。程序内 release.json 和同目录 SHA256SUMS 均列出其名称及摘要；Web 许可和构建清单同时进入应用包的 `runtime/web/`。维护者须核对最终归档、对应源码和重链接材料、Web/Python/其他第三方许可、依赖漏洞和签名；跟踪仓库只保存构建及管理源码。

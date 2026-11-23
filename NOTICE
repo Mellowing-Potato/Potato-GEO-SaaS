@@ -32,6 +32,10 @@ in licenses/skill-renderers.json.
 The MIT license is included at skill-overlays/LICENSE and, in built images,
 yao-geo-skills/LICENSE. Original notices in individual assets are retained.
 
+Portable Web build inputs are pinned in licenses/portable-web.json.
+Platform Web runtime bundles retain their original notices; separate
+corresponding-source/relink kits accompany those runtime distributions.
+
 Third-party dependencies and fonts keep their own licenses. See
 THIRD_PARTY_NOTICES.md and the license texts bundled with those components.
 No trademark rights or endorsement by upstream authors are granted.

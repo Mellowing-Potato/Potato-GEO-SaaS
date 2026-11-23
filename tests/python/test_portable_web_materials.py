@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import tarfile
@@ -15,6 +16,7 @@ from unittest.mock import patch
 spec = importlib.util.spec_from_file_location('portable_package', Path(__file__).resolve().parents[2] / 'scripts/build-local-package.py')
 package = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(package)
+BUILD_RECIPE = Path(__file__).resolve().parents[2] / 'scripts/runtime/build-web-go.sh'
 
 
 def archive(path, files):
@@ -159,6 +161,32 @@ class PortableWebMaterialsTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.build()
                 self.assertFalse(self.args.output.exists())
+
+    def test_modified_upstream_locks_are_rejected_before_compiling(self):
+        source = self.root / 'changed-upstream'
+        (source / 'caddy').mkdir(parents=True)
+        for name in ['go.mod', 'go.sum', 'caddy/go.mod', 'caddy/go.sum']:
+            (source / name).write_text('modified lock\n')
+        tools = self.root / 'tools'
+        tools.mkdir()
+        go = tools / 'go'
+        go.write_text('''#!/bin/sh
+case "$1:$2" in
+    env:GOVERSION) printf 'go1.27.4\\n' ;;
+    list:*) printf 'github.com/dunglas/caddy-cbrotli v1.0.1\\ngithub.com/caddyserver/caddy/v2 v2.11.9\\n' ;;
+    build:*) touch "$WEB_TEST_MARKER" ;;
+    *) exit 2 ;;
+esac
+''')
+        go.chmod(0o700)
+        marker = self.root / 'compiler-was-called'
+        env = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ['PATH'],
+                   CGO_CFLAGS='fixture', CGO_LDFLAGS='fixture', WEB_TEST_MARKER=str(marker))
+        result = subprocess.run(['sh', str(BUILD_RECIPE), str(source), str(self.root / 'unused-output')],
+                                env=env, capture_output=True, text=True)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn('upstream dependency lock changed', result.stderr)
+        self.assertFalse(marker.exists())
 
 
 if __name__ == '__main__':
