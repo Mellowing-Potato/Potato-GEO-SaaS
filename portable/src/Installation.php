@@ -13,21 +13,23 @@ final class Installation
     public function configure(string $release, int $port): void
     {
         $i = $this->instance;
+        $launcher = @file_get_contents($release.'/app/portable/yanji');
+        if ($launcher === false || $launcher === '' || !is_file($release.'/runtime/ca/cacert.pem')
+            || !is_readable($release.'/runtime/ca/cacert.pem')) {
+            throw new RuntimeException('程序缺少启动脚本或可用的 CA 文件。');
+        }
+        if (is_file($i->root.'/instance.json') && $i->port() !== $port) {
+            throw new RuntimeException('实例端口与原配置不同。恢复至新目录时可另选端口。');
+        }
         $i->prepare();
         if (!is_file($i->root.'/instance.json')) {
             Instance::atomicFile($i->root.'/instance.json', json_encode(['port' => $port], JSON_THROW_ON_ERROR)."\n");
-        } elseif ($i->port() !== $port) {
-            throw new RuntimeException('实例端口与原配置不同。恢复至新目录时可另选端口。');
         }
         $i->activate($release);
-        Instance::atomicFile($i->root.'/yanji', file_get_contents($release.'/app/portable/yanji'), 0700);
-        $ca = $release.'/runtime/ca/cacert.pem';
-        if (!is_file($ca) || str_contains($ca, '"')) {
-            throw new RuntimeException('程序缺少可用的 CA 文件。');
-        }
+        Instance::atomicFile($i->root.'/yanji', $launcher, 0700);
         $ini = "upload_max_filesize=10M\npost_max_size=20M\nmemory_limit=512M\ndisplay_errors=Off\n"
             ."log_errors=On\nexpose_php=Off\nvariables_order=EGPCS\n"
-            .'curl.cainfo="'.$ca."\"\n".'openssl.cafile="'.$ca."\"\n";
+            ."curl.cainfo=\"\${YANJI_CA_BUNDLE}\"\nopenssl.cafile=\"\${YANJI_CA_BUNDLE}\"\n";
         Instance::atomicFile($i->root.'/php.ini', $ini);
     }
 
@@ -54,15 +56,21 @@ final class Installation
         if (is_link($i->root.'/current') && $i->release() !== $release) {
             throw new RuntimeException('实例已有其他程序版本，请使用 yanji upgrade。');
         }
+        $fresh = !is_file($i->root.'/.env');
+        $template = $fresh ? @file_get_contents($release.'/app/portable/instance.env.example') : null;
+        if ($fresh && (!is_string($template) || !str_contains($template, 'DB_DATABASE='))) {
+            throw new RuntimeException('程序缺少实例环境模板。');
+        }
+        if ($email !== null && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('管理员邮箱格式无效。');
+        }
+        $password = ($fresh || $passwordFile !== null) ? self::passwordInput([], $passwordFile) : null;
+        $this->checkPython($release, $python);
         $this->configure($release, $port);
-        $this->configurePython($python);
-        if (!is_file($i->root.'/.env')) {
-            $template = file_get_contents($release.'/app/portable/instance.env.example');
-            if ($template === false || !str_contains($template, 'DB_DATABASE=')) {
-                throw new RuntimeException('程序缺少实例环境模板。');
-            }
+        $this->savePython($python);
+        if ($fresh) {
             // The explicit environment resolves relocated paths for restored instances.
-            $quoted = "'".str_replace(["\\","'"], ["\\\\","\\'"], $db)."'";
+            $quoted = '"'.strtr($db, ['\\'=>'\\\\', '"'=>'\\"', '$'=>'\\$']).'"';
             $env = preg_replace_callback('/^DB_DATABASE=.*$/m', static fn () => 'DB_DATABASE='.$quoted, $template);
             $env = preg_replace('/^SESSION_COOKIE=.*$/m', 'SESSION_COOKIE=yanji_'.substr(hash('sha256', $i->root), 0, 24), $env);
             $env = preg_replace('/^APP_URL=.*$/m', 'APP_URL=http://127.0.0.1:'.$port, $env);
@@ -95,7 +103,8 @@ final class Installation
         if ($email !== null) {
             $args[] = '--email='.$email;
         }
-        [$args, $input] = self::passwordInput($args, $passwordFile);
+        [$passwordArgs, $input] = $password ?? self::passwordInput([], $passwordFile);
+        $args = [...$args, ...$passwordArgs];
         if ($i->artisan($args, $input) !== 0 || $i->artisan(['yanji:ready','--portable'], quiet: true) !== 0) {
             throw new RuntimeException('初始化未完成。请使用原实例目录重试或运行 yanji doctor。');
         }
@@ -110,24 +119,33 @@ final class Installation
         }
     }
 
-    public function configurePython(?string $python): void
+    public function checkPython(string $release, ?string $python): void
     {
-        $i = $this->instance;
-        if ($python !== null) {
-            if (!str_starts_with($python, '/') || !is_executable($python) || strpbrk($python, "\r\n\0") !== false) {
-                throw new RuntimeException('请指定本机 Python 解释器的绝对路径。');
-            }
-            Instance::atomicFile($i->root.'/python-path', $python."\n");
+        if ($python !== null && (!str_starts_with($python, '/') || !is_executable($python)
+            || strpbrk($python, "\r\n\0") !== false)) {
+            throw new RuntimeException('请指定本机 Python 解释器的绝对路径。');
         }
-        if (!self::pythonStatus($i)['basic']) {
+        $bin = $python ?? $this->instance->pythonBin($release);
+        if (!(self::probePython($bin)['basic'] ?? false)) {
             throw new RuntimeException('基础报告依赖缺失。请用 --python-bin 指定有 python-docx、Markdown、beautifulsoup4 的 Python。');
+        }
+    }
+
+    public function savePython(?string $python): void
+    {
+        if ($python !== null) {
+            Instance::atomicFile($this->instance->root.'/python-path', $python."\n");
         }
     }
 
     public static function pythonStatus(Instance $i): array
     {
-        $env = $i->environment();
-        $bin = $env['PYTHON_BIN'];
+        return self::probePython($i->pythonBin($i->release()));
+    }
+
+    private static function probePython(string $bin): array
+    {
+        $env = array_intersect_key(getenv(), array_flip(['HOME', 'LANG', 'LC_ALL', 'PATH', 'TMPDIR']));
         $script = <<<'PYTHON'
 import importlib
 import json

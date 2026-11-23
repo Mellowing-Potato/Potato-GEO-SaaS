@@ -276,10 +276,7 @@ final class Instance
             'PYTHONDONTWRITEBYTECODE' => '1',
             'PHPRC' => $this->root.'/php.ini', 'PHP_INI_SCAN_DIR' => '',
         ]);
-        $pythonPath = $this->root.'/python-path';
-        $env['PYTHON_BIN'] = is_file($pythonPath) && !is_link($pythonPath)
-            ? rtrim(file_get_contents($pythonPath), "\r\n")
-            : (is_executable($release.'/runtime/python/bin/python3') ? $release.'/runtime/python/bin/python3' : 'python3');
+        $env['PYTHON_BIN'] = $this->pythonBin($release);
         foreach (['SERVICES', 'PACKAGES', 'CONFIG', 'ROUTES', 'EVENTS'] as $kind) {
             $env['APP_'.$kind.'_CACHE'] = $this->root.'/bootstrap-cache/'.strtolower($kind).'.php';
         }
@@ -288,6 +285,14 @@ final class Instance
             $env['APP_CONFIG_CACHE'] = '/dev/null/yanji-read-only-config.php';
         }
         return $env;
+    }
+
+    public function pythonBin(string $release): string
+    {
+        $pythonPath = $this->root.'/python-path';
+        return is_file($pythonPath) && !is_link($pythonPath)
+            ? rtrim(file_get_contents($pythonPath), "\r\n")
+            : (is_executable($release.'/runtime/python/bin/python3') ? $release.'/runtime/python/bin/python3' : 'python3');
     }
 
     public function discardConfigurationCache(): void

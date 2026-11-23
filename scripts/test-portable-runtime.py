@@ -28,7 +28,7 @@ def until(predicate, seconds=15):
 
 def scenario(args, work):
     program = work / 'program'
-    instance = work / '中文 instance'
+    instance = work / "中文 it's instance"
     password = work / 'password'
     password.touch(mode=0o600)
     password.write_text(secrets.token_urlsafe(32))

@@ -53,9 +53,11 @@ function runPortable(array $args): int
         if (!$port) {
             throw new RuntimeException('端口无效。');
         }
+        $python = $options['python-bin'] ?? null;
+        $setup->checkPython($release, $python);
         Backup::restore($i, $from, $release, $port);
         $setup->configure($release, $port);
-        $setup->configurePython($options['python-bin'] ?? null);
+        $setup->savePython($python);
         if ($i->artisan(['yanji:ready','--portable'], quiet:true) !== 0) {
             throw new RuntimeException('恢复的实例密钥与数据库未通过就绪检查。');
         }

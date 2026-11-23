@@ -40,6 +40,45 @@ class PortableRuntimeTest extends TestCase
         return $release;
     }
 
+    public function test_missing_prerequisites_leave_installation_retryable_with_another_release(): void
+    {
+        $i = new Instance($this->directory."/it's 中文");
+        $release = $this->program('first');
+        mkdir($release.'/app/portable');
+        file_put_contents($release.'/app/portable/yanji', "#!/bin/sh\n");
+        file_put_contents($release.'/app/portable/instance.env.example', "DB_DATABASE=\n");
+        $setup = new Installation($i);
+        try {
+            $setup->configure($release, 8030);
+            self::fail('Missing CA accepted');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('CA', $e->getMessage());
+            self::assertFalse(is_link($i->root.'/current'));
+            self::assertFileDoesNotExist($i->root.'/instance.json');
+        }
+
+        $second = $this->program('second');
+        mkdir($second.'/runtime/ca');
+        mkdir($second.'/app/portable');
+        touch($second.'/runtime/ca/cacert.pem');
+        copy($release.'/app/portable/yanji', $second.'/app/portable/yanji');
+        copy($release.'/app/portable/instance.env.example', $second.'/app/portable/instance.env.example');
+        $password = $this->directory.'/password';
+        file_put_contents($password, "test-install-only\n");
+        chmod($password, 0600);
+        try {
+            $setup->install($second, 8031, 'example@example.com', $password, '/usr/bin/false');
+            self::fail('Invalid base renderer accepted');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('--python-bin', $e->getMessage());
+            self::assertFalse(is_link($i->root.'/current'));
+            self::assertFileDoesNotExist($i->root.'/python-path');
+        }
+        $setup->configure($second, 8031);
+        self::assertSame($second, $i->release());
+        self::assertSame(8031, $i->port());
+    }
+
     public function test_public_conflict_keeps_the_served_version_and_all_managed_links(): void
     {
         $i = new Instance($this->directory.'/中文 instance');
