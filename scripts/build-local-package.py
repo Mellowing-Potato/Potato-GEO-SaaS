@@ -117,6 +117,8 @@ def read_go_build_info(binary):
 def verify_web_build_info(info, platform):
     if re.search(r'github\.com/dunglas/(?:mercure|vulcain)(?:[/\s]|$)', info, re.I):
         raise ValueError('Web binary still links Mercure or Vulcain')
+    if not re.search(r'^.*:\s+go1\.27\.4(?:\s|$)', info, re.M):
+        raise ValueError('Web binary differs from the pinned Go toolchain')
     settings = dict(re.findall(r'^\s*build\s+([^=\s]+)=(.*)$', info, re.M))
     tags = set(settings.get('-tags', '').strip('"').split(','))
     if not {'nomercure', 'novulcain'} <= tags or settings.get('CGO_ENABLED') != '1':
@@ -129,6 +131,10 @@ def verify_web_build_info(info, platform):
                    'github.com/dunglas/caddy-cbrotli'):
         if not re.search(r'^\s*(?:path|mod|dep)\s+' + re.escape(module) + r'(?:[/\s]|$)', info, re.M):
             raise ValueError('Missing required Web module: ' + module)
+    for module, version in (('github.com/caddyserver/caddy/v2', 'v2.11.9'),
+                            ('github.com/dunglas/caddy-cbrotli', 'v1.0.1')):
+        if not re.search(r'^\s*dep\s+' + re.escape(module) + r'\s+' + re.escape(version) + r'(?:\s|$)', info, re.M):
+            raise ValueError('Web module differs from the source lock: ' + module)
 
 
 def inspect_web(args):
@@ -164,6 +170,10 @@ def inspect_web(args):
             with binary.open('wb') as output:
                 shutil.copyfileobj(archive.extractfile(binaries[0]), output)
             binary_digest = digest(binary)
+            manifest = json.load(archive.extractfile((strip / 'build-manifest.json').as_posix()))
+            if (not isinstance(manifest, dict) or manifest.get('binary_sha256') != binary_digest
+                    or manifest.get('source_kit') != {'name': kit, 'sha256': args.web_source_kit_sha256}):
+                raise ValueError('Web binary and corresponding-source/relink kit are not paired')
             verify_web_build_info(read_go_build_info(binary), args.platform)
     return strip.as_posix(), binary_digest
 

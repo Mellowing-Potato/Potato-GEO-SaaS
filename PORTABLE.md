@@ -60,6 +60,8 @@ python3 scripts/build-local-package.py --source "$CHECKOUT" --platform macos-arm
 
 构建机还需要 Go 来读取目标二进制的真实构建信息，无需在构建机执行其他架构的 Web。Web 归档必须含可执行的 `bin/frankenphp`、`build-manifest.json` 和 `notices/`。打包器检查目标架构、`nomercure,novulcain` 标签及实际链接模块，拒绝带 Mercure/Vulcain 的旧二进制；保留固定的 Brotli 插件以适配现有 Caddy 配置。这项检查不能替代逐项源码、许可、重链接和漏洞审计。
 
+`build-manifest.json` 的顶层须有 `binary_sha256` 和 `source_kit: {"name": "对应源码包文件名", "sha256": "该包摘要"}`。先封存源码/重链接套件，再把它的摘要写进运行包清单，避免自指；打包器拒绝将同架构的其他套件与此二进制配对。
+
 Web 的源提交、归档摘要、依赖锁和工具链版本见 `licenses/portable-web.json`。先按该平台的对应源码套件构建 PHP 8.5.13 **ZTS embed** 和静态库，设置套件中记录的 `CGO_CFLAGS`、`CGO_LDFLAGS` 与 `WEB_LINKER` 后，可用同一份 Go 入口：
 
 ```sh

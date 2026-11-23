@@ -84,7 +84,9 @@ class PortableWebMaterialsTest(unittest.TestCase):
         web_kit = self.root / 'web-linux-aarch64-source-relink.tar.gz'
         archive(web_kit, {'LICENSE': b'fixture web source'})
         runtime = self.root / 'web-runtime.tar.gz'
-        archive(runtime, {'web/bin/frankenphp': b'fixture web', 'web/build-manifest.json': b'{}',
+        manifest = {'binary_sha256': hashlib.sha256(b'fixture web').hexdigest(),
+                    'source_kit': {'name': web_kit.name, 'sha256': package.digest(web_kit)}}
+        archive(runtime, {'web/bin/frankenphp': b'fixture web', 'web/build-manifest.json': json.dumps(manifest).encode(),
                           'web/notices/LICENSE': b'fixture notice'})
         self.args = argparse.Namespace(source=source, vendor=vendor, skills=skills, assets=assets,
             npm_licenses=notices, cli=cli, cli_sha256=package.digest(cli), cli_source_kit=cli_kit,
@@ -129,6 +131,16 @@ class PortableWebMaterialsTest(unittest.TestCase):
             self.build()
         self.assertFalse(self.args.output.exists())
 
+    def test_a_valid_different_source_kit_cannot_be_paired_with_this_binary(self):
+        other = self.root / 'other-web-linux-aarch64-source-relink.tar.gz'
+        archive(other, {'LICENSE': b'different build with its own valid digest'})
+        self.args.web_source_kit = other
+        self.args.web_source_kit_sha256 = package.digest(other)
+        with patch.object(package, 'read_go_build_info', return_value=INFO):
+            with self.assertRaisesRegex(ValueError, 'are not paired'):
+                self.build()
+        self.assertFalse(self.args.output.exists())
+
     def test_unsafe_web_archive_cannot_escape_its_namespace(self):
         for bad_name, kind in [('web/notices/../../../escape', tarfile.REGTYPE),
                                ('web/notices/link', tarfile.SYMTYPE),
@@ -155,7 +167,10 @@ class PortableWebMaterialsTest(unittest.TestCase):
         invalid = [INFO + '        dep github.com/dunglas/mercure v1.1.6\n',
                    INFO + '        dep github.com/dunglas/vulcain/caddy v1.4.6\n',
                    INFO.replace('GOARCH=arm64', 'GOARCH=amd64'),
-                   INFO.replace('nomercure,novulcain,nowatcher', 'nowatcher')]
+                   INFO.replace('nomercure,novulcain,nowatcher', 'nowatcher'),
+                   INFO.replace('go1.27.4', 'go1.27.1'),
+                   INFO.replace('v2.11.9', 'v2.11.8'),
+                   INFO.replace('v1.0.1', 'v1.0.0')]
         for info in invalid:
             with self.subTest(info=info), patch.object(package, 'read_go_build_info', return_value=info):
                 with self.assertRaises(ValueError):
