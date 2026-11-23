@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Yanji\Portable\Instance;
 
+require __DIR__.'/src/Platform.php';
 require __DIR__.'/src/Instance.php';
 try {
     $instance = new Instance($argv[2]);

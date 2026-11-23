@@ -102,6 +102,15 @@ class AppServiceProvider extends ServiceProvider
                 return is_file($hold) ? false : null;
             });
         }
+        if ($stopFile = getenv('YANJI_STOP_FILE')) {
+            // Portable Windows workers drain in-flight work and exit cleanly via this stop signal file.
+            Event::listen(Looping::class, static function () use ($stopFile): void {
+                clearstatcache(true, $stopFile);
+                if (is_file($stopFile)) {
+                    exit(0);
+                }
+            });
+        }
         Event::listen(WorkerStopping::class, static function (): void {
             TenantContext::endQueueJob();
         });

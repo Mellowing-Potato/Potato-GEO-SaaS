@@ -6,6 +6,8 @@ namespace Yanji\Portable;
 
 use RuntimeException;
 
+require_once __DIR__.'/Platform.php';
+
 final class JobClock
 {
     private const GRACE_NS = 300_000_000;
@@ -37,7 +39,7 @@ final class JobClock
             }
             // The supervisor owns the unreaped child and the transition lock prevents a later job from starting.
             Instance::atomicFile($run.'/expired-job.json', json_encode($job, JSON_THROW_ON_ERROR));
-            if (!posix_kill(-$pid, SIGKILL) && posix_get_last_error() !== 3) {
+            if (!Platform::killProcessTree($pid)) {
                 throw new RuntimeException('无法终止到期的受监护作业。');
             }
         });
@@ -45,7 +47,7 @@ final class JobClock
 
     private static function locked(string $run, callable $action): void
     {
-        $lock = fopen($run.'/job-clock.lock', 'ce');
+        $lock = fopen($run.'/job-clock.lock', Platform::lockMode());
         if (!$lock || !flock($lock, LOCK_EX)) {
             throw new RuntimeException('无法保护当前作业状态。');
         }

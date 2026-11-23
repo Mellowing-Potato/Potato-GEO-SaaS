@@ -5,11 +5,12 @@ declare(strict_types=1);
 use Yanji\Portable\Backup;
 use Yanji\Portable\Installation;
 use Yanji\Portable\Instance;
+use Yanji\Portable\Platform;
 use Yanji\Portable\Supervisor;
 use Yanji\Portable\Upgrade;
 
 umask(0077);
-foreach (['Instance','Supervisor','Installation','Upgrade','JobClock'] as $class) {
+foreach (['Platform', 'Instance', 'Supervisor', 'Installation', 'Upgrade', 'JobClock'] as $class) {
     require __DIR__.'/src/'.$class.'.php';
 }
 if (is_file(__DIR__.'/src/Backup.php')) {
@@ -46,7 +47,7 @@ function runPortable(array $args): int
     $i = new Instance($root);
     $services = new Supervisor($i);
     $setup = new Installation($i);
-    $release = realpath(__DIR__.'/../..');
+    $release = Platform::normalize((string) realpath(__DIR__.'/../..'));
     if ($command === 'restore') {
         $from = $options['from'] ?? throw new RuntimeException('请使用 --from 指定备份文件。');
         $port = filter_var($options['port'] ?? 8000, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1,'max_range'=>65535]]);
@@ -72,14 +73,26 @@ function runPortable(array $args): int
     }
     if ($command === 'upgrade') {
         $installed = $i->release();
-        $script = $installed.'/app/scripts/install-local.sh';
-        $forward = ['/bin/sh', $script, '--upgrade', '--program-home', dirname($installed,2), '--instance', $i->root];
-        foreach (['manifest','manifest-sha256','package'] as $key) {
-            if (isset($options[$key])) {
-                array_push($forward, '--'.$key, $options[$key]);
+        if (Platform::isWindows()) {
+            $script = Platform::nativePath($installed.'/app/scripts/install-local.ps1');
+            $forward = ['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script,
+                '-Upgrade', '-ProgramHome', Platform::nativePath(dirname($installed, 2)), '-Instance', Platform::nativePath($i->root)];
+            $map = ['manifest' => '-Manifest', 'manifest-sha256' => '-ManifestSha256', 'package' => '-Package'];
+            foreach ($map as $key => $flag) {
+                if (isset($options[$key])) {
+                    array_push($forward, $flag, $options[$key]);
+                }
+            }
+        } else {
+            $script = $installed.'/app/scripts/install-local.sh';
+            $forward = ['/bin/sh', $script, '--upgrade', '--program-home', dirname($installed, 2), '--instance', $i->root];
+            foreach (['manifest', 'manifest-sha256', 'package'] as $key) {
+                if (isset($options[$key])) {
+                    array_push($forward, '--'.$key, $options[$key]);
+                }
             }
         }
-        $p = proc_open($forward, [STDIN,STDOUT,STDERR], $pipes);
+        $p = proc_open($forward, [STDIN, STDOUT, STDERR], $pipes, null, null, ['bypass_shell' => true]);
         return is_resource($p) ? proc_close($p) : 1;
     }
     if ($command === '__install') {
@@ -106,20 +119,21 @@ function runPortable(array $args): int
     }
     if ($command === 'doctor') {
         $i->release();
-        $required = ['pdo_sqlite','sqlite3','gd','zip','curl','mbstring','openssl','fileinfo','xml','dom','ctype','tokenizer','pcntl','posix'];
+        $required = ['pdo_sqlite', 'sqlite3', 'gd', 'zip', 'curl', 'mbstring', 'openssl', 'fileinfo', 'xml', 'dom', 'ctype', 'tokenizer'];
+        if (!Platform::isWindows()) {
+            array_push($required, 'pcntl', 'posix');
+        }
         $missing = array_values(array_filter($required, static fn ($name) => !extension_loaded($name)));
-        $ready = $i->artisan(['yanji:ready','--portable'], quiet: true, uncached: true) === 0;
-        $skill = $i->artisan(['geo:audit-skill-assets'], quiet:true, uncached:true) === 0;
+        $ready = $i->artisan(['yanji:ready', '--portable'], quiet: true, uncached: true) === 0;
+        $skill = $i->artisan(['geo:audit-skill-assets'], quiet: true, uncached: true) === 0;
         $python = Installation::pythonStatus($i);
         $permissions = true;
-        foreach (['.env', 'database/database.sqlite', 'storage','logs','bootstrap-cache'] as $path) {
-            $path = $i->root.'/'.$path;
-            $permissions = $permissions && file_exists($path) && !is_link($path)
-                && fileowner($path) === posix_geteuid() && (fileperms($path) & 0077) === 0;
+        foreach (['.env', 'database/database.sqlite', 'storage', 'logs', 'bootstrap-cache'] as $path) {
+            $permissions = $permissions && Platform::isPrivate($i->root.'/'.$path);
         }
-        echo json_encode(['instance'=>$i->root, 'release'=>$i->release(), 'php'=>PHP_VERSION,'ini'=>php_ini_loaded_file(),
-            'missing_extensions'=>$missing, 'permissions'=>$permissions,'database_key_admin_ready'=>$ready,
-            'skill_assets_ready'=>$skill,'python'=>$python,'services'=>$services->request('status')], JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)."\n";
+        echo json_encode(['instance' => $i->root, 'release' => $i->release(), 'php' => PHP_VERSION, 'ini' => php_ini_loaded_file(),
+            'missing_extensions' => $missing, 'permissions' => $permissions, 'database_key_admin_ready' => $ready,
+            'skill_assets_ready' => $skill, 'python' => $python, 'services' => $services->request('status')], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n";
         return $ready && !$missing && $permissions && $skill && $python['basic'] ? 0 : 1;
     }
     $lock = $i->commandLock();
@@ -135,20 +149,20 @@ function runPortable(array $args): int
                 if (!file_exists($i->root.'/.portable-layout')) {
                     Instance::atomicFile($i->root.'/.portable-layout', "yanji-portable-v1\n");
                 }
-                if ($release !== ($options['release'] ?? '')) {
+                if ($release !== Platform::normalize((string) ($options['release'] ?? ''))) {
                     throw new RuntimeException('程序版本路径不匹配。');
                 }
                 $port = filter_var($options['port'] ?? (is_file($i->root.'/instance.json') ? $i->port() : 8000),
-                    FILTER_VALIDATE_INT, ['options'=>['min_range'=>1,'max_range'=>65535]]);
+                    FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]);
                 if (!$port) {
                     throw new RuntimeException('端口需为 1 至 65535。');
                 }
                 $setup->install($release, $port, $options['email'] ?? null, $options['password-file'] ?? null, $options['python-bin'] ?? null);
                 $services->start();
-                echo "已就绪 http://127.0.0.1:".$port."  管理命令 ".$i->root."/yanji\n";
+                echo "已就绪 http://127.0.0.1:".$port."  管理命令 ".Platform::nativePath($i->root.'/'.Platform::launcherName())."\n";
                 break;
             case '__upgrade':
-                if ($release !== ($options['release'] ?? '')) {
+                if ($release !== Platform::normalize((string) ($options['release'] ?? ''))) {
                     throw new RuntimeException('升级版本路径不匹配。');
                 }
                 Upgrade::run($i, $release, $services);

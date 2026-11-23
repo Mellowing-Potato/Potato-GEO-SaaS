@@ -19,12 +19,13 @@ final class Backup
     public static function create(Instance $instance, string $output): void
     {
         $parent = realpath(dirname($output));
-        if ($parent === false || $parent === $instance->root || str_starts_with($parent.'/', $instance->root.'/')
+        $parentNorm = $parent === false ? false : Platform::normalize($parent);
+        if ($parentNorm === false || $parentNorm === $instance->root || str_starts_with($parentNorm.'/', $instance->root.'/')
             || file_exists($output) || is_link($output)) {
             throw new RuntimeException('请在实例外的已有目录选择新的备份文件。');
         }
-        Instance::assertOutsideManagedTrees($parent.'/'.basename($output));
-        $work = self::workspace($parent);
+        Instance::assertOutsideManagedTrees($parentNorm.'/'.basename($output));
+        $work = self::workspace($parentNorm);
         try {
             $probe = $work.'/binding';
             Instance::privateDir($probe.'/database');
@@ -62,7 +63,14 @@ final class Backup
                 }
             }
             self::readArchive($archive);
-            if (! chmod($archive, 0600) || ! @link($archive, $output)) {
+            if (Platform::isWindows()) {
+                Platform::protectPrivate($archive, false);
+                $published = @link($archive, $output) || (!file_exists($output) && @rename($archive, $output));
+                if (!$published) {
+                    throw new RuntimeException('不能发布备份，请确认目标文件名未被占用。');
+                }
+                Platform::protectPrivate($output, false);
+            } elseif (! chmod($archive, 0600) || ! @link($archive, $output)) {
                 throw new RuntimeException('不能发布备份，请确认目标文件名未被占用。');
             }
         } finally {
@@ -96,13 +104,13 @@ final class Backup
         if (is_link($target) || file_exists($target) && (! is_dir($target) || count(scandir($target)) !== 2)) {
             throw new RuntimeException('恢复目标必须是新的空目录，请另选 --instance。');
         }
-        $parent = dirname($target);
+        $parent = Platform::parentDir($target);
         $ancestor = $parent;
         while (! is_dir($ancestor)) {
-            if (file_exists($ancestor) || is_link($ancestor) || dirname($ancestor) === $ancestor) {
+            if (file_exists($ancestor) || is_link($ancestor) || Platform::parentDir($ancestor) === $ancestor) {
                 throw new RuntimeException('恢复目录的上级路径无效。');
             }
-            $ancestor = dirname($ancestor);
+            $ancestor = Platform::parentDir($ancestor);
         }
         $work = self::workspace($ancestor);
         try {
@@ -124,8 +132,17 @@ final class Backup
             if (! is_dir($parent) && ! @mkdir($parent, 0700, true) && ! is_dir($parent)) {
                 throw new RuntimeException('不能创建恢复目录，请检查上级路径和权限。');
             }
+            if (Platform::isWindows() && is_dir($target)) {
+                // Windows rename() cannot overwrite an existing empty directory; remove it first.
+                if (count(scandir($target)) !== 2 || ! @rmdir(Platform::nativePath($target))) {
+                    throw new RuntimeException('目标已被占用或不可写，未发布恢复数据。');
+                }
+            }
             if (! @rename($ready, $target)) {
                 throw new RuntimeException('目标已被占用或不可写，未发布恢复数据。');
+            }
+            if (Platform::isWindows()) {
+                Platform::protectPrivate($target, true);
             }
         } finally {
             self::removeWorkspace($work);
@@ -296,6 +313,9 @@ final class Backup
             if (! $file->isLink() && $file->isDir()) {
                 self::removeWorkspace($file->getPathname());
             } else {
+                if (Platform::isWindows()) {
+                    @chmod($file->getPathname(), 0600);
+                }
                 unlink($file->getPathname());
             }
         }

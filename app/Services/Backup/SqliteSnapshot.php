@@ -45,8 +45,12 @@ final class SqliteSnapshot
                 }
             }
             // Publish the database last, without replacing another backup.
-            if (! @link($temp, $destination)) {
-                if ($withChecksum) {
+            $published = @link($temp, $destination);
+            if (! $published && PHP_OS_FAMILY === 'Windows' && ! file_exists($destination)) {
+                $published = @rename($temp, $destination);
+            }
+            if (! $published) {
+                if ($withChecksum && is_file($checksumPath)) {
                     unlink($checksumPath);
                 }
                 throw new RuntimeException('无法发布完整的 SQLite 备份，请确认文件名未被占用。');
@@ -54,7 +58,9 @@ final class SqliteSnapshot
 
             return $verified;
         } finally {
-            unlink($temp);
+            if (is_file($temp)) {
+                unlink($temp);
+            }
             if (is_file($temp.'.sha256')) {
                 unlink($temp.'.sha256');
             }

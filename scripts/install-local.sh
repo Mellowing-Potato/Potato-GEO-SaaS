@@ -88,7 +88,7 @@ awk 'substr($0,1,1)!="-" && substr($0,1,1)!="d" {exit 1}' "$scratch/types" || fa
 # Resolve both physical destinations before changing directories supplied by the user.
 # The checker and standalone CLI come directly from the already authenticated archive.
 mkdir "$scratch/preflight"
-tar -xzf "$scratch/package" -C "$scratch/preflight" runtime/bin/php app/portable/preflight.php app/portable/src/Instance.php
+tar -xzf "$scratch/package" -C "$scratch/preflight" runtime/bin/php app/portable/preflight.php app/portable/src/Platform.php app/portable/src/Instance.php
 "$scratch/preflight/runtime/bin/php" -n "$scratch/preflight/app/portable/preflight.php" "$program" "$instance" > "$scratch/paths"
 { IFS= read -r program; IFS= read -r instance; } < "$scratch/paths"
 [ ! -L "$program" ] && [ ! -L "$program/releases" ] || fail '程序目录不能为符号链接。'

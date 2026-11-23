@@ -6,16 +6,22 @@ namespace Yanji\Portable;
 
 use RuntimeException;
 
+require_once __DIR__.'/Platform.php';
+
 final class Supervisor
 {
     private array $children = [];
     private bool $stopping = false;
     private int $startTime = 0;
+    private string $controlToken = '';
 
     public function __construct(private Instance $instance) {}
 
     public function request(string $action): ?array
     {
+        if (Platform::isWindows()) {
+            return $this->requestWindows($action);
+        }
         $path = $this->instance->socketPath();
         $directory = @lstat(dirname($path));
         if (!$directory) {
@@ -38,10 +44,46 @@ final class Supervisor
         }
         try {
             stream_set_timeout($socket, 3);
-            fwrite($socket, json_encode(['action'=>$action, 'instance'=>hash('sha256', $this->instance->root)], JSON_THROW_ON_ERROR)."\n");
+            fwrite($socket, json_encode(['action' => $action, 'instance' => hash('sha256', $this->instance->root)], JSON_THROW_ON_ERROR)."\n");
             $line = fgets($socket, 16384);
             $reply = $line === false ? null : json_decode($line, true);
             if (!is_array($reply) || isset($reply['error']) || ($reply['instance'] ?? '') !== hash('sha256', $this->instance->root)) {
+                throw new RuntimeException('管理端点未确认本实例身份。');
+            }
+            return $reply;
+        } finally {
+            fclose($socket);
+        }
+    }
+
+    private function requestWindows(string $action): ?array
+    {
+        $path = $this->instance->socketPath();
+        clearstatcache(true, $path);
+        if (!is_file($path)) {
+            return null;
+        }
+        if (!Platform::isPrivate($path)) {
+            throw new RuntimeException('管理端点文件的权限或类型异常。');
+        }
+        $info = json_decode((string) @file_get_contents($path), true);
+        $port = $info['port'] ?? null;
+        $token = $info['token'] ?? null;
+        $identity = hash('sha256', $this->instance->root);
+        if (!is_int($port) || $port < 1 || $port > 65535 || !is_string($token) || strlen($token) !== 64
+            || ($info['instance'] ?? null) !== $identity) {
+            throw new RuntimeException('管理端点配置损坏或不属于本实例。');
+        }
+        $socket = @stream_socket_client('tcp://127.0.0.1:'.$port, $errno, $message, 0.4);
+        if (!$socket) {
+            return null;
+        }
+        try {
+            stream_set_timeout($socket, 3);
+            fwrite($socket, json_encode(['action' => $action, 'instance' => $identity, 'token' => $token], JSON_THROW_ON_ERROR)."\n");
+            $line = fgets($socket, 16384);
+            $reply = $line === false ? null : json_decode($line, true);
+            if (!is_array($reply) || isset($reply['error']) || ($reply['instance'] ?? '') !== $identity) {
                 throw new RuntimeException('管理端点未确认本实例身份。');
             }
             return $reply;
@@ -67,17 +109,28 @@ final class Supervisor
                 throw new RuntimeException('实例端口已被占用，请选择其他端口。');
             }
             fclose($probe);
-            $pid = pcntl_fork();
-            if ($pid < 0) {
-                throw new RuntimeException('无法启动实例托管器。');
-            }
-            if ($pid === 0) {
-                if (posix_setsid() < 0) {
-                    exit(1);
+            $release = $this->instance->release();
+            if (Platform::isWindows()) {
+                $pid = Platform::spawnDetachedWindows(
+                    Platform::phpBinary($release),
+                    ['-c', $this->instance->root.'/php.ini', $release.'/app/portable/yanji.php', '__supervise', '--instance', $this->instance->root],
+                    $release.'/app',
+                    $this->instance->root.'/logs/manager.log',
+                    $this->instance->root.'/logs/manager-err.log',
+                    $this->instance->environment(),
+                );
+            } else {
+                $pid = pcntl_fork();
+                if ($pid < 0) {
+                    throw new RuntimeException('无法启动实例托管器。');
                 }
-                $release = $this->instance->release();
-                $this->execLogged([$release.'/runtime/bin/php', $release.'/app/portable/yanji.php',
-                    '__supervise', '--instance', $this->instance->root], 'manager');
+                if ($pid === 0) {
+                    if (posix_setsid() < 0) {
+                        exit(1);
+                    }
+                    $this->execLogged([$release.'/runtime/bin/php', $release.'/app/portable/yanji.php',
+                        '__supervise', '--instance', $this->instance->root], 'manager');
+                }
             }
         }
         $deadline = microtime(true) + 85;
@@ -86,8 +139,13 @@ final class Supervisor
             if ($status !== null && $status['ready']) {
                 return $status;
             }
-            if (isset($pid) && pcntl_waitpid($pid, $exit, WNOHANG) === $pid) {
-                throw new RuntimeException('后台服务启动失败，本次子进程已收回。请运行 yanji doctor。');
+            if (isset($pid)) {
+                $exited = Platform::isWindows()
+                    ? !Platform::isProcessAlive($pid)
+                    : (pcntl_waitpid($pid, $exit, WNOHANG) === $pid);
+                if ($exited) {
+                    throw new RuntimeException('后台服务启动失败，本次子进程已收回。请运行 yanji doctor。');
+                }
             }
             usleep(200000);
         } while (microtime(true) < $deadline);
@@ -102,12 +160,24 @@ final class Supervisor
         if ($this->request('stop') === null) {
             // A stale PID or socket never authorizes killing a host process.
             $this->assertNoOrphans();
+            if (Platform::isWindows() && is_file($this->instance->socketPath())) {
+                @unlink($this->instance->socketPath());
+            }
             return;
         }
         $deadline = microtime(true) + self::DRAIN_SECONDS + 8;
         do {
             if (!file_exists($this->instance->socketPath())) {
-                return;
+                if (Platform::isWindows()) {
+                    try {
+                        $this->assertNoOrphans();
+                        return;
+                    } catch (RuntimeException) {
+                        // Wait for supervisor lock release.
+                    }
+                } else {
+                    return;
+                }
             }
             usleep(100000);
             clearstatcache();
@@ -122,8 +192,11 @@ final class Supervisor
         if (!is_dir($run)) {
             throw new RuntimeException('找不到实例。');
         }
-        $lease = fopen($run.'/services.lock', 'ce');
+        $lease = fopen($run.'/services.lock', Platform::lockMode());
         if (!$lease || !flock($lease, LOCK_EX | LOCK_NB)) {
+            if (is_resource($lease)) {
+                fclose($lease);
+            }
             throw new RuntimeException('托管端点无法确认，但仍有服务持有实例锁；已暂停操作，请先核对后台进程。');
         }
         flock($lease, LOCK_UN);
@@ -144,6 +217,10 @@ final class Supervisor
 
     public function serve(): void
     {
+        if (Platform::isWindows()) {
+            $this->serveWindows();
+            return;
+        }
         $this->startTime = time();
         $lock = fopen($this->instance->root.'/run/supervisor.lock', 'ce');
         if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
@@ -172,7 +249,7 @@ final class Supervisor
         }
         try {
             $this->settleExpired();
-            foreach (['web','worker','scheduler'] as $role) {
+            foreach (['web', 'worker', 'scheduler'] as $role) {
                 $this->spawn($role);
             }
             while (!$this->stopping) {
@@ -191,14 +268,14 @@ final class Supervisor
                     $query = json_decode((string) fgets($client, 256), true);
                     $identity = hash('sha256', $this->instance->root);
                     if (!is_array($query) || ($query['instance'] ?? null) !== $identity) {
-                        @fwrite($client, json_encode(['instance'=>$identity,'error'=>'identity'])."\n");
+                        @fwrite($client, json_encode(['instance' => $identity, 'error' => 'identity'])."\n");
                         continue;
                     }
                     $action = $query['action'] ?? null;
                     if ($action === 'stop') {
                         $this->stopping = true;
                     }
-                    if (in_array($action, ['status','stop'], true)) {
+                    if (in_array($action, ['status', 'stop'], true)) {
                         @fwrite($client, json_encode($this->status(), JSON_THROW_ON_ERROR)."\n");
                     }
                 } finally {
@@ -211,6 +288,173 @@ final class Supervisor
             @unlink($path);
             fclose($lock);
         }
+    }
+
+    private function serveWindows(): void
+    {
+        $this->startTime = time();
+        $lock = fopen($this->instance->root.'/run/supervisor.lock', 'cb');
+        if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
+            throw new RuntimeException('该实例已有托管器。');
+        }
+        $lease = fopen($this->instance->root.'/run/services.lock', 'cb');
+        if (!$lease || !flock($lease, LOCK_SH | LOCK_NB)) {
+            fclose($lock);
+            throw new RuntimeException('无法获取实例服务租约。');
+        }
+        @unlink($this->instance->root.'/run/worker-stop');
+        $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $message);
+        if (!$server) {
+            fclose($lease);
+            fclose($lock);
+            throw new RuntimeException('无法建立本地回环控制端点。');
+        }
+        $bound = stream_socket_get_name($server, false);
+        $port = (int) substr((string) $bound, strrpos((string) $bound, ':') + 1);
+        $this->controlToken = bin2hex(random_bytes(32));
+        $controlPath = $this->instance->socketPath();
+        $identity = hash('sha256', $this->instance->root);
+        Instance::atomicFile($controlPath, json_encode([
+            'instance' => $identity,
+            'port' => $port,
+            'token' => $this->controlToken,
+            'pid' => getmypid(),
+        ], JSON_THROW_ON_ERROR));
+        Platform::protectPrivate($controlPath, false);
+
+        try {
+            $this->settleExpired();
+            foreach (['web', 'worker', 'scheduler'] as $role) {
+                $this->spawnWindows($role);
+            }
+            while (!$this->stopping) {
+                $this->watchChildrenWindows();
+                $read = [$server];
+                $write = $exclude = null;
+                if (@stream_select($read, $write, $exclude, 0, 200000) !== 1) {
+                    continue;
+                }
+                $client = @stream_socket_accept($server, 0);
+                if (!$client) {
+                    continue;
+                }
+                try {
+                    stream_set_timeout($client, 1);
+                    $query = json_decode((string) fgets($client, 512), true);
+                    if (!is_array($query) || ($query['instance'] ?? null) !== $identity
+                        || !is_string($query['token'] ?? null) || !hash_equals($this->controlToken, $query['token'])) {
+                        @fwrite($client, json_encode(['instance' => $identity, 'error' => 'identity'])."\n");
+                        continue;
+                    }
+                    $action = $query['action'] ?? null;
+                    if ($action === 'stop') {
+                        $this->stopping = true;
+                    }
+                    if (in_array($action, ['status', 'stop'], true)) {
+                        @fwrite($client, json_encode($this->status(), JSON_THROW_ON_ERROR)."\n");
+                    }
+                } finally {
+                    fclose($client);
+                }
+            }
+        } finally {
+            $this->drainWindows();
+            fclose($server);
+            @unlink($controlPath);
+            @unlink($this->instance->root.'/run/worker-stop');
+            flock($lease, LOCK_UN);
+            fclose($lease);
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+    }
+
+    private function spawnWindows(string $role): void
+    {
+        $release = $this->instance->release();
+        $php = Platform::phpBinary($release);
+        $cmd = match ($role) {
+            'web' => [Platform::webBinary($release), 'run', '--adapter', 'caddyfile', '--config', $release.'/app/portable/Caddyfile'],
+            'worker' => [$php, '-c', $this->instance->root.'/php.ini', $release.'/app/artisan', 'yanji:worker', '--no-interaction'],
+            'scheduler' => [$php, '-c', $this->instance->root.'/php.ini', $release.'/app/artisan', 'schedule:work', '--no-interaction'],
+        };
+        $generation = bin2hex(random_bytes(16));
+        $env = ['YANJI_SERVICE_GENERATION' => $generation];
+        if ($role === 'worker') {
+            $env['YANJI_WORKER_GENERATION'] = $generation;
+        }
+        $log = $this->instance->root.'/logs/'.$role.'.log';
+        $proc = proc_open(
+            $cmd,
+            [0 => ['file', 'NUL', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']],
+            $pipes,
+            $release.'/app',
+            $env + $this->instance->environment(),
+            ['bypass_shell' => true],
+        );
+        if (!is_resource($proc)) {
+            throw new RuntimeException('无法在 Windows 上创建服务子进程：'.$role);
+        }
+        $info = proc_get_status($proc);
+        $this->children[$role] = ['proc' => $proc, 'pid' => (int) $info['pid'], 'since' => time(), 'generation' => $generation];
+        $this->event($role, 'started');
+    }
+
+    private function watchChildrenWindows(): void
+    {
+        foreach ($this->children as $role => $child) {
+            $info = proc_get_status($child['proc']);
+            if ($info['running']) {
+                if ($role === 'worker') {
+                    JobClock::enforce($this->instance->root.'/run', $child['pid'], $child['generation']);
+                }
+                continue;
+            }
+            $exitCode = (int) $info['exitcode'];
+            Platform::killProcessTree($child['pid']);
+            proc_close($child['proc']);
+            unset($this->children[$role]);
+            $this->event($role, 'exited');
+            $expired = is_file($this->instance->root.'/run/expired-job.json');
+            if ($role !== 'worker' || (!$expired && !in_array($exitCode, [0, 12], true))
+                || (time() <= $child['since'] + 1 && !$expired && $exitCode !== 0)) {
+                throw new RuntimeException('服务异常退出，已停止本实例。');
+            }
+            $this->settleExpired();
+            $this->spawnWindows('worker');
+        }
+    }
+
+    private function drainWindows(): void
+    {
+        Instance::atomicFile($this->instance->root.'/run/worker-stop', "stop\n");
+        foreach (['web', 'scheduler'] as $role) {
+            if (isset($this->children[$role])) {
+                Platform::killProcessTree($this->children[$role]['pid']);
+            }
+        }
+        $deadline = microtime(true) + self::DRAIN_SECONDS;
+        do {
+            $workerRunning = false;
+            if (isset($this->children['worker'])) {
+                $info = proc_get_status($this->children['worker']['proc']);
+                if ($info['running']) {
+                    $workerRunning = true;
+                    JobClock::enforce($this->instance->root.'/run', $this->children['worker']['pid'], $this->children['worker']['generation']);
+                }
+            }
+            if (!$workerRunning) {
+                break;
+            }
+            usleep(100000);
+        } while (microtime(true) < $deadline);
+        foreach ($this->children as $role => $child) {
+            Platform::killProcessTree($child['pid']);
+            proc_close($child['proc']);
+            $this->event($role, 'stopped');
+        }
+        $this->children = [];
+        $this->settleExpired();
     }
 
     private function spawn(string $role): void
@@ -238,7 +482,7 @@ final class Supervisor
             if (!$lease || !flock($lease, LOCK_SH | LOCK_NB)) {
                 exit(126);
             }
-            $env = ['YANJI_SERVICE_GENERATION'=>$generation];
+            $env = ['YANJI_SERVICE_GENERATION' => $generation];
             if ($role === 'worker') {
                 $env['YANJI_WORKER_GENERATION'] = $generation;
             }
@@ -276,7 +520,7 @@ final class Supervisor
             unset($this->children[$role]);
             $this->event($role, 'exited');
             if ($role !== 'worker' || (time() <= $child['since'] + 1 && !pcntl_wifexited($status))
-                || (pcntl_wifexited($status) && !in_array(pcntl_wexitstatus($status), [0,12], true))) {
+                || (pcntl_wifexited($status) && !in_array(pcntl_wexitstatus($status), [0, 12], true))) {
                 throw new RuntimeException('服务异常退出，已停止本实例。');
             }
             // A work-limit or memory exit and the framework's hard job timeout both require a successor.
@@ -291,8 +535,8 @@ final class Supervisor
             return;
         }
         $release = $this->instance->release();
-        $p = proc_open([$release.'/runtime/bin/php', $release.'/app/portable/settle-timeout.php'],
-            [0=>['file','/dev/null','r'], 1=>STDOUT, 2=>STDERR], $pipes, $release.'/app', $this->instance->environment());
+        $p = proc_open([Platform::phpBinary($release), '-c', $this->instance->root.'/php.ini', $release.'/app/portable/settle-timeout.php'],
+            [0 => ['file', Platform::nullDevice(), 'r'], 1 => STDOUT, 2 => STDERR], $pipes, $release.'/app', $this->instance->environment(), ['bypass_shell' => true]);
         if (!is_resource($p) || proc_close($p) !== 0) {
             throw new RuntimeException('超时作业仍待确认，已暂停服务。');
         }
@@ -301,7 +545,7 @@ final class Supervisor
     private function drain(): void
     {
         // Signal each owned leader first so that a running job can complete before its descendants terminate.
-        foreach (['web','scheduler','worker'] as $role) {
+        foreach (['web', 'scheduler', 'worker'] as $role) {
             if (isset($this->children[$role])) {
                 posix_kill($this->children[$role]['pid'], SIGTERM);
             }
@@ -331,7 +575,7 @@ final class Supervisor
         $context = stream_context_create(['http' => ['timeout' => 0.7, 'follow_location' => 0]]);
         $body = @file_get_contents('http://127.0.0.1:'.$this->instance->port().'/up', false, $context);
         $services = ['web' => ['pid' => $this->children['web']['pid'] ?? null, 'healthy' => $body !== false]];
-        foreach (['worker','scheduler'] as $role) {
+        foreach (['worker', 'scheduler'] as $role) {
             $child = $this->children[$role] ?? null;
             $heartbeat = $child === null ? null : $this->instance->heartbeat($role, max($child['since'], time() - 150),
                 $child['generation'], $child['pid']);
