@@ -54,7 +54,8 @@ final class Instance
 
     private static function managedProgram(string $root): bool
     {
-        return is_file($root.'/.yanji-program') || is_file($root.'/releases/.publish.lock')
+        return is_file($root.'/.yanji-program') && !is_link($root.'/.yanji-program')
+                || is_file($root.'/releases/.publish.lock') && !is_link($root.'/releases/.publish.lock')
             || (is_file($root.'/release.json') && is_file($root.'/runtime/bin/php') && is_dir($root.'/app/portable'));
     }
 
@@ -80,12 +81,36 @@ final class Instance
         throw new RuntimeException('目标目录已有其他文件，请选择空目录或已有言及实例。');
     }
 
+    private static function protectedAncestors(string $path): void
+    {
+        for ($dir = $path; ; $dir = dirname($dir)) {
+            if (file_exists($dir)) {
+                $stat = lstat($dir);
+                $systemTemporary = $stat['uid'] === 0 && ($stat['mode'] & 01000) !== 0;
+                if (($stat['mode'] & 0170000) !== 0040000 || !in_array($stat['uid'], [0,posix_geteuid()], true)
+                    || ($stat['mode'] & 0022) !== 0 && !$systemTemporary) {
+                    throw new RuntimeException('程序目录的祖先可被其他用户替换，请选择当前用户的私有目录。');
+                }
+            }
+            if ($dir === '/') {
+                break;
+            }
+        }
+    }
+
     public static function programPath(string $program, Instance $instance): string
     {
         if (is_link($program)) {
             throw new RuntimeException('程序根目录不能是符号链接。');
         }
         $root = self::physicalPath($program);
+        self::protectedAncestors($root.'/releases');
+        self::protectedAncestors($instance->root);
+        foreach ([$root.'/.yanji-program', $root.'/releases/.publish.lock'] as $marker) {
+            if (is_link($marker) || file_exists($marker) && (!is_file($marker) || fileowner($marker) !== posix_geteuid())) {
+                throw new RuntimeException('程序标识或发布锁的类型、所有者异常。');
+            }
+        }
         if ($root === $instance->root || str_starts_with($root.'/', $instance->root.'/')
             || str_starts_with($instance->root.'/', $root.'/')) {
             throw new RuntimeException('实例和程序必须使用分开的物理目录。');
@@ -224,7 +249,7 @@ final class Instance
         }
     }
 
-    public function environment(): array
+    public function environment(bool $uncached = false): array
     {
         $release = $this->release();
         // Parent shells can carry APP_KEY, database credentials or environment overrides for another app.
@@ -258,16 +283,29 @@ final class Instance
         foreach (['SERVICES', 'PACKAGES', 'CONFIG', 'ROUTES', 'EVENTS'] as $kind) {
             $env['APP_'.$kind.'_CACHE'] = $this->root.'/bootstrap-cache/'.strtolower($kind).'.php';
         }
+        if ($uncached) {
+            // Read-only checks must not consume a cached URL or private paths from a different instance.
+            $env['APP_CONFIG_CACHE'] = '/dev/null/yanji-read-only-config.php';
+        }
         return $env;
     }
 
-    public function artisan(array $args, ?string $input = null, bool $quiet = false): int
+    public function discardConfigurationCache(): void
+    {
+        $dir = $this->root.'/bootstrap-cache';
+        $path = $dir.'/config.php';
+        if (is_link($dir) || is_link($path) || is_file($path) && (fileowner($path) !== posix_geteuid() || !unlink($path))) {
+            throw new RuntimeException('实例配置缓存的路径或所有者异常，拒绝执行服务或维护操作。');
+        }
+    }
+
+    public function artisan(array $args, ?string $input = null, bool $quiet = false, bool $uncached = false): int
     {
         $release = $this->release();
         $stdio = [0 => $input === null ? STDIN : ['pipe', 'r'], 1 => $quiet ? ['file', '/dev/null', 'w'] : STDOUT,
             2 => $quiet ? ['file', '/dev/null', 'w'] : STDERR];
         $process = proc_open([$release.'/runtime/bin/php', $release.'/app/artisan', ...$args],
-            $stdio, $pipes, $release.'/app', $this->environment());
+            $stdio, $pipes, $release.'/app', $this->environment($uncached));
         if (!is_resource($process)) {
             throw new RuntimeException('无法启动应用管理命令。');
         }
@@ -299,16 +337,22 @@ final class Instance
         return $dir.'/'.substr(hash('sha256', $this->root), 0, 40).'.sock';
     }
 
-    public function heartbeat(string $role, int $since): ?string
+    public function heartbeat(string $role, int $since, string $generation, int $pid): ?string
     {
         $db = null;
         try {
             $db = new SQLite3($this->root.'/database/database.sqlite', SQLITE3_OPEN_READONLY);
             $db->enableExceptions(true);
             $db->busyTimeout(400);
-            $query = $role === 'scheduler' ? "worker_id = 'scheduler'" : "worker_id = 'portable-worker'";
-            $value = $db->querySingle("SELECT MAX(last_seen_at) FROM worker_heartbeats WHERE ".$query);
-            return is_string($value) && strtotime($value.' UTC') >= $since ? $value : null;
+            $id = $role === 'scheduler' ? 'scheduler' : 'portable-worker';
+            $row = $db->querySingle("SELECT status,last_seen_at,meta FROM worker_heartbeats WHERE worker_id = '".$id."'", true);
+            $meta = json_decode($row['meta'] ?? '', true);
+            $time = strtotime(($row['last_seen_at'] ?? '').' UTC');
+            if (($row['status'] ?? null) !== 'running' || ($meta['generation'] ?? null) !== $generation
+                || $role === 'worker' && ($meta['pid'] ?? null) !== $pid || !$time || $time < $since || $time > time()) {
+                return null;
+            }
+            return $row['last_seen_at'];
         } catch (\Throwable) {
             return null;
         } finally {

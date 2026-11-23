@@ -92,8 +92,11 @@ tar -xzf "$scratch/package" -C "$scratch/preflight" runtime/bin/php app/portable
 "$scratch/preflight/runtime/bin/php" -n "$scratch/preflight/app/portable/preflight.php" "$program" "$instance" > "$scratch/paths"
 { IFS= read -r program; IFS= read -r instance; } < "$scratch/paths"
 [ ! -L "$program" ] && [ ! -L "$program/releases" ] || fail '程序目录不能为符号链接。'
+mkdir -p "$program"
+if [ ! -f "$program/.yanji-program" ]; then
+    (set -C; printf '%s\n' yanji-program-v1 > "$program/.yanji-program") 2>/dev/null || [ -f "$program/.yanji-program" ]
+fi
 mkdir -p "$program/releases"
-printf '%s\n' yanji-program-v1 > "$program/.yanji-program"
 program=$(cd "$program" && pwd -P)
 release=$program/releases/$digest
 if [ ! -d "$release" ]; then
@@ -114,7 +117,7 @@ cmp -s "$scratch/files.sha256" "$release/PACKAGE-FILES.sha256" || fail '程序�
 expected=$(wc -l < "$scratch/files.sha256")
 actual=$(find "$release" -type f | wc -l)
 [ "$actual" -eq "$((expected + 2))" ] || fail '程序目录存在额外文件，请选择新的程序目录。'
-set -- "$release/runtime/bin/php" "$release/app/portable/yanji.php" "__$mode" --instance "$instance" --release "$release"
+set -- "$release/runtime/bin/php" -n "$release/app/portable/yanji.php" "__$mode" --instance "$instance" --release "$release"
 if [ -n "$port" ]; then set -- "$@" --port "$port"; fi
 if [ -n "$email" ]; then set -- "$@" --email "$email"; fi
 if [ -n "$python" ]; then set -- "$@" --python-bin "$python"; fi

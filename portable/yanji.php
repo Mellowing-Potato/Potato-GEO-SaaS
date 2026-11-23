@@ -106,8 +106,8 @@ function runPortable(array $args): int
         $i->release();
         $required = ['pdo_sqlite','sqlite3','gd','zip','curl','mbstring','openssl','fileinfo','xml','dom','ctype','tokenizer','pcntl','posix'];
         $missing = array_values(array_filter($required, static fn ($name) => !extension_loaded($name)));
-        $ready = $i->artisan(['yanji:ready','--portable'], quiet: true) === 0;
-        $skill = $i->artisan(['geo:audit-skill-assets'], quiet:true) === 0;
+        $ready = $i->artisan(['yanji:ready','--portable'], quiet: true, uncached: true) === 0;
+        $skill = $i->artisan(['geo:audit-skill-assets'], quiet:true, uncached:true) === 0;
         $python = Installation::pythonStatus($i);
         $permissions = true;
         foreach (['.env', 'database/database.sqlite', 'storage','logs','bootstrap-cache'] as $path) {
@@ -124,6 +124,9 @@ function runPortable(array $args): int
     try {
         if ($command !== '__upgrade' && is_file($i->root.'/run/upgrade-hold') && $command !== 'stop') {
             throw new RuntimeException('升级维护门仍在，请重新执行原升级命令恢复，或向新目录恢复备份。');
+        }
+        if (in_array($command, ['__install','__upgrade','start','restart','reset-password','magpie'], true)) {
+            $i->discardConfigurationCache();
         }
         switch ($command) {
             case '__install':

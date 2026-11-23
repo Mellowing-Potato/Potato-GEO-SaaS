@@ -2,4 +2,7 @@
 set -eu
 # Installed beside one instance; restored instances get their own identical launcher.
 root=$(CDPATH='' cd -P "$(dirname "$0")" && pwd)
+unset PHPRC
+export PHP_INI_SCAN_DIR=
+export YANJI_CA_BUNDLE="$root/current/runtime/ca/cacert.pem"
 exec "$root/current/runtime/bin/php" -c "$root/php.ini" "$root/current/app/portable/yanji.php" "$@" --instance-default "$root"

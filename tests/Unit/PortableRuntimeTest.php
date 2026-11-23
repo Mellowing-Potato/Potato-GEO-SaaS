@@ -136,6 +136,55 @@ PHP;
         self::assertSame('restored', $proc->getOutput());
     }
 
+    public function test_stale_cached_configuration_is_bypassed_for_diagnostics_and_removed_before_start(): void
+    {
+        $i = new Instance($this->directory.'/instance');
+        $i->prepare();
+        $i->activate($this->program('release'));
+        Instance::atomicFile($i->root.'/instance.json', '{"port":8100}');
+        $cache = $i->environment()['APP_CONFIG_CACHE'];
+        Instance::atomicFile($cache, "<?php return ['database'=>['default'=>'old']];");
+        self::assertNotSame($cache, $i->environment(true)['APP_CONFIG_CACHE']);
+        self::assertFileExists($cache);
+        $i->discardConfigurationCache();
+        self::assertFileDoesNotExist($cache);
+    }
+
+    public function test_world_writable_program_ancestor_is_rejected_without_changing_it(): void
+    {
+        $shared = $this->directory.'/shared';
+        mkdir($shared, 0700);
+        chmod($shared, 0777);
+        try {
+            Instance::programPath($shared.'/program', new Instance($this->directory.'/instance'));
+            self::fail('Writable ancestor accepted');
+        } catch (\RuntimeException) {
+            self::assertSame(0777, fileperms($shared) & 0777);
+            self::assertDirectoryDoesNotExist($shared.'/program');
+        }
+    }
+
+    public function test_readiness_requires_current_generation_running_status_and_nonfuture_time(): void
+    {
+        $i = new Instance($this->directory.'/instance');
+        $i->prepare();
+        $db = new \SQLite3($i->root.'/database/database.sqlite');
+        $db->exec('CREATE TABLE worker_heartbeats(worker_id TEXT, status TEXT, meta TEXT, last_seen_at TEXT)');
+        $db->exec("INSERT INTO worker_heartbeats VALUES('portable-worker','running','{}','')");
+        $now = time();
+        foreach ([['old', 42, 'running', $now], ['current', 41, 'running', $now],
+            ['current', 42, 'stopping', $now], ['current',42,'running',$now + 300], ['current',42,'running',$now]] as [$gen,$pid,$status,$ts]) {
+            $update = $db->prepare('UPDATE worker_heartbeats SET status=?, meta=?, last_seen_at=?');
+            $update->bindValue(1,$status);
+            $update->bindValue(2,json_encode(['generation'=>$gen,'pid'=>$pid]));
+            $update->bindValue(3,gmdate('Y-m-d H:i:s',$ts));
+            $update->execute();
+            $healthy = $i->heartbeat('worker',$now - 2,'current',42) !== null;
+            self::assertSame($gen === 'current' && $pid === 42 && $status === 'running' && $ts === $now,$healthy);
+        }
+        $db->close();
+    }
+
     public function test_framework_public_path_is_the_selected_instance_public_root(): void
     {
         $public = $this->directory.'/public';

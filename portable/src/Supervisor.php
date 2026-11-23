@@ -16,16 +16,32 @@ final class Supervisor
 
     public function request(string $action): ?array
     {
-        $socket = @stream_socket_client('unix://'.$this->instance->socketPath(), $errno, $message, 0.4);
+        $path = $this->instance->socketPath();
+        $directory = @lstat(dirname($path));
+        if (!$directory) {
+            return null;
+        }
+        if (($directory['mode'] & 0170077) !== 0040000 || $directory['uid'] !== posix_geteuid()) {
+            throw new RuntimeException('管理套接字父目录的类型、权限或所有者异常。');
+        }
+        clearstatcache(true, $path);
+        $endpoint = @lstat($path);
+        if (!$endpoint) {
+            return null;
+        }
+        if (($endpoint['mode'] & 0170077) !== 0140000 || $endpoint['uid'] !== posix_geteuid()) {
+            throw new RuntimeException('管理套接字的类型、权限或所有者异常。');
+        }
+        $socket = @stream_socket_client('unix://'.$path, $errno, $message, 0.4);
         if (!$socket) {
             return null;
         }
         try {
             stream_set_timeout($socket, 3);
-            fwrite($socket, $action."\n");
+            fwrite($socket, json_encode(['action'=>$action, 'instance'=>hash('sha256', $this->instance->root)], JSON_THROW_ON_ERROR)."\n");
             $line = fgets($socket, 16384);
             $reply = $line === false ? null : json_decode($line, true);
-            if (!is_array($reply) || ($reply['instance'] ?? '') !== hash('sha256', $this->instance->root)) {
+            if (!is_array($reply) || isset($reply['error']) || ($reply['instance'] ?? '') !== hash('sha256', $this->instance->root)) {
                 throw new RuntimeException('管理端点未确认本实例身份。');
             }
             return $reply;
@@ -42,6 +58,7 @@ final class Supervisor
         }
         if ($existing === null) {
             $this->assertNoOrphans();
+            $this->instance->discardConfigurationCache();
             if ($this->instance->artisan(['yanji:ready', '--portable', '--quiet'], quiet: true) !== 0) {
                 throw new RuntimeException('实例密钥、管理员或数据库未就绪，请运行 yanji doctor。');
             }
@@ -138,6 +155,11 @@ final class Supervisor
             if (filetype($path) !== 'socket' || fileowner($path) !== posix_geteuid()) {
                 throw new RuntimeException('管理端点存在非本实例套接字文件。');
             }
+            $active = @stream_socket_client('unix://'.$path, $errno, $error, 0.2);
+            if ($active) {
+                fclose($active);
+                throw new RuntimeException('管理端点仍由存活进程持有，拒绝替换。');
+            }
             unlink($path);
         }
         $server = stream_socket_server('unix://'.$path, $errno, $message);
@@ -166,7 +188,13 @@ final class Supervisor
                 }
                 try {
                     stream_set_timeout($client, 1);
-                    $action = trim((string) fgets($client, 128));
+                    $query = json_decode((string) fgets($client, 256), true);
+                    $identity = hash('sha256', $this->instance->root);
+                    if (!is_array($query) || ($query['instance'] ?? null) !== $identity) {
+                        @fwrite($client, json_encode(['instance'=>$identity,'error'=>'identity'])."\n");
+                        continue;
+                    }
+                    $action = $query['action'] ?? null;
                     if ($action === 'stop') {
                         $this->stopping = true;
                     }
@@ -210,7 +238,11 @@ final class Supervisor
             if (!$lease || !flock($lease, LOCK_SH | LOCK_NB)) {
                 exit(126);
             }
-            $this->execLogged($cmd, $role, $role === 'worker' ? ['YANJI_WORKER_GENERATION'=>$generation] : []);
+            $env = ['YANJI_SERVICE_GENERATION'=>$generation];
+            if ($role === 'worker') {
+                $env['YANJI_WORKER_GENERATION'] = $generation;
+            }
+            $this->execLogged($cmd, $role, $env);
         }
         // Set the group on both sides before either can advance past exec.
         if (!@posix_setpgid($pid, $pid) && posix_getpgid($pid) !== $pid) {
@@ -300,9 +332,12 @@ final class Supervisor
         $body = @file_get_contents('http://127.0.0.1:'.$this->instance->port().'/up', false, $context);
         $services = ['web' => ['pid' => $this->children['web']['pid'] ?? null, 'healthy' => $body !== false]];
         foreach (['worker','scheduler'] as $role) {
-            $heartbeat = $this->instance->heartbeat($role, max($this->startTime, time() - 150));
+            $child = $this->children[$role] ?? null;
+            $heartbeat = $child === null ? null : $this->instance->heartbeat($role, max($child['since'], time() - 150),
+                $child['generation'], $child['pid']);
             $services[$role] = ['pid' => $this->children[$role]['pid'] ?? null, 'heartbeat' => $heartbeat, 'healthy' => $heartbeat !== null];
         }
+        clearstatcache(true, $this->instance->root.'/run/upgrade-hold');
         return ['instance' => hash('sha256', $this->instance->root), 'manager_pid' => getmypid(),
             'writes_enabled' => !is_file($this->instance->root.'/run/upgrade-hold'),
             'ready' => !$this->stopping && !in_array(false, array_column($services, 'healthy'), true), 'services' => $services];
