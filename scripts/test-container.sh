@@ -31,6 +31,7 @@ case "${1:-}" in
         python3 -m unittest discover -s tests/python -p 'test_skill_snapshot.py'
         python3 -m unittest discover -s tests/python -p 'test_optional_skill_formats.py'
         python3 -m unittest discover -s tests/python -p 'test_portable_web_materials.py'
+        python3 -m unittest discover -s tests/python -p 'test_compiled_go_notices.py'
         php scripts/test-skill-render-matrix.php --mode=full
         php artisan config:clear
         php_status=0

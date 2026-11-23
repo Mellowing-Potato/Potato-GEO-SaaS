@@ -70,4 +70,6 @@ sh scripts/runtime/build-web-go.sh "$FRANKENPHP_SOURCE" "$NEW_WEB_BINARY"
 
 该入口核对上游四个依赖锁文件，使用未经修改的 `caddy/frankenphp` 源入口和固定 Go 1.27.4。Linux musl 的平台链接器须加入套件中记录的 static-pie 参数；最终检查解释器段和动态库依赖。现有 NTS CLI 继续独立用于队列和调度，不能拿它的对象替代 Web ZTS 材料。各平台套件须同时提供原始 C/Go 源、实际补丁和配置、原始声明、对象/静态库、链接命令与映射，以及在新目录替换 LGPL 库后实际重链接和运行的证明。
 
+Go 模块根目录的 LICENSE 还须配合实际编译源内的独立声明。按相同平台、构建标签和环境保存 `go list -deps -json ./frankenphp` 输出，再运行 `python3 scripts/runtime/collect-web-go-notices.py "$ACTIVE_GO_GRAPH" "$SOURCE_NOTICES" "$SOURCE_NOTICE_INDEX"`。它完整读取实际 Go、Cgo、原生和汇编源，保留法律注释及逐源摘要；把结果与模块、标准库的原始声明一同交付，核对实际源归档和最终二进制。输入缺文件或不能无损读取时会报错。
+
 若相应平台 CLI 归档使用系统 CA，构建机还要传入 `--ca`、`--ca-sha256` 和 `--ca-notice` 指定已核验的可信证书包与许可。发行目录会并列保留该平台的 CLI 和 Web 对应源码、构建资料与可替换对象包。程序内 release.json 和同目录 SHA256SUMS 均列出其名称及摘要；Web 许可和构建清单同时进入应用包的 `runtime/web/`。维护者须核对最终归档、对应源码和重链接材料、Web/Python/其他第三方许可、依赖漏洞和签名；跟踪仓库只保存构建及管理源码。
