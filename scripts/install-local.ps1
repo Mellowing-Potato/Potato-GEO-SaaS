@@ -291,9 +291,13 @@ try {
     $relPhp = Join-Path $release 'runtime\bin\php.exe'
     $relCli = Join-Path $release 'app\portable\yanji.php'
     $relExt = Join-Path $release 'runtime\bin\ext'
+    $env:YANJI_EXT_DIR = $relExt
+    $env:YANJI_CA_BUNDLE = Join-Path $release 'runtime\ca\cacert.pem'
     $cmdArgs = @(
         '-n',
-        '-d', "extension_dir=$relExt",
+        '-d', 'extension_dir=${YANJI_EXT_DIR}',
+        '-d', 'curl.cainfo=${YANJI_CA_BUNDLE}',
+        '-d', 'openssl.cafile=${YANJI_CA_BUNDLE}',
         '-d', 'extension=openssl',
         '-d', 'extension=mbstring',
         '-d', 'extension=sqlite3',

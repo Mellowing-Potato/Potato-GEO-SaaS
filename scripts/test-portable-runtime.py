@@ -126,8 +126,8 @@ def scenario(args, work):
             ext_dir = rel / 'runtime/bin/ext'
             ca_file = rel / 'runtime/ca/cacert.pem'
             cmd.extend([
-                '-n', '-d', f'extension_dir={ext_dir}',
-                '-d', f'curl.cainfo={ca_file}', '-d', f'openssl.cafile={ca_file}',
+                '-n', '-d', f'extension_dir="{ext_dir}"',
+                '-d', f'curl.cainfo="{ca_file}"', '-d', f'openssl.cafile="{ca_file}"',
                 '-d', 'extension=curl', '-d', 'extension=fileinfo', '-d', 'extension=gd',
                 '-d', 'extension=mbstring', '-d', 'extension=openssl', '-d', 'extension=pdo_sqlite',
                 '-d', 'extension=sqlite3', '-d', 'extension=zip',
