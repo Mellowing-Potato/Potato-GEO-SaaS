@@ -44,7 +44,10 @@ return [
             'busy_timeout' => (int) env('DB_SQLITE_BUSY_TIMEOUT', 5000),
             'journal_mode' => env('DB_SQLITE_JOURNAL_MODE', 'WAL'),
             'synchronous' => env('DB_SQLITE_SYNCHRONOUS', null),
-            'transaction_mode' => 'DEFERRED',
+            'transaction_mode' => match (strtoupper((string) env('DB_SQLITE_TRANSACTION_MODE', 'DEFERRED'))) {
+                'DEFERRED' => 'DEFERRED', 'IMMEDIATE' => 'IMMEDIATE', 'EXCLUSIVE' => 'EXCLUSIVE',
+                default => throw new InvalidArgumentException('DB_SQLITE_TRANSACTION_MODE 必须是 DEFERRED、IMMEDIATE 或 EXCLUSIVE。'),
+            },
         ],
 
         'mysql' => [
