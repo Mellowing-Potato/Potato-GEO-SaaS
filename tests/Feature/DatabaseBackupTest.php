@@ -99,6 +99,28 @@ class DatabaseBackupTest extends TestCase
         $this->assertStringContainsString('sha256', implode(' ', $drill['problems']));
     }
 
+    public function test_unreadable_sqlite_drill_never_reports_integrity_ok(): void
+    {
+        $this->useSqliteSource($this->makeSourceDatabase());
+        $file = $this->dir.'/geo-saas-invalid.sqlite';
+        file_put_contents($file, str_repeat('invalid SQLite data', 40));
+        $drill = (new DatabaseBackupService)->drill($file);
+        $this->assertFalse($drill['ok']);
+        $this->assertSame('unavailable', $drill['checks']['integrity_check']);
+    }
+
+    public function test_a_newer_legacy_sidecar_is_not_selected_as_the_backup(): void
+    {
+        $this->useSqliteSource($this->makeSourceDatabase());
+        $service = new DatabaseBackupService;
+        $backup = $service->backup($this->dir.'/geo-saas-old.sqlite');
+        file_put_contents($backup['path'].'-shm', 'legacy shared-memory fixture');
+        touch($backup['path'].'-shm', time() + 2);
+        $drill = $service->drill();
+        $this->assertSame($backup['path'], $drill['source']);
+        $this->assertTrue($drill['ok']);
+    }
+
     public function test_drill_without_any_backup_says_what_to_do(): void
     {
         $this->useSqliteSource($this->makeSourceDatabase());

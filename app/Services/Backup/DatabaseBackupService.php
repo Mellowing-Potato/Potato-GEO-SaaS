@@ -153,19 +153,19 @@ class DatabaseBackupService
 
     private function latestBackup(): ?string
     {
-        $files = array_filter(
-            glob($this->directory().'/*') ?: [],
-            // 只认**备份命名**（geo-saas-*），别把目录里别的东西（日志、临时的源库副本）当成备份。
-            fn (string $f) => is_file($f)
-                && str_starts_with(basename($f), 'geo-saas-')
-                && ! str_ends_with($f, '.sha256'),
-        );
+        $files = $this->backupFiles($this->directory());
         if ($files === []) {
             return null;
         }
         usort($files, fn (string $a, string $b) => filemtime($b) <=> filemtime($a));
 
         return $files[0];
+    }
+
+    private function backupFiles(string $dir): array
+    {
+        return array_filter(glob($dir.'/geo-saas-*') ?: [], static fn (string $path): bool =>
+            is_file($path) && ! preg_match('/(?:\.sha256|-wal|-shm|-journal)$/D', $path));
     }
 
     private function drillSqlite(string $source, ?bool $checksumOk): array
@@ -175,12 +175,12 @@ class DatabaseBackupService
 
         // 拷到临时文件再打开：演练过程绝不碰备份本体，也绝不碰生产库。
         $tmp = tempnam(sys_get_temp_dir(), 'geo-drill-');
-        copy($source, $tmp);
-        if (is_file($source.'-wal')) {
-            copy($source.'-wal', $tmp.'-wal');
-        }
-
+        $integrity = 'unavailable';
         try {
+            if ($tmp === false || ! copy($source, $tmp)
+                || (is_file($source.'-wal') && ! copy($source.'-wal', $tmp.'-wal'))) {
+                throw new \RuntimeException('无法完整读取待演练的备份文件。');
+            }
             $pdo = new \PDO('sqlite:'.$tmp);
             $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
             $integrity = (string) $pdo->query('PRAGMA integrity_check')->fetchColumn();
@@ -197,8 +197,14 @@ class DatabaseBackupService
         } catch (\Throwable $e) {
             $problems[] = '打开备份失败：'.$e->getMessage();
         } finally {
-            @unlink($tmp);
-            @unlink($tmp.'-wal');
+            unset($pdo);
+            if ($tmp !== false) {
+                foreach (['', '-wal', '-shm'] as $suffix) {
+                    if (is_file($tmp.$suffix)) {
+                        unlink($tmp.$suffix);
+                    }
+                }
+            }
         }
 
         if ($checksumOk === false) {
@@ -209,7 +215,7 @@ class DatabaseBackupService
             'ok' => $problems === [],
             'driver' => 'sqlite',
             'source' => $source,
-            'checks' => ['integrity_check' => 'ok', 'sha256_verified' => $checksumOk],
+            'checks' => ['integrity_check' => $integrity, 'sha256_verified' => $checksumOk],
             'problems' => $problems,
             'tables' => $tables,
         ];
@@ -280,10 +286,7 @@ class DatabaseBackupService
     /** @return list<string> 被删掉的旧备份 */
     private function prune(string $dir, int $keep): array
     {
-        $files = array_filter(
-            glob($dir.'/geo-saas-*') ?: [],
-            fn (string $f) => is_file($f) && ! str_ends_with($f, '.sha256'),
-        );
+        $files = $this->backupFiles($dir);
         if (count($files) <= $keep) {
             return [];
         }
