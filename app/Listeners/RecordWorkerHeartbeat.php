@@ -84,6 +84,10 @@ class RecordWorkerHeartbeat
             'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 1),
             'max_time_started_at' => env('WORKER_MAX_TIME_STARTED_AT'),
         ];
+        $generation = getenv('YANJI_SERVICE_GENERATION');
+        if (is_string($generation) && preg_match('/^[a-f0-9]{32}$/D', $generation)) {
+            $meta['generation'] = $generation;
+        }
 
         try {
             WorkerHeartbeat::query()->updateOrCreate(

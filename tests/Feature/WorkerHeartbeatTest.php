@@ -35,6 +35,40 @@ class WorkerHeartbeatTest extends TestCase
         config(['geo.worker_heartbeat.enabled' => true]);
     }
 
+    public function test_portable_worker_heartbeat_belongs_to_the_current_service_generation(): void
+    {
+        $old = getenv('YANJI_SERVICE_GENERATION');
+        $generation = bin2hex(random_bytes(16));
+        putenv('YANJI_SERVICE_GENERATION='.$generation);
+        try {
+            $this->app['events']->until(new Looping('database', 'default', new WorkerOptions()));
+            $beat = WorkerHeartbeat::query()->where('worker_id', env('WORKER_ID') ?: gethostname())->sole();
+            $this->assertSame('running', $beat->status);
+            $this->assertSame(getmypid(), $beat->meta['pid']);
+            $this->assertSame($generation, $beat->meta['generation'] ?? null);
+        } finally {
+            putenv($old === false ? 'YANJI_SERVICE_GENERATION' : 'YANJI_SERVICE_GENERATION='.$old);
+        }
+    }
+
+    public function test_scheduler_reports_its_inherited_generation_and_omits_it_outside_the_supervisor(): void
+    {
+        $old = getenv('YANJI_SERVICE_GENERATION');
+        $generation = bin2hex(random_bytes(16));
+        try {
+            putenv('YANJI_SERVICE_GENERATION='.$generation);
+            $this->artisan('ops:heartbeat')->assertSuccessful();
+            $beat = WorkerHeartbeat::where('worker_id', 'scheduler')->sole();
+            $this->assertSame('running', $beat->status);
+            $this->assertSame($generation, $beat->meta['generation'] ?? null);
+            putenv('YANJI_SERVICE_GENERATION');
+            $this->artisan('ops:heartbeat')->assertSuccessful();
+            $this->assertArrayNotHasKey('generation', $beat->fresh()->meta);
+        } finally {
+            putenv($old === false ? 'YANJI_SERVICE_GENERATION' : 'YANJI_SERVICE_GENERATION='.$old);
+        }
+    }
+
     /**
      * 🔴 红线 1（W6）：监听器 : void，不返回 false。
      * Queue::looping 是可中断派发——返回 false 会让整台 worker 永久停摆。
