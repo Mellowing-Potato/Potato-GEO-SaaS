@@ -61,6 +61,12 @@ class RenderBridgeCommandContractTest extends TestCase
         );
     }
 
+    public function test_refiner_uses_a_fixed_output_basename(): void
+    {
+        $command = $this->commandFor('yao-geo-content-refiner', ['slug' => 'arbitrary-output-name']);
+        $this->assertSame(['--basename', 'content-refiner'], array_slice($command, -2));
+    }
+
     public function test_json_scripts_keep_the_default_contract(): void
     {
         $command = $this->commandFor('yao-geo-panorama-audit');

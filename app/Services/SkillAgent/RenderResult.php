@@ -15,11 +15,26 @@ final readonly class RenderResult
         public ?string $errorMessage = null,
         /** 渲染器规范化并完成质检的文章正文，不是整份研究报告。 */
         public ?string $publishableArticle = null,
+        /** @var array<string, array{status: string, reason?: string}> */
+        public array $formatStatus = [],
     ) {}
 
-    public static function failure(string $error): self
+    /** Output formats provided by the pinned renderer contracts. */
+    public static function supportedFormats(string $skillId): array
     {
-        return new self(success: false, errorMessage: $error);
+        return match ($skillId) {
+            'yao-geo-tracking' => ['html', 'docx'],
+            'yao-geo-brand-graph', 'yao-geo-content-refiner', 'yao-geo-execution-roadmap',
+            'yao-geo-explainer-builder', 'yao-geo-intent-miner', 'yao-geo-knowledge-base-builder',
+            'yao-geo-page-blueprint', 'yao-geo-panorama-audit', 'yao-geo-ranking-article-builder',
+            'yao-geo-title-optimizer' => ['markdown', 'html', 'docx', 'pdf'],
+            default => [],
+        };
+    }
+
+    public static function failure(string $error, array $formatStatus = []): self
+    {
+        return new self(success: false, errorMessage: $error, formatStatus: $formatStatus);
     }
 
     public static function skipped(string $reason = 'No render script'): self
