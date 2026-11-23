@@ -324,4 +324,27 @@ PHP;
         $this->expectException(\RuntimeException::class);
         Installation::passwordInput(['yanji:install'], $path);
     }
+
+    public function test_launcher_without_subcommand_prints_help_and_exits_zero(): void
+    {
+        $proc = new \Symfony\Component\Process\Process([
+            PHP_BINARY,
+            dirname(__DIR__, 2).'/portable/yanji.php',
+            '--instance-default',
+            $this->directory.'/instance',
+        ]);
+        $proc->run();
+        self::assertSame(0, $proc->getExitCode());
+        self::assertStringContainsString('yanji start | stop', $proc->getOutput());
+
+        $unknown = new \Symfony\Component\Process\Process([
+            PHP_BINARY,
+            dirname(__DIR__, 2).'/portable/yanji.php',
+            'unknown-cmd',
+            '--instance-default',
+            $this->directory.'/instance',
+        ]);
+        $unknown->run();
+        self::assertSame(1, $unknown->getExitCode());
+    }
 }

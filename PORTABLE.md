@@ -16,7 +16,7 @@ sh scripts/install-local.sh --manifest "$MANIFEST" --manifest-sha256 "$MANIFEST_
 
 默认安装在 macOS 的 `~/Library/Application Support/Yanji` 或 Linux 的 `${XDG_DATA_HOME:-$HOME/.local/share}/yanji`，下分 `program` 和 `instance`。可分别用 `--program-home`、`--instance` 指定本地绝对路径，用 `--port` 另选回环端口。多个实例可共享同一程序目录，每个实例须使用各自的数据目录和端口。
 
-基础报告需要通过真实导入与空 DOCX 创建检查。完整离线 Python 和系统字体仍须在对应架构验收。可选 PDF 渲染依赖、中文字体和 Poppler 影响相关格式和扫描件能力，`doctor` 显示当前解释器及各项导入结果。阶段 1 的现成 Web 产物含额外的第三方模块，公开随包分发前须完成 Web 许可交付或换成已验收的最小构建。
+基础报告需要通过真实导入与空 DOCX 创建检查。完整离线 Python、系统字体、原生 C 依赖漏洞审计及各平台真机验收仍在推进，未通过全量验收的平台不列为正式推荐入口。可选 PDF 渲染依赖、中文字体和 Poppler 影响相关格式和扫描件能力，`doctor` 显示当前解释器及各项导入结果。Web 运行时已替换为排除 Mercure 与 Vulcain 的最小自建构建，随包交付原始许可与对应源码/重链接套件（详见下文「从源码构建候选包」）。
 
 ## 日常操作
 

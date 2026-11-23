@@ -19,7 +19,7 @@ if (is_file(__DIR__.'/src/Backup.php')) {
 function runPortable(array $args): int
 {
     $command = array_shift($args) ?: 'help';
-    if (in_array($command, ['--help', '-h', 'help'], true)) {
+    if (in_array($command, ['--help', '-h', 'help'], true) || ($command === '--instance-default' && count($args) <= 1)) {
         echo "yanji start | stop | restart | status | logs | doctor | backup --output FILE | restore --from FILE --instance DIR --port N | upgrade --manifest FILE --manifest-sha256 SHA | reset-password --email EMAIL | magpie --tenant=ID\n";
         return 0;
     }
