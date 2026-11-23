@@ -12,7 +12,7 @@ terms=re.compile(r'copyright|permission is hereby granted|redistribut(?:e|ion)|a
 tokens=re.compile(r"""(?P<literal>`[^`]*`|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(?P<comment>/\*.*?\*/|//[^\r\n]*(?:\r?\n[ \t]*//[^\r\n]*)*)""",re.S)
 asm_comments=re.compile(r'^[ \t]*[;#][ \t]+[^\r\n]*(?:\r?\n[ \t]*[;#][ \t]+[^\r\n]*)*',re.M)
 def sha(b):return hashlib.sha256(b).hexdigest()
-text=a.go_list_json.read_text();decoder=json.JSONDecoder();i=0;groups=collections.defaultdict(set);rows={};package_count=0;syso=[]
+text=a.go_list_json.read_text(encoding='utf-8-sig');decoder=json.JSONDecoder();i=0;groups=collections.defaultdict(set);rows={};package_count=0;syso=[]
 while i<len(text):
  while i<len(text) and text[i].isspace():i+=1
  if i==len(text):break
@@ -30,9 +30,9 @@ while i<len(text):
    rows[reference]={'field':field,'sha256':sha(raw),'notice_sha256':sorted(sha(x.encode()) for x in matches)}
    for c in matches:groups[c].add(reference)
 a.notices.parent.mkdir(exist_ok=True,parents=True);a.source_index.parent.mkdir(exist_ok=True,parents=True)
-with a.notices.open('w') as out:
+with a.notices.open('w',encoding='utf-8',newline='\n') as out:
  out.write('Copyright, licenses and attributions found in files of the compiled Go package graph. Full comments are grouped by their referenced source files.\n')
  for comment,files in sorted(groups.items(),key=lambda kv:(min(kv[1]),kv[0])):
   out.write('\nFiles: '+', '.join(sorted(files))+'\n'+comment+'\n')
-a.source_index.write_text(json.dumps({'packages':package_count,'source_files':len(rows),'syso_inputs':syso,'distinct_notices':len(groups),'notices_sha256':sha(a.notices.read_bytes()),'sources':rows},indent=2,sort_keys=True)+'\n')
+a.source_index.write_text(json.dumps({'packages':package_count,'source_files':len(rows),'syso_inputs':syso,'distinct_notices':len(groups),'notices_sha256':sha(a.notices.read_bytes()),'sources':rows},indent=2,sort_keys=True)+'\n',encoding='utf-8')
 print(package_count,'packages',len(rows),'sources',len(groups),'notices',a.notices.stat().st_size,'bytes')

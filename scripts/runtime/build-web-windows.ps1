@@ -129,10 +129,16 @@ $env:PATH = "$brotliPrefix\bin;$vcpkgInstalled\bin;$phpRuntimeDir;$env:PATH"
 $env:CC = 'clang'
 $env:CXX = 'clang++'
 $env:CGO_ENABLED = '1'
+$env:GOWORK = 'off'
 $env:GOTOOLCHAIN = 'local'
+$env:PKG_CONFIG_PATH = "$brotliPrefix\lib\pkgconfig;$vcpkgInstalled\lib\pkgconfig"
 $tags = ($Spec.build_tags -join ',')
-$env:CGO_CFLAGS = "-DFRANKENPHP_VERSION=$($Spec.frankenphp.version) -I`"$brotliPrefix\include`" -I`"$vcpkgInstalled\include`" -I`"$phpDevelDir\include`" -I`"$phpDevelDir\include\main`" -I`"$phpDevelDir\include\TSRM`" -I`"$phpDevelDir\include\Zend`" -I`"$phpDevelDir\include\ext`""
-$env:CGO_LDFLAGS = "-L`"$brotliPrefix\lib`" -lbrotlienc -lbrotlidec -lbrotlicommon -L`"$vcpkgInstalled\lib`" -L`"$phpRuntimeDir`" -L`"$phpDevelDir\lib`" -lphp8ts -lphp8embed"
+$brotliSlash = $brotliPrefix -replace '\\', '/'
+$vcpkgSlash = $vcpkgInstalled -replace '\\', '/'
+$phpRunSlash = $phpRuntimeDir -replace '\\', '/'
+$phpDevSlash = $phpDevelDir -replace '\\', '/'
+$env:CGO_CFLAGS = "-DFRANKENPHP_VERSION=$($Spec.frankenphp.version) -I$brotliSlash/include -I$vcpkgSlash/include -I$phpDevSlash/include -I$phpDevSlash/include/main -I$phpDevSlash/include/TSRM -I$phpDevSlash/include/Zend -I$phpDevSlash/include/ext"
+$env:CGO_LDFLAGS = "-L$brotliSlash/lib -lbrotlienc -lbrotlidec -lbrotlicommon -L$vcpkgSlash/lib -L$phpRunSlash -L$phpDevSlash/lib -lphp8ts -lphp8embed"
 
 $caddyDir = Join-Path $frankenSrc 'caddy'
 $outExe = Join-Path $WorkDir 'frankenphp.exe'
@@ -140,17 +146,24 @@ $activeGraphJson = Join-Path $WorkDir 'active-go-graph.json'
 
 Push-Location $caddyDir
 try {
-    $modList = & go list -tags="$tags" -m all
-    if ($LASTEXITCODE -ne 0) { throw "go list -m all failed" }
-    if ($modList | Select-String -Pattern 'github\.com/dunglas/(mercure|vulcain)') {
+    $modules = & go list -mod=readonly -deps -tags="$tags" -f '{{with .Module}}{{.Path}} {{.Version}}{{end}}' ./frankenphp
+    if ($LASTEXITCODE -ne 0) { throw "go list -deps failed" }
+    if ($modules | Select-String -Pattern '^github\.com/dunglas/(mercure|vulcain)([/ ]|$)') {
         throw "Forbidden AGPL module still present in active module graph"
     }
-    & go list -tags="$tags" -deps -json ./frankenphp | Out-File -FilePath $activeGraphJson -Encoding utf8
+    if (-not ($modules -contains 'github.com/dunglas/caddy-cbrotli v1.0.1')) {
+        throw "Expected caddy-cbrotli v1.0.1 missing from active module graph"
+    }
+    if (-not ($modules -contains 'github.com/caddyserver/caddy/v2 v2.11.9')) {
+        throw "Expected caddy/v2 v2.11.9 missing from active module graph"
+    }
+    $graphLines = & go list -mod=readonly -tags="$tags" -deps -json ./frankenphp
     if ($LASTEXITCODE -ne 0) { throw "go list -deps -json failed" }
+    [System.IO.File]::WriteAllText($activeGraphJson, (($graphLines -join "`n") + "`n"), [System.Text.UTF8Encoding]::new($false))
 
     $customVersion = "FrankenPHP v$($Spec.frankenphp.version) PHP $($Spec.php.version) Caddy"
     $ldflags = "-extldflags=-fuse-ld=lld -X 'github.com/caddyserver/caddy/v2.CustomVersion=$customVersion' -X 'github.com/caddyserver/caddy/v2.CustomBinaryName=frankenphp' -X 'github.com/caddyserver/caddy/v2/modules/caddyhttp.ServerHeader=FrankenPHP Caddy'"
-    & go build -trimpath -tags="$tags" -ldflags="$ldflags" -o $outExe ./frankenphp
+    & go build -mod=readonly -trimpath -buildvcs=false -tags="$tags" -ldflags="$ldflags" -o $outExe ./frankenphp
     if ($LASTEXITCODE -ne 0) { throw "go build frankenphp.exe failed" }
 } finally {
     Pop-Location

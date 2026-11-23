@@ -153,7 +153,7 @@ def add_npm_notices(archive, directory, lock):
             key = (location.split('node_modules/')[-1], package['version'])
             locations.setdefault(key, []).append(location)
     inventory = directory / 'inventory.json'
-    rows = json.loads(inventory.read_text())
+    rows = json.loads(inventory.read_text(encoding='utf-8'))
     used = set()
     members = {'inventory.json'}
     for row in rows:
@@ -336,7 +336,7 @@ def build(args):
     ref = subprocess.check_output(['git', 'rev-parse', '--verify', 'HEAD^{commit}'], cwd=root, text=True).strip()
     lock = json.loads(subprocess.check_output(['git', 'show', ref + ':composer.lock'], cwd=root))
     npm_lock = json.loads(subprocess.check_output(['git', 'show', ref + ':package-lock.json'], cwd=root))
-    installed = json.loads((args.vendor / 'composer/installed.json').read_text())
+    installed = json.loads((args.vendor / 'composer/installed.json').read_text(encoding='utf-8'))
     required = {item['name']: item['version'] for item in lock['packages']}
     actual = {item['name']: item['version'] for item in installed['packages']}
     if installed.get('dev', True) or required != actual:

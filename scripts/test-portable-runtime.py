@@ -151,12 +151,19 @@ def scenario(args, work):
         if not original['ready'] or set(original['services']) != {'web', 'worker', 'scheduler'}:
             raise AssertionError('Web, worker and scheduler must report real readiness')
 
-        # Verify private report static 404 guardrail
-        priv_report = instance / 'storage/app/public/reports/probe-secret.html'
-        priv_report.parent.mkdir(parents=True, exist_ok=True)
-        priv_report.write_text('secret', encoding='utf-8')
-        for p in ('/storage/reports/probe-secret.html', '/storage/reports/../reports/probe-secret.html',
-                  '/storage/executions/1/secret.pdf', '/storage/exports/1/secret.docx'):
+        # Verify private report static 404 guardrail & public static control
+        priv_exec = instance / 'storage/app/public/executions/1/probe-secret.md'
+        priv_analysis = instance / 'storage/app/public/analysis/probe-secret.md'
+        pub_control = instance / 'storage/app/public/sitemaps/probe-public.xml'
+        for p_file, content in ((priv_exec, 'private-fixture'), (priv_analysis, 'private-fixture'), (pub_control, 'public-fixture')):
+            p_file.parent.mkdir(parents=True, exist_ok=True)
+            p_file.write_text(content, encoding='utf-8')
+        if http_status(f'http://127.0.0.1:{port}/storage/sitemaps/probe-public.xml', 'GET') != 200:
+            raise AssertionError('Public static control /storage/sitemaps/probe-public.xml did not return 200')
+        for p in ('/storage/executions/1/probe-secret.md', '/storage/analysis/probe-secret.md',
+                  '/storage/executions', '/storage/executions%2f1%2fprobe-secret.md',
+                  '/storage/%65xecutions/1/probe-secret.md', '/storage//executions/1/probe-secret.md',
+                  '/storage/sitemaps/../executions/1/probe-secret.md'):
             for m in ('GET', 'HEAD'):
                 code = http_status(f'http://127.0.0.1:{port}{p}', m)
                 if code != 404:
@@ -171,7 +178,7 @@ def scenario(args, work):
 
         def finished_rotation():
             if counts.exists():
-                rows = [line.split() for line in counts.read_text().splitlines()]
+                rows = [line.split() for line in counts.read_text(encoding='utf-8').splitlines()]
                 return rows if len(rows) == 501 else None
 
         rows = until(finished_rotation, 90 if IS_WIN else 45)
