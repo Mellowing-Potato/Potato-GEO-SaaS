@@ -55,6 +55,7 @@ class YanjiInstallCommand extends Command
                 InstanceKey::bind($path);
                 $accounts->create($data['email'], $data['password'], $data['name'], 'platform_admin');
             });
+            InstanceKey::finishInstall($path);
             $this->call('config:clear');
             $this->info('初始化完成。请在本实例登录页使用管理员邮箱和密码登录。');
             return self::SUCCESS;

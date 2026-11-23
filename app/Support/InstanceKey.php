@@ -14,6 +14,7 @@ use Throwable;
 final class InstanceKey
 {
     private const ID = 'YANJI_INSTANCE_ID';
+    private const PENDING = 'YANJI_INSTALL_PENDING';
     private const MESSAGE = '无法验证本实例的密钥与数据库，请检查配套的 .env 和备份。';
 
     private static function values(string $contents): array
@@ -23,12 +24,12 @@ final class InstanceKey
         } catch (Throwable) {
             throw new RuntimeException('实例配置格式无效。');
         }
-        foreach (['APP_KEY', self::ID] as $key) {
+        foreach (['APP_KEY', self::ID, self::PENDING] as $key) {
             if (preg_match_all('/^[ \t]*(?:export[ \t]+)?'.preg_quote($key, '/').'\s*=/m', $contents) > 1) {
                 throw new RuntimeException('实例配置含重复的密钥或实例标识。');
             }
         }
-        return [(string) ($env['APP_KEY'] ?? ''), (string) ($env[self::ID] ?? '')];
+        return [(string) ($env['APP_KEY'] ?? ''), (string) ($env[self::ID] ?? ''), (string) ($env[self::PENDING] ?? '')];
     }
 
     private static function encrypter(string $key): Encrypter
@@ -46,31 +47,39 @@ final class InstanceKey
     {
         InstanceEnvironment::update($path, function (?string $contents) {
             $contents ??= 'APP_URL='.config('app.url')."\n";
-            [$key, $id] = self::values($contents);
+            [$key, $id, $pending] = self::values($contents);
             $configured = (string) config('app.key');
             if ($key !== '' && $configured !== '' && ! hash_equals($key, $configured)) {
                 throw new RuntimeException(self::MESSAGE);
             }
-            if ($key !== '' || $configured !== '') {
-                self::encrypter($key !== '' ? $key : $configured);
-            }
+            $hasSavedKey = $key !== '';
+            $savedKey = $hasSavedKey ? $key : $configured;
+            $key = $savedKey !== '' ? $savedKey : 'base64:'.base64_encode(Encrypter::generateKey(config('app.cipher')));
+            $cipher = self::encrypter($key);
             if ($id !== '' && ! preg_match('/^[a-f0-9]{32}$/D', $id)) {
                 throw new RuntimeException(self::MESSAGE);
             }
-            self::createFreshSqliteFile($id);
-            self::inspect(function (Connection $db) use ($key, $id) {
+            self::createFreshSqliteFile($id !== '' || $pending !== '');
+            $db = DB::connection();
+            $location = $db->getDatabaseName();
+            if ($db->getDriverName() === 'sqlite' && is_file($location)) {
+                $stat = stat($location);
+                $location = realpath($location).'|'.$stat['dev'].'|'.$stat['ino'];
+            }
+            $proof = hash_hmac('sha256', json_encode([$db->getDriverName(), $db->getConfig('host'), $db->getConfig('port'), $location], JSON_THROW_ON_ERROR), $cipher->getKey());
+            self::inspect(function (Connection $db) use ($key, $id, $pending, $proof) {
                 $schema = $db->getSchemaBuilder();
                 if ($schema->hasTable('users') && $db->table('users')->exists()) {
                     throw new RuntimeException('已有本地账号，拒绝重新初始化。');
                 }
                 if ($schema->getTableListing(schemaQualified: false) === []) {
-                    if ($id !== '') {
+                    if ($id !== '' || ($pending !== '' && ! hash_equals($proof, $pending))) {
                         throw new RuntimeException(self::MESSAGE);
                     }
                     return;
                 }
                 // A previous migration may have stopped after saving the key but before creating an account.
-                if ($key === '' || ! $schema->hasTable('migrations')
+                if (! hash_equals($proof, $pending) || ! $schema->hasTable('migrations')
                     || ($schema->hasTable('tenants') && $db->table('tenants')->exists())) {
                     throw new RuntimeException(self::MESSAGE);
                 }
@@ -79,16 +88,15 @@ final class InstanceKey
                     self::verify($db, $key, $id, true);
                 }
             });
-            if ($key === '') {
-                $key = $configured !== '' ? $configured : 'base64:'.base64_encode(Encrypter::generateKey(config('app.cipher')));
+            if (! $hasSavedKey) {
                 $contents = self::set($contents, 'APP_KEY', $key);
             }
             config(['app.key' => $key]);
-            return $contents;
+            return self::set($contents, self::PENDING, $proof);
         });
     }
 
-    private static function createFreshSqliteFile(string $id): void
+    private static function createFreshSqliteFile(bool $hasIdentity): void
     {
         $db = DB::connection();
         $path = $db->getDatabaseName();
@@ -101,7 +109,7 @@ final class InstanceKey
         if (file_exists($path)) {
             return;
         }
-        if ($id !== '' || ! is_dir(dirname($path))) {
+        if ($hasIdentity || ! is_dir(dirname($path))) {
             throw new RuntimeException(self::MESSAGE);
         }
         $mask = umask(0077);
@@ -159,6 +167,13 @@ final class InstanceKey
             }
             return self::set($contents, self::ID, $id);
         });
+    }
+
+    /** Keep the receipt until the DB transaction commits so an interrupted first install can resume. */
+    public static function finishInstall(string $path): void
+    {
+        InstanceEnvironment::update($path, static fn (?string $contents) => $contents === null ? null
+            : preg_replace('/^'.self::PENDING.'=[a-f0-9]{64}(?:\r?\n|$)/m', '', $contents));
     }
 
     public static function assertReady(string $path, bool $portable): void

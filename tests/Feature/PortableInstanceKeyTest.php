@@ -33,6 +33,11 @@ class PortableInstanceKeyTest extends TestCase
 
     private function command(array $arguments, ?string $input = null, array $overrides = []): Process
     {
+        return $this->execute(['artisan', ...$arguments, '--no-interaction'], $input, $overrides);
+    }
+
+    private function execute(array $arguments, ?string $input = null, array $overrides = []): Process
+    {
         $env = ['APP_ENV' => 'production', 'YANJI_ENV_PATH' => $this->directory, 'APP_URL' => 'http://localhost',
             'APP_KEY' => false, 'DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => $this->database, 'DB_URL' => '',
             'QUEUE_CONNECTION' => 'sync', 'CACHE_STORE' => 'array', 'SESSION_DRIVER' => 'array',
@@ -40,7 +45,7 @@ class PortableInstanceKeyTest extends TestCase
         foreach (['SERVICES', 'PACKAGES', 'CONFIG', 'EVENTS', 'ROUTES'] as $kind) {
             $env['APP_'.$kind.'_CACHE'] = $this->directory.'/'.strtolower($kind).'.php';
         }
-        $process = new Process([PHP_BINARY, 'artisan', ...$arguments, '--no-interaction'], base_path(), $overrides + $env, $input, 60);
+        $process = new Process([PHP_BINARY, ...$arguments], base_path(), $overrides + $env, $input, 60);
         $process->run();
         return $process;
     }
@@ -158,6 +163,44 @@ class PortableInstanceKeyTest extends TestCase
         $this->assertNotSame(0, $this->install()->getExitCode());
         $this->assertSame($saved, file_get_contents($this->envFile));
         $this->assertSame(0, filesize($this->database));
+    }
+
+    public function test_interrupted_first_install_can_resume_only_with_its_original_database(): void
+    {
+        $setup = <<<'PHP'
+require 'vendor/autoload.php';
+$app = require 'bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+App\Support\InstanceKey::prepareInstall($app->environmentFilePath());
+PHP;
+        $this->assertSame(0, $this->execute(['-r', $setup])->getExitCode());
+        $pending = file_get_contents($this->envFile);
+        $this->assertStringContainsString('YANJI_INSTALL_PENDING=', $pending);
+        $db = new PDO('sqlite:'.$this->database);
+        $db->exec('create table migrations (id integer primary key, migration text, batch integer)');
+        $db = null;
+        $original = $this->database;
+        $this->database = $this->directory.'/swapped.sqlite';
+        copy($original, $this->database);
+        $this->assertNotSame(0, $this->install()->getExitCode());
+        $this->assertSame($pending, file_get_contents($this->envFile));
+        $this->database = $original;
+        $this->assertSame(0, $this->install()->getExitCode());
+        $this->assertStringNotContainsString('YANJI_INSTALL_PENDING=', file_get_contents($this->envFile));
+        $this->assertSame(0, $this->command(['yanji:ready', '--portable'])->getExitCode());
+    }
+
+    public function test_another_laravel_database_with_a_migrations_table_is_not_an_interrupted_install(): void
+    {
+        file_put_contents($this->envFile, 'APP_KEY=base64:'.base64_encode(random_bytes(32))."\n");
+        $original = file_get_contents($this->envFile);
+        $db = new PDO('sqlite:'.$this->database);
+        $db->exec('create table migrations (id integer primary key, migration text, batch integer)');
+        $db->exec('create table preserved (value text)');
+        $before = hash_file('sha256', $this->database);
+        $this->assertNotSame(0, $this->install()->getExitCode());
+        $this->assertSame($original, file_get_contents($this->envFile));
+        $this->assertSame($before, hash_file('sha256', $this->database));
     }
 
     public function test_unrecognized_existing_database_is_never_initialized(): void
