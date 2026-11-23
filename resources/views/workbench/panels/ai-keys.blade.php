@@ -72,6 +72,7 @@
         @if ($supportsMagpie)
             <div class="model-magpie">
                 <h4>Magpie</h4>
+                <p class="muted">可选的本机模型入口。<a href="https://github.com/yetone/magpie" target="_blank" rel="noopener noreferrer">Magpie 项目与安装说明</a>；第三方直连配置会继续保留。</p>
                 <p class="muted" data-magpie-authorization>正在读取部署授权…</p>
                 <form class="model-magpie-form" autocomplete="off" hidden>
                     <p class="muted">模型和上游账号在 Magpie 中管理。请先启动 Magpie，再保存连接并读取模型目录。</p>

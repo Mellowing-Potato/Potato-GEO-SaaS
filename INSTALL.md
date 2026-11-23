@@ -2,6 +2,8 @@
 
 适用于人和编程助手。只操作你准备安装的本机 Docker；不要自行连接服务器。模型 Key 在网页「设置」中填写，不写进 `.env`、命令或安装记录。
 
+免 Docker 的本机候选包另见 [PORTABLE.md](PORTABLE.md)，其中说明平台材料、清单校验、基础 Python 和独立实例管理。正式便携包尚未发布；本页下面的 Docker 安装、备份恢复与开发流程继续适用。
+
 ## 1. 准备
 
 安装并启动 Docker Desktop（Mac / Windows），或 Docker Engine 和 Compose v2 及以上兼容版本（Linux）。首次构建会从公开源下载镜像、依赖和锁定版本的技能资产，需要联网和足够的磁盘空间。
@@ -60,6 +62,18 @@ docker compose logs --tail=50 worker scheduler
 如需连接自己控制的内网模型服务，在 `.env` 的 `GEO_OUTBOUND_PRIVATE_TARGETS` 中填写精确的 `主机名:端口`，再运行安装脚本使配置生效；默认留空，不支持通配符。Docker Desktop 访问宿主机服务时可用 `host.docker.internal`，容器里的 `localhost` 指容器自身。不要关闭出站安全检查。
 
 ### 可选的 Magpie 工作区授权
+
+[Magpie 项目与安装说明](https://github.com/yetone/magpie)。文本和视觉可以分别选择 Magpie 或第三方直连，向量和豆包监测仍独立配置。没有 Magpie 也可完整使用第三方直连。
+
+本机便携实例可以用下面的管理入口。将 `YANJI` 设为安装器显示的管理程序路径，将 `YANJI_WORKSPACE_ID` 设为该实例实际工作区 ID（当前登录接口响应的 `tenant.id`）；不要假定工作区 ID 为 1。
+
+```sh
+"$YANJI" magpie --tenant="$YANJI_WORKSPACE_ID"
+```
+
+探测和写授权分别询问，默认都为否。探测只向 `http://127.0.0.1:3425/api/hello` 发一次不带凭据的 GET，校验服务标识和版本，不读取模型目录或调用推理。明确同意后，才会在实例写锁内合并所选工作区的授权；保留其他工作区、目标别名与版本设置。遇到既有禁用目标、鉴权或地址限制冲突，拒绝自动修改，由部署者审核。
+
+自动化脚本必须显式使用裸标志 `--probe`，需要写授权时同时提供 `--authorize`；不接受 `--probe=false` 等赋值写法。成功合并会失效当前实例的配置缓存，随后运行 `"$YANJI" restart`，再在网页中保存连接、读取目录、选定模型并激活。安装、启停和 `doctor` 不会自行探测 Magpie。Docker 的授权仍按下面的 Compose 配置方式维护。
 
 Magpie 和 GEO 的后端需要运行在同一台电脑。由部署者在 `.env` 的 `GEO_MAGPIE_TARGETS` 中维护 JSON 字典，每项用连接别名标识，设置 `origin`（协议、主机和端口）、`tenant_ids`（允许使用的工作区 ID 数组）、`auth_mode`、`enabled` 和 `revision`。示例见 `.env.example`。原生 GEO 可用回环地址和 `loopback` 模式。Docker Desktop 候选地址为 `http://host.docker.internal:3425`，用 `gateway_key` 模式，并在 GEO 页面中填写 Magpie Gateway Key。端口应与用户启动的 Magpie 一致。使用其他 DNS 主机名时须明确列出允许的本机 IP（`addresses` 数组）。Linux Docker 及其他平台需核实宿主地址和 Magpie 监听方式。容器仅通过主机映射解析此地址时，配置 `addresses` 来固定该本机地址。
 
