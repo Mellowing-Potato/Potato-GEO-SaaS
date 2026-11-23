@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Queue;
 use Yanji\Portable\Instance;
 
 [, $instancePath, $action] = $argv;
+if (!is_file($instancePath.'/.portable-acceptance')) {
+    throw new RuntimeException('This fixture requires a disposable acceptance-test instance.');
+}
 $release = realpath($instancePath.'/current');
 require $release.'/app/portable/src/Instance.php';
 $instance = new Instance($instancePath);

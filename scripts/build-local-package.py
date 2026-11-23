@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Assemble a private candidate from one committed source tree and verified platform bytes."""
 import argparse
+import gzip
 import hashlib
 import io
 import json
@@ -79,7 +80,8 @@ def build(args):
         subprocess.run(['git', 'archive', '--format=tar', '--output', str(source_tar), ref, '--', *APP_PATHS],
                        cwd=root, check=True)
         output_tar = Path(temporary) / target.name
-        with tarfile.open(output_tar, 'w:gz', compresslevel=5) as archive:
+        with output_tar.open('wb') as output, gzip.GzipFile(filename='', mode='wb', fileobj=output,
+                    mtime=0, compresslevel=5) as zipped, tarfile.open(fileobj=zipped, mode='w') as archive:
             with tarfile.open(source_tar) as code:
                 copy_tar(code, archive, 'app')
             for name, sha in expected.items():
