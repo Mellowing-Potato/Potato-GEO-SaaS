@@ -5,6 +5,7 @@ namespace App\Services\Knowledge;
 use App\Models\KnowledgeBase;
 use App\Models\KnowledgeChunk;
 use App\Models\KnowledgeDocument;
+use App\Services\AI\EmbeddingModelPolicy;
 use App\Services\Contracts\AiProvider;
 use App\Services\Contracts\KnowledgeRetrieval as KnowledgeRetrievalContract;
 use App\Services\DTOs\RetrievedChunk;
@@ -22,7 +23,7 @@ use Illuminate\Support\Facades\Log;
  * 基于 GEOFlow 的 KnowledgeRetrievalService 封装，
  * 增加租户隔离（Global Scope 自动按 tenant_id 过滤）。
  *
- * 生产环境必须使用 PostgreSQL + pgvector；SQLite/PHP 相似度回退只用于本地和测试。
+ * PostgreSQL 使用 pgvector；显式启用 SQLite 的实例在本地计算余弦。
  */
 class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalContract
 {
@@ -162,11 +163,11 @@ class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalContract
                 (int) data_get($savedReceipt, 'usage.total_tokens', 0));
         }
         $queryVector = $embedResult['embedding'];
-        if (! \App\Services\AI\EmbeddingModelPolicy::validVector($queryVector)) {
+        if (! EmbeddingModelPolicy::validVector($queryVector)) {
             throw new \RuntimeException('查询向量维度不匹配，已停止检索。');
         }
         $this->lastEmbeddingDim = count($queryVector);
-        $embeddingIdentity = \App\Services\AI\EmbeddingModelPolicy::identity(
+        $embeddingIdentity = EmbeddingModelPolicy::identity(
             $embedResult['provider'] ?? $savedReceipt['provider'] ?? $embeddingKey->provider,
             $embedResult['model'] ?? $savedReceipt['model'] ?? $embeddingKey->metadata['model'],
         );
@@ -335,22 +336,46 @@ class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalContract
             return collect();
         }
 
-        return $baseQuery
-            ->with('document')
-            ->whereNotNull('embedding')
-            ->limit(max($topK * 20, 50))
-            ->get()
-            ->map(function (KnowledgeChunk $chunk) use ($queryVector) {
-                $chunk->setAttribute('similarity', $this->cosineSimilarity(
-                    $queryVector,
-                    $this->normalizeEmbedding($chunk->embedding),
-                ));
+        $best = new \SplPriorityQueue();
+        $invalid = 0;
+        $queryUnit = $this->unitVector($queryVector);
+        foreach ((clone $baseQuery)->select(['id', 'embedding'])->whereNotNull('embedding')->lazyById(64) as $chunk) {
+            $vector = json_decode($chunk->getRawOriginal('embedding'));
+            if (! EmbeddingModelPolicy::validVector($vector)) {
+                $invalid++;
+                continue;
+            }
 
-                return $chunk;
-            })
-            ->sortByDesc(fn (KnowledgeChunk $chunk) => (float) ($chunk->similarity ?? 0))
-            ->take($topK * 2)
-            ->values();
+            $unit = $this->unitVector($vector);
+            $score = 0.0;
+            foreach ($unit as $i => $coordinate) {
+                $score += $coordinate * ($queryUnit[$i] ?? 0.0);
+            }
+            $score = max(-1.0, min(1.0, $score));
+            $best->insert([$chunk->id, $score], [-$score, $chunk->id]);
+            if ($best->count() > $topK * 2) {
+                $best->extract(); // Worst score first, then largest ID on a tie.
+            }
+        }
+        if ($invalid) {
+            Log::warning('Skipped invalid stored knowledge vectors.', ['tenant_id' => TenantContext::id(), 'count' => $invalid]);
+        }
+
+        $scores = [];
+        while (! $best->isEmpty()) {
+            [$id, $score] = $best->extract();
+            $scores[$id] = $score;
+        }
+        // Reapply scope and document eligibility when loading only the rows used for hybrid ranking.
+        $winners = $baseQuery->with('document')->whereKey(array_keys($scores))->get()->keyBy('id');
+        $ranked = collect();
+        foreach (array_reverse($scores, true) as $id => $score) {
+            if ($chunk = $winners->get($id)) {
+                $ranked->push($chunk->setAttribute('similarity', $score));
+            }
+        }
+
+        return $ranked;
     }
 
     private function supportsPgvector(): bool
@@ -370,55 +395,23 @@ class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalContract
         return filter_var(config('geo.rag.sqlite_fallback_enabled', true), FILTER_VALIDATE_BOOL);
     }
 
-    /**
-     * @param  mixed  $embedding
-     * @return array<int, float>
-     */
-    private function normalizeEmbedding(mixed $embedding): array
+    /** Normalize finite coordinates without overflow or underflow at extreme magnitudes. */
+    private function unitVector(array $vector): array
     {
-        if (is_string($embedding)) {
-            $decoded = json_decode($embedding, true);
-            $embedding = is_array($decoded) ? $decoded : [];
-        }
-
-        if (! is_array($embedding)) {
+        $scale = max(max($vector), -min($vector));
+        if ($scale == 0.0) {
             return [];
         }
 
-        return array_values(array_filter(
-            array_map(fn ($value) => is_numeric($value) ? (float) $value : null, $embedding),
-            fn ($value) => $value !== null,
-        ));
-    }
-
-    /**
-     * @param  array<int, float>  $left
-     * @param  array<int, float>  $right
-     */
-    private function cosineSimilarity(array $left, array $right): float
-    {
-        $limit = min(count($left), count($right));
-        if ($limit === 0) {
-            return 0.0;
+        $squares = 0.0;
+        foreach ($vector as &$value) {
+            $value /= $scale;
+            $squares += $value * $value;
         }
+        unset($value);
+        $length = sqrt($squares);
 
-        $dot = 0.0;
-        $leftMagnitude = 0.0;
-        $rightMagnitude = 0.0;
-
-        for ($i = 0; $i < $limit; $i++) {
-            $a = (float) $left[$i];
-            $b = (float) $right[$i];
-            $dot += $a * $b;
-            $leftMagnitude += $a * $a;
-            $rightMagnitude += $b * $b;
-        }
-
-        if ($leftMagnitude <= 0.0 || $rightMagnitude <= 0.0) {
-            return 0.0;
-        }
-
-        return max(-1.0, min(1.0, $dot / (sqrt($leftMagnitude) * sqrt($rightMagnitude))));
+        return array_map(static fn ($value) => $value / $length, $vector);
     }
 
     public function tenantKnowledgeBases(): array
