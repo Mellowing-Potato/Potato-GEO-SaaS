@@ -28,7 +28,8 @@ RULES = {
 
 
 def is_runtime_file(relative):
-    return (relative.startswith(('storage/framework/cache/', 'storage/framework/sessions/',
+    return (relative == '.phpunit.result.cache'
+            or relative.startswith(('storage/framework/cache/', 'storage/framework/sessions/',
                                  'storage/framework/views/', 'storage/logs/'))
             or (relative.startswith('bootstrap/cache/') and relative.endswith('.php')))
 
@@ -37,7 +38,7 @@ def tracked_runtime_files(root):
     try:
         result = subprocess.run(
             ['git', 'ls-files', '--cached', '-z', '--', 'storage/framework',
-             'storage/logs', 'bootstrap/cache'], cwd=root, capture_output=True, check=False)
+             'storage/logs', 'bootstrap/cache', '.phpunit.result.cache'], cwd=root, capture_output=True, check=False)
     except OSError:
         return set()
     if result.returncode:

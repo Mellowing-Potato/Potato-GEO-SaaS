@@ -84,6 +84,19 @@ class RuntimeSourceBoundaryTest(unittest.TestCase):
               'category': 'private-model-protocol'}], c3.scan(self.root),
         )
 
+    def test_untracked_phpunit_result_cache_is_not_source(self):
+        self.write('.phpunit.result.cache')
+        self.assertEqual([], c3.scan(self.root))
+
+    def test_tracked_phpunit_result_cache_is_still_scanned(self):
+        self.initialize()
+        self.write('.phpunit.result.cache')
+        self.git('add', '.phpunit.result.cache')
+        self.assertEqual(
+            [{'file': '.phpunit.result.cache', 'line': 1,
+              'category': 'private-model-protocol'}], c3.scan(self.root),
+        )
+
     def test_untracked_ignored_application_source_is_still_scanned(self):
         self.initialize()
         self.write('.gitignore', '/app/ignored.php\n')

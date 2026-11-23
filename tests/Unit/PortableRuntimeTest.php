@@ -143,7 +143,7 @@ class PortableRuntimeTest extends TestCase
         }
     }
 
-    public function test_physical_destinations_cannot_overlap_a_private_instance_or_replace_a_source_checkout(): void
+    public function test_physical_destinations_cannot_overlap_a_private_instance_or_replace_a_source_tree(): void
     {
         $existing = new Instance($this->directory.'/first');
         $existing->prepare();
