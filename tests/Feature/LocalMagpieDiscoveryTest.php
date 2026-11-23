@@ -45,11 +45,11 @@ final class LocalMagpieDiscoveryTest extends TestCase
     protected function tearDown(): void
     {
         TenantContext::forget();
-        foreach (glob($this->directory.'/{*,.*}', GLOB_BRACE) ?: [] as $path) {
-            if (is_file($path)) { unlink($path); }
+        try {
+            \Illuminate\Support\Facades\File::deleteDirectory($this->directory);
+        } finally {
+            parent::tearDown();
         }
-        rmdir($this->directory);
-        parent::tearDown();
     }
 
     public function test_no_consent_never_sends_a_request_or_updates_configuration(): void
