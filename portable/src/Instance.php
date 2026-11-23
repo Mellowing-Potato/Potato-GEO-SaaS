@@ -35,6 +35,11 @@ final class Instance
         if (!is_dir($this->root) || count(scandir($this->root)) === 2) {
             return;
         }
+        $layout = $this->root.'/.portable-layout';
+        if (is_file($layout) && !is_link($layout) && fileowner($layout) === posix_geteuid()
+            && file_get_contents($layout) === "yanji-portable-v1\n") {
+            return;
+        }
         if (is_file($this->root.'/instance.json') || is_file($this->root.'/.env') && is_dir($this->root.'/database')) {
             return;
         }

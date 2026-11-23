@@ -61,6 +61,14 @@ final class Installation
             $env = preg_replace('/^APP_URL=.*$/m', 'APP_URL=http://127.0.0.1:'.$port, $env);
             Instance::atomicFile($i->root.'/.env', $env);
         }
+        // Newer readiness probes inspect the schema before migrate can create an empty SQLite file.
+        if (!file_exists($db)) {
+            $fresh = fopen($db, 'xb');
+            if (!$fresh) {
+                throw new RuntimeException('无法创建实例数据库。');
+            }
+            fclose($fresh);
+        }
         foreach (['.env','database','storage','logs','bootstrap-cache'] as $name) {
             $path = $i->root.'/'.$name;
             if (is_dir($path)) {

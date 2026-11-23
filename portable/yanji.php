@@ -120,6 +120,9 @@ function runPortable(array $args): int
     try {
         switch ($command) {
             case '__install':
+                if (!file_exists($i->root.'/.portable-layout')) {
+                    Instance::atomicFile($i->root.'/.portable-layout', "yanji-portable-v1\n");
+                }
                 if ($release !== ($options['release'] ?? '')) {
                     throw new RuntimeException('程序版本路径不匹配。');
                 }
