@@ -27,13 +27,33 @@ RULES = {
 }
 
 
+def is_runtime_file(relative):
+    return (relative.startswith(('storage/framework/cache/', 'storage/framework/sessions/',
+                                 'storage/framework/views/', 'storage/logs/'))
+            or (relative.startswith('bootstrap/cache/') and relative.endswith('.php')))
+
+
+def tracked_runtime_files(root):
+    try:
+        result = subprocess.run(
+            ['git', 'ls-files', '--cached', '-z', '--', 'storage/framework',
+             'storage/logs', 'bootstrap/cache'], cwd=root, capture_output=True, check=False)
+    except OSError:
+        return set()
+    if result.returncode:
+        return set()
+    return set(result.stdout.decode('utf-8', errors='surrogateescape').split('\0'))
+
+
 def sources(root=ROOT):
+    tracked = tracked_runtime_files(root)
     for base, dirs, files in os.walk(root, followlinks=False):
         dirs[:] = sorted(d for d in dirs if d not in GENERATED)
         for name in sorted(files):
             path = Path(base) / name
             relative = path.relative_to(root).as_posix()
-            if path.is_symlink() or relative.startswith('public/build/'):
+            if (name == '.git' or path.is_symlink() or relative.startswith('public/build/')
+                    or (is_runtime_file(relative) and relative not in tracked)):
                 continue
             try:
                 text = path.read_text(encoding='utf-8')
