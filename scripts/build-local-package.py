@@ -180,8 +180,80 @@ def inspect_web(args):
     return strip.as_posix(), binary_digest
 
 
+def inspect_python_runtime(args):
+    runtime = getattr(args, 'python_runtime', None)
+    runtime_sha = getattr(args, 'python_runtime_sha256', None)
+    if runtime is None and runtime_sha is None:
+        return None
+    if runtime is None or not runtime_sha:
+        raise ValueError('Both --python-runtime and --python-runtime-sha256 are required together')
+    if digest(runtime) != runtime_sha:
+        raise ValueError('Python runtime digest mismatch')
+    expected_exe = ('python.exe',) if args.platform == 'windows-x86_64' else ('bin', 'python3')
+    with tarfile.open(runtime) as archive:
+        members = [m for m in archive if not m.isdir()]
+        names = [m.name for m in members]
+        if len(set(names)) != len(names):
+            raise ValueError('Duplicate Python archive entry')
+        for member in members:
+            path = PurePosixPath(member.name)
+            if (not member.isfile() or path.is_absolute() or '..' in path.parts
+                    or '\\' in member.name or '\n' in member.name or '\r' in member.name
+                    or set(path.parts) & {'.env', '.git', '.dev-records'}):
+                raise ValueError('Unsafe Python archive entry')
+        exes = [m for m in members if PurePosixPath(m.name).parts[-len(expected_exe):] == expected_exe]
+        if len(exes) != 1 or (args.platform != 'windows-x86_64' and not (exes[0].mode & 0o111)):
+            raise ValueError('Expected one executable bundled Python interpreter')
+        strip = PurePosixPath(exes[0].name)
+        for _ in expected_exe:
+            strip = strip.parent
+        relative = [PurePosixPath(m.name).relative_to(strip) for m in members]
+        if PurePosixPath('build-manifest.json') not in relative or not any(
+                p.parts[0] == 'notices' and len(p.parts) > 1 for p in relative):
+            raise ValueError('Python runtime must include build provenance and license notices')
+        manifest_member = next(m for m, p in zip(members, relative) if p == PurePosixPath('build-manifest.json'))
+        manifest = json.load(archive.extractfile(manifest_member))
+        if not isinstance(manifest, dict) or manifest.get('platform') != args.platform:
+            raise ValueError('Python runtime platform differs from package platform')
+    return strip.as_posix(), runtime_sha
+
+
+def inspect_fonts(args):
+    fonts = getattr(args, 'fonts', None)
+    fonts_sha = getattr(args, 'fonts_sha256', None)
+    if fonts is None and fonts_sha is None:
+        return None
+    if fonts is None or not fonts_sha:
+        raise ValueError('Both --fonts and --fonts-sha256 are required together')
+    if digest(fonts) != fonts_sha:
+        raise ValueError('Report fonts digest mismatch')
+    required_fonts = {'DejaVuSans.ttf', 'DejaVuSans-Bold.ttf', 'NotoSerifCJK-Regular.ttc'}
+    with tarfile.open(fonts) as archive:
+        members = [m for m in archive if not m.isdir()]
+        names = [m.name for m in members]
+        if len(set(names)) != len(names):
+            raise ValueError('Duplicate fonts archive entry')
+        for member in members:
+            path = PurePosixPath(member.name)
+            if (not member.isfile() or path.is_absolute() or '..' in path.parts
+                    or '\\' in member.name or '\n' in member.name or '\r' in member.name
+                    or set(path.parts) & {'.env', '.git', '.dev-records'}):
+                raise ValueError('Unsafe fonts archive entry')
+        anchors = [m for m in members if PurePosixPath(m.name).name == 'DejaVuSans.ttf']
+        if len(anchors) != 1:
+            raise ValueError('Expected DejaVuSans.ttf in report fonts archive')
+        strip = PurePosixPath(anchors[0].name).parent
+        relative = [PurePosixPath(m.name).relative_to(strip) for m in members]
+        top_files = {p.as_posix() for p in relative}
+        if not required_fonts <= top_files or not any(p.parts[0] == 'notices' and len(p.parts) > 1 for p in relative):
+            raise ValueError('Report fonts archive must include all required fonts and license notices')
+    return strip.as_posix(), fonts_sha
+
+
 def build(args):
     web_prefix, web_digest = inspect_web(args)
+    python_info = inspect_python_runtime(args)
+    fonts_info = inspect_fonts(args)
     if digest(args.cli) != args.cli_sha256:
         raise ValueError('Platform input digest mismatch')
     kit_name = args.cli_source_kit.name
@@ -224,6 +296,18 @@ def build(args):
         shutil.copyfile(args.web_runtime, staged_web_runtime)
         if digest(staged_web_runtime) != args.web_runtime_sha256:
             raise ValueError('Web runtime changed during staging')
+        staged_python_runtime = None
+        if python_info is not None:
+            staged_python_runtime = Path(temporary) / 'python-runtime.tar.gz'
+            shutil.copyfile(args.python_runtime, staged_python_runtime)
+            if digest(staged_python_runtime) != args.python_runtime_sha256:
+                raise ValueError('Python runtime changed during staging')
+        staged_fonts = None
+        if fonts_info is not None:
+            staged_fonts = Path(temporary) / 'report-fonts.tar.gz'
+            shutil.copyfile(args.fonts, staged_fonts)
+            if digest(staged_fonts) != args.fonts_sha256:
+                raise ValueError('Report fonts archive changed during staging')
         output_tar = Path(temporary) / target.name
         with output_tar.open('wb') as output, gzip.GzipFile(filename='', mode='wb', fileobj=output,
                     mtime=0, compresslevel=5) as zipped, tarfile.open(fileobj=zipped, mode='w') as archive:
@@ -269,11 +353,24 @@ def build(args):
                             else 'runtime/web/' + relative.as_posix())
                     save_file(archive, name, web.extractfile(member), member.size,
                               0o755 if member.mode & 0o111 else 0o644)
-            receipt = json.dumps(dict(commit=ref, platform=args.platform, cli_sha256=args.cli_sha256,
-                                      web_sha256=web_digest, web_runtime_sha256=args.web_runtime_sha256,
-                                      web_source_kit=web_kit_name, web_source_kit_sha256=args.web_source_kit_sha256,
-                                      cli_source_kit=kit_name,
-                                      cli_source_kit_sha256=args.cli_source_kit_sha256), indent=2).encode() + b'\n'
+            if staged_python_runtime is not None:
+                python_prefix, _ = python_info
+                with tarfile.open(staged_python_runtime) as py_arc:
+                    copy_tar(py_arc, archive, 'runtime/python', python_prefix)
+            if staged_fonts is not None:
+                fonts_prefix, _ = fonts_info
+                with tarfile.open(staged_fonts) as font_arc:
+                    copy_tar(font_arc, archive, 'runtime/fonts', fonts_prefix)
+            receipt_data = dict(commit=ref, platform=args.platform, cli_sha256=args.cli_sha256,
+                                web_sha256=web_digest, web_runtime_sha256=args.web_runtime_sha256,
+                                web_source_kit=web_kit_name, web_source_kit_sha256=args.web_source_kit_sha256,
+                                cli_source_kit=kit_name,
+                                cli_source_kit_sha256=args.cli_source_kit_sha256)
+            if python_info is not None:
+                receipt_data['python_runtime_sha256'] = args.python_runtime_sha256
+            if fonts_info is not None:
+                receipt_data['fonts_sha256'] = args.fonts_sha256
+            receipt = json.dumps(receipt_data, indent=2).encode() + b'\n'
             save_file(archive, 'release.json', io.BytesIO(receipt), len(receipt))
             inventory = ''.join(sha + '  ' + name + '\n' for name, sha in sorted(archive.file_hashes.items())).encode()
             save_file(archive, 'PACKAGE-FILES.sha256', io.BytesIO(inventory), len(inventory))
@@ -299,6 +396,10 @@ if __name__ == '__main__':
     cli.add_argument('--ca', type=Path)
     cli.add_argument('--ca-notice', type=Path)
     cli.add_argument('--ca-sha256')
+    cli.add_argument('--python-runtime', type=Path)
+    cli.add_argument('--python-runtime-sha256')
+    cli.add_argument('--fonts', type=Path)
+    cli.add_argument('--fonts-sha256')
     for name in ('cli-sha256', 'cli-source-kit-sha256', 'web-runtime-sha256', 'web-source-kit-sha256'):
         cli.add_argument('--' + name, required=True)
     build(cli.parse_args())
