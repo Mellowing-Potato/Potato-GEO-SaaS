@@ -30,6 +30,9 @@ final class Installation
             Instance::atomicFile($i->root.'/instance.json', json_encode(['port' => $port], JSON_THROW_ON_ERROR)."\n");
         }
         $i->activate($release);
+        if (Platform::isWindows()) {
+            $launcher = str_replace("\n", "\r\n", str_replace("\r\n", "\n", $launcher));
+        }
         Instance::atomicFile($i->root.'/'.$launcherName, $launcher, 0700);
         $ini = "upload_max_filesize=10M\npost_max_size=20M\nmemory_limit=512M\ndisplay_errors=Off\n"
             ."log_errors=On\nexpose_php=Off\nvariables_order=EGPCS\n"

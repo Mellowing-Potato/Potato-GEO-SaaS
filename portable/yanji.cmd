@@ -1,10 +1,9 @@
 @echo off
-chcp 65001 >nul 2>&1
 setlocal
 set "ROOT=%~dp0"
 if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 if not exist "%ROOT%\current-release.txt" (
-  echo 实例缺少已验证的程序版本，请重新运行安装器。 1>&2
+  echo Missing verified Yanji release pointer. Please re-run the installer. 1>&2
   exit /b 1
 )
 set /p RELEASE=<"%ROOT%\current-release.txt"

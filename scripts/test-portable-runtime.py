@@ -75,7 +75,7 @@ def scenario(args, work):
         ]
         if args.python_bin:
             install.extend(['-PythonBin', str(args.python_bin)])
-        manage = ['cmd.exe', '/c', str(instance / 'yanji.cmd')]
+        launcher = instance / 'yanji.cmd'
     else:
         install = [
             'sh', str(args.package_dir / 'install-local.sh'),
@@ -89,7 +89,25 @@ def scenario(args, work):
         ]
         if args.python_bin:
             install.extend(['--python-bin', str(args.python_bin)])
-        manage = [str(instance / 'yanji')]
+        launcher = instance / 'yanji'
+
+    def manage_cmd(script_path: Path, *extra: str):
+        if IS_WIN:
+            # cmd.exe /d /s /c "..." strips exactly one outer quote pair, preserving spaces and Unicode paths.
+            inner = subprocess.list2cmdline([str(script_path), *extra])
+            return f'cmd.exe /d /s /c "{inner}"'
+        return [str(script_path), *extra]
+
+    def run_manage(script_path: Path, *extra: str, check=True, capture_output=False, timeout=None, stdout=None, stderr=None):
+        kwargs = dict(check=check, timeout=timeout)
+        if capture_output:
+            kwargs.update(capture_output=True, text=True, encoding='utf-8')
+        else:
+            if stdout is not None:
+                kwargs['stdout'] = stdout
+            if stderr is not None:
+                kwargs['stderr'] = stderr
+        return subprocess.run(manage_cmd(script_path, *extra), **kwargs)
 
     private = instance / 'storage/app/private'
     tag = secrets.token_hex(6)
@@ -118,7 +136,7 @@ def scenario(args, work):
         subprocess.run(cmd, check=True, env=env, stdout=subprocess.DEVNULL)
 
     def status():
-        return json.loads(subprocess.check_output([*manage, 'status'], text=True, encoding='utf-8'))
+        return json.loads(run_manage(launcher, 'status', capture_output=True).stdout)
 
     requests = []
 
@@ -145,12 +163,12 @@ def scenario(args, work):
             (instance / '.portable-acceptance').chmod(0o600)
 
         # Verify no-arg launcher prints help cleanly
-        help_res = subprocess.run(manage, capture_output=True, text=True, encoding='utf-8', check=True)
+        help_res = run_manage(launcher, capture_output=True)
         if 'yanji start | stop' not in help_res.stdout:
-            raise AssertionError('No-arg launcher did not print usage help')
+            raise AssertionError(f'No-arg launcher did not print usage help: {help_res.stdout!r} {help_res.stderr!r}')
 
         # Verify doctor passes with bundled Python and permissions
-        doctor_out = subprocess.check_output([*manage, 'doctor'], text=True, encoding='utf-8')
+        doctor_out = run_manage(launcher, 'doctor', capture_output=True).stdout
         doctor = json.loads(doctor_out)
         if not doctor.get('permissions') or not doctor.get('database_key_admin_ready') or not doctor.get('python', {}).get('basic'):
             raise AssertionError(f'Doctor failed: {doctor_out}')
@@ -177,7 +195,7 @@ def scenario(args, work):
                 if code != 404:
                     raise AssertionError(f'Private static route {m} {p} returned {code}, expected 404')
 
-        subprocess.run([*manage, 'start'], check=True, stdout=subprocess.DEVNULL)
+        run_manage(launcher, 'start', stdout=subprocess.DEVNULL)
         if original['manager_pid'] != status()['manager_pid']:
             raise AssertionError('Repeated start created another supervisor')
 
@@ -202,7 +220,7 @@ def scenario(args, work):
 
         queue('drain')
         until(lambda: (private / ('portable-drain-started-' + tag)).exists(), 15)
-        subprocess.run([*manage, 'stop'], check=True)
+        run_manage(launcher, 'stop')
         if not (private / ('portable-drain-finished-' + tag)).exists() or status().get('state') != 'stopped':
             raise AssertionError('Stopping the instance interrupted the active short job')
 
@@ -213,19 +231,19 @@ def scenario(args, work):
 
         # Verify backup & restore without --python-bin
         backup_zip = work / 'backup.zip'
-        subprocess.run([*manage, 'backup', '--output', str(backup_zip)], check=True)
+        run_manage(launcher, 'backup', '--output', str(backup_zip))
         with socket.socket() as free2:
             free2.bind(('127.0.0.1', 0))
             port2 = free2.getsockname()[1]
-        restore_cmd = [*manage, 'restore', '--from', str(backup_zip), '--instance', str(restored_instance), '--port', str(port2)]
+        restore_args = ['restore', '--from', str(backup_zip), '--instance', str(restored_instance), '--port', str(port2)]
         if args.python_bin:
-            restore_cmd.extend(['--python-bin', str(args.python_bin)])
-        subprocess.run(restore_cmd, check=True)
-        restored_manage = ['cmd.exe', '/c', str(restored_instance / 'yanji.cmd')] if IS_WIN else [str(restored_instance / 'yanji')]
-        restored_doc = json.loads(subprocess.check_output([*restored_manage, 'doctor'], text=True, encoding='utf-8'))
+            restore_args.extend(['--python-bin', str(args.python_bin)])
+        run_manage(launcher, *restore_args)
+        restored_launcher = restored_instance / ('yanji.cmd' if IS_WIN else 'yanji')
+        restored_doc = json.loads(run_manage(restored_launcher, 'doctor', capture_output=True).stdout)
         if not restored_doc.get('database_key_admin_ready') or not restored_doc.get('permissions'):
             raise AssertionError(f'Restored instance doctor failed: {restored_doc}')
-        subprocess.run([*restored_manage, 'stop'], check=True)
+        run_manage(restored_launcher, 'stop')
 
         # Verify cached tampering rejection
         release = release_path()
@@ -259,7 +277,14 @@ def scenario(args, work):
             port_released=True,
             python_version=doctor.get('python', {}).get('version'),
         )
-    except Exception:
+    except Exception as exc:
+        if isinstance(exc, subprocess.CalledProcessError):
+            if exc.stdout:
+                print('=== failed command stdout ===', file=sys.stderr)
+                print(exc.stdout[-4000:], file=sys.stderr)
+            if exc.stderr:
+                print('=== failed command stderr ===', file=sys.stderr)
+                print(exc.stderr[-4000:], file=sys.stderr)
         for log_name in ('manager.log', 'manager-err.log', 'web.log', 'worker.log', 'scheduler.log', 'lifecycle.log'):
             lp = instance / 'logs' / log_name
             if lp.is_file() and lp.stat().st_size > 0:
@@ -268,10 +293,9 @@ def scenario(args, work):
         raise
     finally:
         for inst in (instance, restored_instance):
-            launcher = inst / ('yanji.cmd' if IS_WIN else 'yanji')
-            if launcher.exists():
-                cmd = ['cmd.exe', '/c', str(launcher), 'stop'] if IS_WIN else [str(launcher), 'stop']
-                subprocess.run(cmd, check=False, timeout=30, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            inst_launcher = inst / ('yanji.cmd' if IS_WIN else 'yanji')
+            if inst_launcher.exists():
+                run_manage(inst_launcher, 'stop', check=False, timeout=30, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if IS_WIN:
             for inst in (instance, restored_instance):
                 ctrl = inst / 'run/control.json'

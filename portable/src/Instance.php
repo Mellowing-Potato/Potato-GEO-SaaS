@@ -346,7 +346,7 @@ final class Instance
         }
         Platform::createDirectoryJunction($public.'/storage', $this->root.'/storage/app/public');
         self::atomicFile($manifestPath, json_encode(array_values($entries), JSON_THROW_ON_ERROR));
-        self::atomicFile($this->root.'/current-release.txt', $release."\n");
+        self::atomicFile($this->root.'/current-release.txt', $release."\r\n");
         foreach ($obsolete as $name) {
             $path = $public.'/'.$name;
             if (is_dir($path)) {
