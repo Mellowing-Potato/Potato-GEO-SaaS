@@ -14,6 +14,7 @@ final class Supervisor
     private bool $stopping = false;
     private int $startTime = 0;
     private string $controlToken = '';
+    private ?string $verifiedControlFingerprint = null;
 
     public function __construct(private Instance $instance) {}
 
@@ -61,10 +62,15 @@ final class Supervisor
         $path = $this->instance->socketPath();
         clearstatcache(true, $path);
         if (!is_file($path)) {
+            $this->verifiedControlFingerprint = null;
             return null;
         }
-        if (!Platform::isPrivate($path)) {
-            throw new RuntimeException('管理端点文件的权限或类型异常。');
+        $fingerprint = $path.':'.((string) @filemtime($path)).':'.((string) @filesize($path));
+        if ($this->verifiedControlFingerprint !== $fingerprint) {
+            if (!Platform::isPrivate($path)) {
+                throw new RuntimeException('管理端点文件的权限或类型异常。');
+            }
+            $this->verifiedControlFingerprint = $fingerprint;
         }
         $info = json_decode((string) @file_get_contents($path), true);
         $port = $info['port'] ?? null;
@@ -74,14 +80,17 @@ final class Supervisor
             || ($info['instance'] ?? null) !== $identity) {
             throw new RuntimeException('管理端点配置损坏或不属于本实例。');
         }
-        $socket = @stream_socket_client('tcp://127.0.0.1:'.$port, $errno, $message, 0.4);
+        $socket = @stream_socket_client('tcp://127.0.0.1:'.$port, $errno, $message, 1.0);
         if (!$socket) {
             return null;
         }
         try {
-            stream_set_timeout($socket, 3);
+            stream_set_timeout($socket, 10);
             fwrite($socket, json_encode(['action' => $action, 'instance' => $identity, 'token' => $token], JSON_THROW_ON_ERROR)."\n");
             $line = fgets($socket, 16384);
+            if ($line === false && $action === 'status' && (stream_get_meta_data($socket)['timed_out'] ?? false)) {
+                return null;
+            }
             $reply = $line === false ? null : json_decode($line, true);
             if (!is_array($reply) || isset($reply['error']) || ($reply['instance'] ?? '') !== $identity) {
                 throw new RuntimeException('管理端点未确认本实例身份。');
@@ -147,7 +156,7 @@ final class Supervisor
                     throw new RuntimeException('后台服务启动失败，本次子进程已收回。请运行 yanji doctor。');
                 }
             }
-            usleep(200000);
+            usleep(Platform::isWindows() ? 1000000 : 200000);
         } while (microtime(true) < $deadline);
         if ($existing === null) {
             $this->stop();
@@ -578,7 +587,7 @@ final class Supervisor
 
     private function status(): array
     {
-        $context = stream_context_create(['http' => ['timeout' => 0.7, 'follow_location' => 0]]);
+        $context = stream_context_create(['http' => ['timeout' => Platform::isWindows() ? 2.0 : 0.7, 'follow_location' => 0]]);
         $body = @file_get_contents('http://127.0.0.1:'.$this->instance->port().'/up', false, $context);
         $services = ['web' => ['pid' => $this->children['web']['pid'] ?? null, 'healthy' => $body !== false]];
         foreach (['worker', 'scheduler'] as $role) {
