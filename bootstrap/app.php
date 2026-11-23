@@ -156,4 +156,8 @@ if ($environmentPath = getenv('YANJI_ENV_PATH')) {
     $application->useEnvironmentPath($environmentPath);
 }
 
+if ($publicPath = getenv('YANJI_PUBLIC_PATH')) {
+    $application->usePublicPath($publicPath);
+}
+
 return $application;
