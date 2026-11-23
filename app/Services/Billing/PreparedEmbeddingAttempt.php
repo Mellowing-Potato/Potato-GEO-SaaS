@@ -51,7 +51,7 @@ final class PreparedEmbeddingAttempt
                 'query' => $query,
                 'brief_data' => $briefData,
             ]]);
-        });
+        }, attempts: 3);
 
         return $clientId;
     }
@@ -65,7 +65,7 @@ final class PreparedEmbeddingAttempt
                 && data_get($execution->billing_pending_result, 'gateway.attribution.client_request_id') === $clientId) {
                 $execution->update(['billing_pending_result' => null]);
             }
-        });
+        }, attempts: 3);
     }
 
     /** Keep a successful vector on the original encrypted execution before local RAG work. */
@@ -91,7 +91,7 @@ final class PreparedEmbeddingAttempt
             $prior['vector'] = $vector;
             $prior['gateway'] = array_replace_recursive($prior['gateway'] ?? [], $gateway);
             $execution->update(['billing_pending_result' => $prior]);
-        });
+        }, attempts: 3);
     }
 
     public static function recordedVector(int $executionId, string $clientId): ?array

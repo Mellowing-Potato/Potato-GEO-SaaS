@@ -102,7 +102,7 @@ class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalContract
                     $meta[] = $embedResult['gateway'];
                     $execution->update(['gateway_requests' => $meta]);
                 }
-            });
+            }, attempts: 3);
         }
         $receipt = is_array($embedResult['gateway'] ?? null) ? $embedResult['gateway'] : [];
         if ($executionId === 0 && (int) ($filters['user_id'] ?? 0) > 0
