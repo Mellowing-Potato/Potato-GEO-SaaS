@@ -35,7 +35,7 @@ final class Installation
             ."log_errors=On\nexpose_php=Off\nvariables_order=EGPCS\n"
             ."curl.cainfo=\"\${YANJI_CA_BUNDLE}\"\nopenssl.cafile=\"\${YANJI_CA_BUNDLE}\"\n";
         if (Platform::isWindows()) {
-            $extDir = Platform::nativePath($release.'/runtime/bin/ext');
+            $extDir = Platform::windowsShortPath($release.'/runtime/bin/ext');
             $ini .= 'extension_dir="'.$extDir."\"\n"
                 ."extension=curl\nextension=fileinfo\nextension=gd\nextension=mbstring\n"
                 ."extension=openssl\nextension=pdo_sqlite\nextension=sqlite3\nextension=zip\n";

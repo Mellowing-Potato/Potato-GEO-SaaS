@@ -105,7 +105,15 @@ def scenario(args, work):
         php_bin = rel / ('runtime/bin/php.exe' if IS_WIN else 'runtime/bin/php')
         cmd = [str(php_bin)]
         if IS_WIN:
-            cmd.extend(['-c', str(instance / 'php.ini')])
+            ext_dir = rel / 'runtime/bin/ext'
+            ca_file = rel / 'runtime/ca/cacert.pem'
+            cmd.extend([
+                '-n', '-d', f'extension_dir={ext_dir}',
+                '-d', f'curl.cainfo={ca_file}', '-d', f'openssl.cafile={ca_file}',
+                '-d', 'extension=curl', '-d', 'extension=fileinfo', '-d', 'extension=gd',
+                '-d', 'extension=mbstring', '-d', 'extension=openssl', '-d', 'extension=pdo_sqlite',
+                '-d', 'extension=sqlite3', '-d', 'extension=zip',
+            ])
         cmd.extend([str(ROOT / 'tests/fixtures/portable-queue.php'), str(instance), action, *extra])
         subprocess.run(cmd, check=True, env=env, stdout=subprocess.DEVNULL)
 

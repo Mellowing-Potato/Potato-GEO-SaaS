@@ -113,7 +113,7 @@ final class Supervisor
             if (Platform::isWindows()) {
                 $pid = Platform::spawnDetachedWindows(
                     Platform::phpBinary($release),
-                    ['-c', $this->instance->root.'/php.ini', $release.'/app/portable/yanji.php', '__supervise', '--instance', $this->instance->root],
+                    [...Platform::phpArgs($release, $this->instance->root), $release.'/app/portable/yanji.php', '__supervise', '--instance', $this->instance->root],
                     $release.'/app',
                     $this->instance->root.'/logs/manager.log',
                     $this->instance->root.'/logs/manager-err.log',
@@ -373,10 +373,11 @@ final class Supervisor
     {
         $release = $this->instance->release();
         $php = Platform::phpBinary($release);
+        $phpArgs = Platform::phpArgs($release, $this->instance->root);
         $cmd = match ($role) {
             'web' => [Platform::webBinary($release), 'run', '--adapter', 'caddyfile', '--config', $release.'/app/portable/Caddyfile'],
-            'worker' => [$php, '-c', $this->instance->root.'/php.ini', $release.'/app/artisan', 'yanji:worker', '--no-interaction'],
-            'scheduler' => [$php, '-c', $this->instance->root.'/php.ini', $release.'/app/artisan', 'schedule:work', '--no-interaction'],
+            'worker' => [$php, ...$phpArgs, $release.'/app/artisan', 'yanji:worker', '--no-interaction'],
+            'scheduler' => [$php, ...$phpArgs, $release.'/app/artisan', 'schedule:work', '--no-interaction'],
         };
         $generation = bin2hex(random_bytes(16));
         $env = ['YANJI_SERVICE_GENERATION' => $generation];
@@ -535,7 +536,7 @@ final class Supervisor
             return;
         }
         $release = $this->instance->release();
-        $p = proc_open([Platform::phpBinary($release), '-c', $this->instance->root.'/php.ini', $release.'/app/portable/settle-timeout.php'],
+        $p = proc_open([Platform::phpBinary($release), ...Platform::phpArgs($release, $this->instance->root), $release.'/app/portable/settle-timeout.php'],
             [0 => ['file', Platform::nullDevice(), 'r'], 1 => STDOUT, 2 => STDERR], $pipes, $release.'/app', $this->instance->environment(), ['bypass_shell' => true]);
         if (!is_resource($p) || proc_close($p) !== 0) {
             throw new RuntimeException('超时作业仍待确认，已暂停服务。');

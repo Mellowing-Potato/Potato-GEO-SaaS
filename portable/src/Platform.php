@@ -83,6 +83,92 @@ final class Platform
         return self::isWindows() ? 'yanji.cmd' : 'yanji';
     }
 
+    /** Return CLI flags that load Yanji's runtime PHP settings reliably, even in non-ASCII Windows paths. */
+    public static function phpArgs(string $release, string $instanceRoot): array
+    {
+        if (!self::isWindows()) {
+            return ['-c', $instanceRoot.'/php.ini'];
+        }
+        $ca = self::windowsShortPath(self::nativePath($release.'/runtime/ca/cacert.pem'));
+        $ext = self::windowsShortPath(self::nativePath($release.'/runtime/bin/ext'));
+        return [
+            '-n',
+            '-d', 'upload_max_filesize=10M',
+            '-d', 'post_max_size=20M',
+            '-d', 'memory_limit=512M',
+            '-d', 'display_errors=Off',
+            '-d', 'log_errors=On',
+            '-d', 'expose_php=Off',
+            '-d', 'variables_order=EGPCS',
+            '-d', 'curl.cainfo='.$ca,
+            '-d', 'openssl.cafile='.$ca,
+            '-d', 'extension_dir='.$ext,
+            '-d', 'extension=curl',
+            '-d', 'extension=fileinfo',
+            '-d', 'extension=gd',
+            '-d', 'extension=mbstring',
+            '-d', 'extension=openssl',
+            '-d', 'extension=pdo_sqlite',
+            '-d', 'extension=sqlite3',
+            '-d', 'extension=zip',
+        ];
+    }
+
+    /** Resolve an ASCII Win32 8.3 short path when a Windows path contains non-ASCII characters. */
+    public static function windowsShortPath(string $path): string
+    {
+        if (!self::isWindows()) {
+            return $path;
+        }
+        $real = realpath($path);
+        $native = self::nativePath($real !== false ? $real : $path);
+        if (preg_match('/[^\x20-\x7e]/', $native) !== 1) {
+            return $native;
+        }
+        $ps = <<<'PS'
+$ErrorActionPreference = 'Stop'
+$p = $env:YANJI_SP
+$fso = New-Object -ComObject Scripting.FileSystemObject
+if ([System.IO.Directory]::Exists($p)) { Write-Output $fso.GetFolder($p).ShortPath }
+elseif ([System.IO.File]::Exists($p)) { Write-Output $fso.GetFile($p).ShortPath }
+else { Write-Output $p }
+PS;
+        $env = self::windowsPowerShellEnv(getenv());
+        $env['YANJI_SP'] = $native;
+        $proc = @proc_open(
+            [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', self::encodePowerShellCommand($ps)],
+            [0 => ['file', 'NUL', 'r'], 1 => ['pipe', 'w'], 2 => ['file', 'NUL', 'w']],
+            $pipes,
+            null,
+            $env,
+            ['bypass_shell' => true],
+        );
+        if (!is_resource($proc)) {
+            return $native;
+        }
+        $out = trim((string) stream_get_contents($pipes[1], 4096));
+        fclose($pipes[1]);
+        return (proc_close($proc) === 0 && $out !== '') ? $out : $native;
+    }
+
+    /** Return an ASCII PHPRC directory for FrankenPHP on Windows (containing php.ini). */
+    public static function windowsIniDir(string $instanceRoot): string
+    {
+        $short = self::windowsShortPath($instanceRoot);
+        if (preg_match('/[^\x20-\x7e]/', $short) !== 1) {
+            return $short;
+        }
+        $fallback = rtrim(self::nativePath(sys_get_temp_dir()), '\\').'\\yanji-ini-'.substr(hash('sha256', $instanceRoot), 0, 16);
+        if (!is_dir($fallback)) {
+            @mkdir($fallback, 0700, true);
+        }
+        $srcIni = $instanceRoot.'/php.ini';
+        if (is_file($srcIni)) {
+            @copy($srcIni, $fallback.'\\php.ini');
+        }
+        return $fallback;
+    }
+
     private static ?array $windowsIdentity = null;
 
     public static function windowsUserIdentity(): array

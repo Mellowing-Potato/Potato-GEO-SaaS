@@ -414,9 +414,10 @@ final class Instance
             'CACHE_PREFIX' => 'yanji_'.substr(hash('sha256', $this->root), 0, 24).'_',
             'QUEUE_CONNECTION' => 'database', 'WORKER_ID' => 'portable-worker', 'GEO_WORKER_HEARTBEAT_ENABLED' => 'true',
             'XDG_CONFIG_HOME' => $this->root.'/xdg/config', 'XDG_DATA_HOME' => $this->root.'/xdg/data',
-            'YANJI_CA_BUNDLE' => $release.'/runtime/ca/cacert.pem',
+            'YANJI_CA_BUNDLE' => Platform::isWindows() ? Platform::windowsShortPath($release.'/runtime/ca/cacert.pem') : $release.'/runtime/ca/cacert.pem',
             'PYTHONDONTWRITEBYTECODE' => '1',
-            'PHPRC' => $this->root.'/php.ini', 'PHP_INI_SCAN_DIR' => '',
+            'PHPRC' => Platform::isWindows() ? Platform::windowsIniDir($this->root) : $this->root.'/php.ini',
+            'PHP_INI_SCAN_DIR' => '',
         ]);
         $env['PYTHON_BIN'] = $this->pythonBin($release);
         if (is_dir($release.'/runtime/fonts')) {
@@ -462,7 +463,7 @@ final class Instance
         $null = Platform::nullDevice();
         $stdio = [0 => $input === null ? STDIN : ['pipe', 'r'], 1 => $quiet ? ['file', $null, 'w'] : STDOUT,
             2 => $quiet ? ['file', $null, 'w'] : STDERR];
-        $process = proc_open([Platform::phpBinary($release), '-c', $this->root.'/php.ini', $release.'/app/artisan', ...$args],
+        $process = proc_open([Platform::phpBinary($release), ...Platform::phpArgs($release, $this->root), $release.'/app/artisan', ...$args],
             $stdio, $pipes, $release.'/app', $this->environment($uncached), ['bypass_shell' => true]);
         if (!is_resource($process)) {
             throw new RuntimeException('无法启动应用管理命令。');
