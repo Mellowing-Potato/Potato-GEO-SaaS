@@ -213,12 +213,14 @@ $webKitSha = Get-FileSha256 $webKitPath
 $webRuntimeStage = Join-Path $WorkDir 'web-runtime-stage'
 New-Item -ItemType Directory -Force -Path (Join-Path $webRuntimeStage 'bin'), (Join-Path $webRuntimeStage 'notices') | Out-Null
 Copy-Item $outExe (Join-Path $webRuntimeStage 'bin\frankenphp.exe')
-foreach ($dll in @('brotlienc.dll', 'brotlidec.dll', 'brotlicommon.dll')) {
+$webDllNames = @('brotlienc.dll', 'brotlidec.dll', 'brotlicommon.dll')
+foreach ($dll in $webDllNames) {
     $srcDll = Join-Path $brotliPrefix "bin\$dll"
     if (Test-Path $srcDll) { Copy-Item $srcDll (Join-Path $webRuntimeStage "bin\$dll") }
 }
 foreach ($dll in (Get-ChildItem (Join-Path $vcpkgInstalled 'bin') -Filter 'pthread*.dll' -ErrorAction SilentlyContinue)) {
     Copy-Item $dll.FullName (Join-Path $webRuntimeStage "bin\$($dll.Name)")
+    $webDllNames += $dll.Name
 }
 Copy-Item "$noticesStage\*" (Join-Path $webRuntimeStage 'notices') -Recurse
 $webExeSha = Get-FileSha256 (Join-Path $webRuntimeStage 'bin\frankenphp.exe')
@@ -243,8 +245,8 @@ $cliRuntimeStage = Join-Path $WorkDir 'cli-runtime-stage'
 New-Item -ItemType Directory -Force -Path (Join-Path $cliRuntimeStage 'bin\ext'), (Join-Path $cliRuntimeStage 'ca'), (Join-Path $cliRuntimeStage 'notices\php') | Out-Null
 Copy-Item (Join-Path $phpRuntimeDir 'php.exe') (Join-Path $cliRuntimeStage 'bin\php.exe')
 foreach ($dll in (Get-ChildItem $phpRuntimeDir -Filter '*.dll')) {
-    # Skip Apache/phpdbg SAPI DLLs not needed by Yanji
-    if ($dll.Name -in @('php8apache2_4.dll', 'php8phpdbg.dll')) { continue }
+    # Skip Apache/phpdbg SAPI DLLs and DLLs provided by web_runtime (e.g. patched Brotli 1.2.1 / pthreads)
+    if ($dll.Name -in (@('php8apache2_4.dll', 'php8phpdbg.dll') + $webDllNames)) { continue }
     Copy-Item $dll.FullName (Join-Path $cliRuntimeStage "bin\$($dll.Name)")
 }
 foreach ($ext in @('php_curl.dll', 'php_fileinfo.dll', 'php_gd.dll', 'php_mbstring.dll', 'php_openssl.dll', 'php_pdo_sqlite.dll', 'php_sqlite3.dll', 'php_zip.dll')) {

@@ -73,6 +73,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path D:\yanji-build\php-tmp | Out-Null
           $out = Get-Content D:\yanji-build\web-out\windows-web-outputs.json -Raw | ConvertFrom-Json
           & tar -xzf ("D:\yanji-build\web-out\" + $out.cli_runtime.name) -C D:\yanji-build\php-tmp
+          & tar -xzf ("D:\yanji-build\web-out\" + $out.web_runtime.name) -C D:\yanji-build\php-tmp
           $phpExe = "D:\yanji-build\php-tmp\bin\php.exe"
           $extDir = "D:\yanji-build\php-tmp\bin\ext"
           $caFile = "D:\yanji-build\php-tmp\ca\cacert.pem"
