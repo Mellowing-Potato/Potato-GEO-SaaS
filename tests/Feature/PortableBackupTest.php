@@ -199,6 +199,36 @@ final class PortableBackupTest extends TestCase
         }
     }
 
+    public function test_archive_and_restore_refuse_another_instances_public_directory_and_installed_program_tree(): void
+    {
+        $other = new Instance($this->dir.'/other-instance');
+        $other->prepare();
+        Instance::atomicFile($other->root.'/.portable-layout', "yanji-portable-v1\n");
+        $program = $this->dir.'/other-program';
+        Instance::privateDir($program.'/releases');
+        Instance::atomicFile($program.'/.yanji-program', "test fixture\n");
+        $link = $this->dir.'/linked-public';
+        symlink($other->root.'/storage/app/public', $link);
+        $valid = $this->dir.'/valid.zip';
+        Backup::create($this->instance, $valid);
+        foreach ([$other->root.'/storage/app/public', $link, $program.'/releases'] as $parent) {
+            $zip = $parent.'/export.zip';
+            try {
+                Backup::create($this->instance, $zip);
+                $this->fail('Private environment archives must stay outside every managed instance and program.');
+            } catch (RuntimeException $error) {
+                $this->assertFileDoesNotExist($zip);
+            }
+            $target = $parent.'/new-instance';
+            try {
+                Backup::extractToEmpty($valid, $target);
+                $this->fail('Restored private data must stay outside every managed instance and program.');
+            } catch (RuntimeException $error) {
+                $this->assertDirectoryDoesNotExist($target);
+            }
+        }
+    }
+
     public function test_restore_accepts_only_declared_regular_members_inside_the_data_tree(): void
     {
         $archive = $this->dir.'/invalid-member.zip';

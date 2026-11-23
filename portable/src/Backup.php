@@ -23,6 +23,7 @@ final class Backup
             || file_exists($output) || is_link($output)) {
             throw new RuntimeException('请在实例外的已有目录选择新的备份文件。');
         }
+        Instance::assertOutsideManagedTrees($parent.'/'.basename($output));
         $work = self::workspace($parent);
         try {
             $probe = $work.'/binding';
@@ -91,6 +92,7 @@ final class Backup
 
     private static function publishToEmpty(string $archive, string $target, ?callable $check = null, ?string $expectedRelease = null): void
     {
+        Instance::assertOutsideManagedTrees($target);
         if (is_link($target) || file_exists($target) && (! is_dir($target) || count(scandir($target)) !== 2)) {
             throw new RuntimeException('恢复目标必须是新的空目录，请另选 --instance。');
         }
