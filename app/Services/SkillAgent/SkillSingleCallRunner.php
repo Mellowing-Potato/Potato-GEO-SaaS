@@ -378,6 +378,7 @@ class SkillSingleCallRunner
 
                     $renderExecutionId = $brief->executionId ?? time();
                     $renderResult = $this->renderBridge->render($jsonData, $assets, $renderExecutionId);
+                    $intermediateData['format_status'] = $renderResult->formatStatus;
 
                     if ($renderResult->success) {
                         $outputPaths = $renderResult->renderedPaths;

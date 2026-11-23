@@ -1422,6 +1422,7 @@ JSON;
             'result_text' => $this->resultText($outputData),
             'structured' => $outputData['structured'] ?? null,
             'rendered_formats' => $this->normalizeRenderedFormats($outputData['rendered_formats'] ?? $availableFormats),
+            'format_status' => $outputData['format_status'] ?? [],
             'available_formats' => $availableFormats,
             'quality_report' => $execution->quality_report,
             'can_rerender' => SkillRenderRecovery::eligible($execution),

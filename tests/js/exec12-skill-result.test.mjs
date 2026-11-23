@@ -293,6 +293,16 @@ for (const [stage, text] of [
   assert.ok(!textOf(alerts[0]).includes('任务总费用未知'));
 });
 
+check('Report downloads remain available alongside individual format failures', () => {
+  const { result } = harness({ ...base, available_formats: ['markdown', 'html', 'docx'],
+    format_status: { markdown: {status: 'available'}, html: {status: 'failed', reason: 'html_fonts'},
+      docx: {status: 'available'}, pdf: {status: 'unavailable', reason: 'native_library'} } });
+  assert.equal(result.querySelectorAll('[data-format]').length, 3);
+  const note = textOf(result.querySelector('[data-format-status]'));
+  assert.ok(note.includes('字体附件未通过检查'));
+  assert.ok(note.includes('缺少本地渲染库'));
+});
+
 check('All three notice sources keep their order, text and escaping', () => {
   const error = '本地错误 <script>不执行</script> & "请核对"';
   const { result } = harness({ ...base, available_formats: [], error_message: error,

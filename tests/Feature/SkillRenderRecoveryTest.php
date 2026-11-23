@@ -115,6 +115,7 @@ class SkillRenderRecoveryTest extends TestCase
             $this->forTenant($tenant)->postJson($endpoint.'/rerender')->assertOk()
                 ->assertJsonPath('execution.can_rerender', false)
                 ->assertJsonPath('execution.available_formats', ['html', 'docx'])
+                ->assertJsonPath('execution.format_status.docx.status', 'available')
                 ->assertJsonPath('execution.article_id', null)
                 ->assertJsonPath('execution.token_usage', 66047);
         }
