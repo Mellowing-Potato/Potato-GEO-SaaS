@@ -10,7 +10,10 @@ use Yanji\Portable\Instance;
 if (!is_file($instancePath.'/.portable-acceptance')) {
     throw new RuntimeException('This fixture requires a disposable acceptance-test instance.');
 }
-$release = realpath($instancePath.'/current');
+$release = PHP_OS_FAMILY === 'Windows'
+    ? trim((string) file_get_contents($instancePath.'/current-release.txt'))
+    : realpath($instancePath.'/current');
+require $release.'/app/portable/src/Platform.php';
 require $release.'/app/portable/src/Instance.php';
 $instance = new Instance($instancePath);
 foreach ($instance->environment() as $key => $value) {

@@ -1,0 +1,163 @@
+name: Portable Runtime Verification
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: ['codex/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64:
+    name: Native Windows x64 Portable Build & Acceptance
+    runs-on: windows-2025
+    timeout-minutes: 60
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Go 1.27.4
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: '1.27.4'
+          check-latest: false
+
+      - name: Setup Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+
+      - name: Setup Python 3.12 (build host)
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Build AGPL-free Windows FrankenPHP & PHP 8.5.13 runtime
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path D:\yanji-build\web-out | Out-Null
+          & .\scripts\runtime\build-web-windows.ps1 -OutputDir D:\yanji-build\web-out -WorkDir D:\yanji-build\web-work
+
+      - name: Build bundled Windows Python 3.12 & open-source report fonts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path D:\yanji-build\py-out, D:\yanji-build\cache | Out-Null
+          python .\scripts\runtime\build-portable-python.py --mode python --platform windows-x86_64 --output D:\yanji-build\py-out --cache-dir D:\yanji-build\cache
+          python .\scripts\runtime\build-portable-python.py --mode fonts --output D:\yanji-build\py-out --cache-dir D:\yanji-build\cache
+
+      - name: Build production frontend, npm notices, skills and Composer vendor
+        shell: pwsh
+        run: |
+          npm ci --ignore-scripts
+          npm run build
+          New-Item -ItemType Directory -Force -Path D:\yanji-build\npm-licenses, D:\yanji-build\skills, D:\yanji-build\vendor-src | Out-Null
+          python .\scripts\collect-licenses.py npm . D:\yanji-build\npm-licenses
+          python .\scripts\fetch-skills.py resources\skills\upstream-lock.json D:\yanji-build\skills
+
+          # Install production Composer dependencies using our verified Windows PHP 8.5.13 binary
+          New-Item -ItemType Directory -Force -Path D:\yanji-build\php-tmp | Out-Null
+          $out = Get-Content D:\yanji-build\web-out\windows-web-outputs.json -Raw | ConvertFrom-Json
+          & tar -xzf ("D:\yanji-build\web-out\" + $out.cli_runtime.name) -C D:\yanji-build\php-tmp
+          $phpExe = "D:\yanji-build\php-tmp\bin\php.exe"
+          $extDir = "D:\yanji-build\php-tmp\bin\ext"
+          $caFile = "D:\yanji-build\php-tmp\ca\cacert.pem"
+          Invoke-WebRequest -Uri https://getcomposer.org/download/2.8.12/composer.phar -OutFile D:\yanji-build\composer.phar -UseBasicParsing
+          if ((Get-FileHash D:\yanji-build\composer.phar -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'f446ea719708bb85fcbf4ef18def5d0515f1f9b4d703f6d820c9c1656e10a2f2') {
+            throw "composer.phar SHA-256 mismatch"
+          }
+          Copy-Item composer.json, composer.lock D:\yanji-build\vendor-src\
+          Push-Location D:\yanji-build\vendor-src
+          try {
+            & $phpExe -n -d "extension_dir=$extDir" -d "curl.cainfo=$caFile" -d "openssl.cafile=$caFile" `
+              -d extension=openssl -d extension=mbstring -d extension=curl -d extension=zip -d extension=fileinfo -d extension=gd `
+              D:\yanji-build\composer.phar install --no-dev --no-interaction --no-scripts --prefer-dist --optimize-autoloader
+            if ($LASTEXITCODE -ne 0) { throw "composer install --no-dev failed on Windows" }
+          } finally {
+            Pop-Location
+          }
+
+      - name: Assemble verified yanji-windows-x86_64.zip package
+        shell: pwsh
+        run: |
+          $out = Get-Content D:\yanji-build\web-out\windows-web-outputs.json -Raw | ConvertFrom-Json
+          $pySha = (Get-FileHash D:\yanji-build\py-out\yanji-python-windows-x86_64.tar.gz -Algorithm SHA256).Hash.ToLowerInvariant()
+          $fontSha = (Get-FileHash D:\yanji-build\py-out\yanji-report-fonts.tar.gz -Algorithm SHA256).Hash.ToLowerInvariant()
+          python .\scripts\build-local-package.py `
+            --source . --platform windows-x86_64 `
+            --vendor D:\yanji-build\vendor-src\vendor `
+            --assets public\build `
+            --npm-licenses D:\yanji-build\npm-licenses `
+            --skills D:\yanji-build\skills `
+            --cli ("D:\yanji-build\web-out\" + $out.cli_runtime.name) `
+            --cli-sha256 $out.cli_runtime.sha256 `
+            --cli-source-kit ("D:\yanji-build\web-out\" + $out.cli_source_kit.name) `
+            --cli-source-kit-sha256 $out.cli_source_kit.sha256 `
+            --web-runtime ("D:\yanji-build\web-out\" + $out.web_runtime.name) `
+            --web-runtime-sha256 $out.web_runtime.sha256 `
+            --web-source-kit ("D:\yanji-build\web-out\" + $out.web_source_kit.name) `
+            --web-source-kit-sha256 $out.web_source_kit.sha256 `
+            --python-runtime D:\yanji-build\py-out\yanji-python-windows-x86_64.tar.gz `
+            --python-runtime-sha256 $pySha `
+            --fonts D:\yanji-build\py-out\yanji-report-fonts.tar.gz `
+            --fonts-sha256 $fontSha `
+            --output D:\yanji-build\candidate
+
+      - name: Native Windows x64 full cold-install, timeout, private-404, 11-renderer and restore acceptance
+        shell: pwsh
+        run: |
+          $sumsSha = (Get-FileHash D:\yanji-build\candidate\SHA256SUMS -Algorithm SHA256).Hash.ToLowerInvariant()
+          # Run full native Windows runtime suite WITHOUT -PythonBin
+          python .\scripts\test-portable-runtime.py --package-dir D:\yanji-build\candidate --manifest-sha256 $sumsSha
+
+          # Also run 11-skill render matrix using ONLY the bundled Windows Python + bundled fonts
+          New-Item -ItemType Directory -Force -Path D:\yanji-build\render-check | Out-Null
+          Expand-Archive -Path D:\yanji-build\candidate\yanji-windows-x86_64.zip -DestinationPath D:\yanji-build\render-check -Force
+          Copy-Item D:\yanji-build\vendor-src\vendor .\vendor -Recurse -Force
+          $env:YANJI_REPORT_FONTS_DIR = "D:\yanji-build\render-check\runtime\fonts"
+          & D:\yanji-build\render-check\runtime\bin\php.exe -n `
+            -d "extension_dir=D:\yanji-build\render-check\runtime\bin\ext" `
+            -d extension=openssl -d extension=mbstring -d extension=sqlite3 -d extension=pdo_sqlite -d extension=zip -d extension=curl -d extension=fileinfo -d extension=gd `
+            .\scripts\test-skill-render-matrix.php `
+            --skills="D:\yanji-build\render-check\app\yao-geo-skills\skills" `
+            --python="D:\yanji-build\render-check\runtime\python\python.exe" `
+            --mode=optional
+          if ($LASTEXITCODE -ne 0) { throw "Windows 11-skill render matrix failed" }
+
+  linux-native-python-and-render:
+    name: Native Linux ${{ matrix.platform }} Bundled Python & 11-Renderer Verification
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux-x86_64
+          - runner: ubuntu-24.04-arm
+            platform: linux-aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build bundled Linux Python & report fonts
+        run: |
+          mkdir -p /tmp/yanji-py /tmp/yanji-cache /tmp/yanji-skills
+          python3 scripts/runtime/build-portable-python.py --mode python --platform "${{ matrix.platform }}" --output /tmp/yanji-py --cache-dir /tmp/yanji-cache
+          python3 scripts/runtime/build-portable-python.py --mode fonts --output /tmp/yanji-py --cache-dir /tmp/yanji-cache
+          python3 scripts/fetch-skills.py resources/skills/upstream-lock.json /tmp/yanji-skills
+
+      - name: Verify bundled Python & explainer WOFF2 subsetting with zero host Python in PATH
+        run: |
+          mkdir -p /tmp/yanji-unpack
+          tar -xzf "/tmp/yanji-py/yanji-python-${{ matrix.platform }}.tar.gz" -C /tmp/yanji-unpack
+          tar -xzf /tmp/yanji-py/yanji-report-fonts.tar.gz -C /tmp/yanji-unpack
+          PATH=/usr/bin:/bin EXPLAINER_TEST_FONT=/tmp/yanji-unpack/fonts/DejaVuSans.ttf \
+            YANJI_REPORT_FONTS_DIR=/tmp/yanji-unpack/fonts \
+            /tmp/yanji-unpack/python/bin/python3 -m unittest discover -s tests/python -p 'test_explainer_font_subset.py'
+          PATH=/usr/bin:/bin /tmp/yanji-unpack/python/bin/python3 -m unittest discover -s tests/python -p 'test_optional_skill_formats.py'

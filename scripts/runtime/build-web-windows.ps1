@@ -172,7 +172,8 @@ if ($modulesOut -notmatch 'http\.encoders\.br' -or $modulesOut -notmatch 'franke
 # 7. Collect compiled Go source notices & assemble Web source-relink kit + Web runtime + PHP CLI runtime
 $noticesStage = Join-Path $WorkDir 'web-notices'
 New-Item -ItemType Directory -Force -Path $noticesStage | Out-Null
-& python3 (Join-Path $RepoRoot 'scripts\runtime\collect-web-go-notices.py') $activeGraphJson (Join-Path $noticesStage 'go-source-notices.txt') (Join-Path $noticesStage 'go-source-index.json')
+$pyCmd = if (Get-Command python -ErrorAction SilentlyContinue) { 'python' } else { 'python3' }
+& $pyCmd (Join-Path $RepoRoot 'scripts\runtime\collect-web-go-notices.py') $activeGraphJson (Join-Path $noticesStage 'go-source-notices.txt') (Join-Path $noticesStage 'go-source-index.json')
 if ($LASTEXITCODE -ne 0) { throw "collect-web-go-notices.py failed" }
 Copy-Item (Join-Path $frankenSrc 'LICENSE') (Join-Path $noticesStage 'frankenphp-LICENSE.txt')
 Copy-Item (Join-Path $brotliSrc 'LICENSE') (Join-Path $noticesStage 'brotli-LICENSE.txt')
