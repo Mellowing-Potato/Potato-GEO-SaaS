@@ -46,11 +46,11 @@ sh scripts/install-local.sh --manifest "$MANIFEST" --manifest-sha256 "$MANIFEST_
 
 ## 从源码构建候选包
 
-构建机需要 Python 3.11+、Git、与生产锁匹配的 PHP/Composer、Node/npm。使用干净源码提交生成 `composer install --no-dev` 的生产 vendor、`npm ci && npm run build` 的 public/build，并以 `scripts/fetch-skills.py resources/skills/upstream-lock.json "$SKILLS"` 获取核验的上游资产。普通用户运行时直接使用包内文件。开发者仍可按 CONTRIBUTING.md 运行原有 Compose 和测试流程。
+构建机需要 Python 3.11+、Git、与生产锁匹配的 PHP/Composer、Node/npm。使用干净源码提交生成 `composer install --no-dev` 的生产 vendor、`npm ci && npm run build` 的 public/build，使用同一份 node_modules 运行 `python3 scripts/collect-licenses.py npm . "$NPM_LICENSES"` 收集前端依赖的声明，并以 `scripts/fetch-skills.py resources/skills/upstream-lock.json "$SKILLS"` 获取核验的上游资产。普通用户运行时直接使用包内文件。开发者仍可按 CONTRIBUTING.md 运行原有 Compose 和测试流程。
 
 ```sh
 python3 scripts/build-local-package.py --source "$CHECKOUT" --platform macos-arm64 \
-  --vendor "$PRODUCTION_VENDOR" --assets "$FRONTEND_BUILD" --skills "$SKILLS" \
+  --vendor "$PRODUCTION_VENDOR" --assets "$FRONTEND_BUILD" --npm-licenses "$NPM_LICENSES" --skills "$SKILLS" \
   --cli "$CLI_ARCHIVE" --cli-sha256 "$CLI_SHA256" --web "$WEB_BINARY" \
   --web-sha256 "$WEB_SHA256" --cli-source-kit "$CLI_SOURCE_RELINK" \
   --cli-source-kit-sha256 "$CLI_SOURCE_RELINK_SHA256" --output "$NEW_OUTPUT_DIRECTORY"

@@ -69,6 +69,42 @@ def copy_tar(source, target, prefix, strip=''):
                   0o755 if member.mode & 0o111 else 0o644)
 
 
+def add_npm_notices(archive, directory, lock):
+    directory = directory.resolve()
+    packages = lock['packages']
+    locations = {}
+    for location, package in packages.items():
+        if location:
+            key = (location.split('node_modules/')[-1], package['version'])
+            locations.setdefault(key, []).append(location)
+    inventory = directory / 'inventory.json'
+    rows = json.loads(inventory.read_text())
+    used = set()
+    members = {'inventory.json'}
+    for row in rows:
+        notices = row['notices']
+        if row['ecosystem'] != 'npm' or not isinstance(notices, list):
+            raise ValueError('Invalid npm license inventory')
+        for name in notices:
+            path = PurePosixPath(name)
+            if not path.parts or path.is_absolute() or '..' in path.parts or path.as_posix() != name:
+                raise ValueError('Invalid npm notice path')
+        candidates = sorted(locations.get((row['name'], row['version']), []), key=lambda item: (len(item), item))
+        location = next((place for place in candidates if place not in used
+                         and all((directory / place / item).is_file() for item in notices)), None)
+        if location is None or row['license'] != packages[location].get('license'):
+            raise ValueError('Npm inventory differs from the dependency lock: ' + row['name'])
+        used.add(location)
+        members.update(location + '/' + name for name in notices)
+    if any(loc and not item.get('optional') and loc not in used for loc, item in packages.items()):
+        raise ValueError('Missing required npm dependency notices in inventory')
+    for name in sorted(members):
+        path = directory / name
+        if path.resolve() != path:
+            raise ValueError('Npm notices may not use symbolic links')
+        save_path(archive, path, 'app/licenses/npm/' + name)
+
+
 def build(args):
     for path, checksum in ((args.cli, args.cli_sha256), (args.web, args.web_sha256)):
         if digest(path) != checksum:
@@ -79,6 +115,7 @@ def build(args):
     root = args.source.resolve()
     ref = subprocess.check_output(['git', 'rev-parse', '--verify', 'HEAD^{commit}'], cwd=root, text=True).strip()
     lock = json.loads(subprocess.check_output(['git', 'show', ref + ':composer.lock'], cwd=root))
+    npm_lock = json.loads(subprocess.check_output(['git', 'show', ref + ':package-lock.json'], cwd=root))
     installed = json.loads((args.vendor / 'composer/installed.json').read_text())
     required = {item['name']: item['version'] for item in lock['packages']}
     actual = {item['name']: item['version'] for item in installed['packages']}
@@ -107,6 +144,7 @@ def build(args):
             archive.file_hashes = {}
             with tarfile.open(source_tar) as code:
                 copy_tar(code, archive, 'app')
+            add_npm_notices(archive, args.npm_licenses, npm_lock)
             for name, sha in expected.items():
                 path = args.skills / name
                 if digest(path) != sha:
@@ -158,7 +196,7 @@ def build(args):
 if __name__ == '__main__':
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument('--platform', required=True, choices=['macos-arm64', 'linux-aarch64', 'linux-x86_64'])
-    for name in ('source', 'vendor', 'skills', 'assets', 'cli', 'web', 'cli-source-kit', 'output'):
+    for name in ('source', 'vendor', 'skills', 'assets', 'npm-licenses', 'cli', 'web', 'cli-source-kit', 'output'):
         cli.add_argument('--' + name, type=Path, required=True)
     cli.add_argument('--ca', type=Path)
     cli.add_argument('--ca-notice', type=Path)
