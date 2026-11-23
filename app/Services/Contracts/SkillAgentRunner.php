@@ -32,7 +32,7 @@ interface SkillAgentRunner
     public function execute(SkillBrief $brief): SkillExecutionResult;
 
     /**
-     * 异步执行一个 Skill（推入 Horizon 队列）
+     * 异步执行一个 Skill（推入后台队列）
      *
      * @return int execution ID，用于后续查询状态
      */

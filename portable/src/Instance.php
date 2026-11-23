@@ -247,6 +247,21 @@ final class Instance
         foreach ($obsolete as $path) {
             unlink($path);
         }
+        $this->discardBootstrapCaches();
+    }
+
+    public function discardBootstrapCaches(): void
+    {
+        $dir = $this->root.'/bootstrap-cache';
+        if (is_link($dir)) {
+            throw new RuntimeException('实例启动缓存目录异常，拒绝执行服务或维护操作。');
+        }
+        foreach (['services.php', 'packages.php', 'config.php', 'routes.php', 'events.php'] as $file) {
+            $path = $dir.'/'.$file;
+            if (is_link($path) || (is_file($path) && (fileowner($path) !== posix_geteuid() || !unlink($path)))) {
+                throw new RuntimeException('实例启动缓存的路径或所有者异常，拒绝执行服务或维护操作。');
+            }
+        }
     }
 
     public function environment(bool $uncached = false): array

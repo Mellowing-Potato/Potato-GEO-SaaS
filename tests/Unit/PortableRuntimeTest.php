@@ -347,4 +347,20 @@ PHP;
         $unknown->run();
         self::assertSame(1, $unknown->getExitCode());
     }
+
+    public function test_activating_a_release_clears_stale_package_and_service_bootstrap_caches(): void
+    {
+        $i = new Instance($this->directory.'/upgrade-cache');
+        $i->prepare();
+        $old = $this->program('old');
+        $new = $this->program('new');
+        $i->activate($old);
+        foreach (['packages.php', 'services.php', 'config.php'] as $cache) {
+            Instance::atomicFile($i->root.'/bootstrap-cache/'.$cache, "<?php return ['stale' => true];\n");
+        }
+        $i->activate($new);
+        foreach (['packages.php', 'services.php', 'config.php'] as $cache) {
+            self::assertFileDoesNotExist($i->root.'/bootstrap-cache/'.$cache);
+        }
+    }
 }
