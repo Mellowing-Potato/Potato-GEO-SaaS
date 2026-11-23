@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+# Installed beside one instance; restored instances get their own identical launcher.
+root=$(CDPATH='' cd -P "$(dirname "$0")" && pwd)
+exec "$root/current/runtime/bin/php" -c "$root/php.ini" "$root/current/app/portable/yanji.php" "$@" --instance-default "$root"

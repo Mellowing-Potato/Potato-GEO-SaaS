@@ -5,8 +5,10 @@ namespace Tests\Unit;
 use PHPUnit\Framework\TestCase;
 use Illuminate\Filesystem\Filesystem;
 use Yanji\Portable\Instance;
+use Yanji\Portable\Installation;
 
 require_once __DIR__.'/../../portable/src/Instance.php';
+require_once __DIR__.'/../../portable/src/Installation.php';
 
 class PortableRuntimeTest extends TestCase
 {
@@ -76,6 +78,17 @@ class PortableRuntimeTest extends TestCase
         }
     }
 
+    public function test_framework_public_path_is_the_selected_instance_public_root(): void
+    {
+        $public = $this->directory.'/public';
+        $script = '$app = require $argv[1]; echo $app->publicPath();';
+        $process = new \Symfony\Component\Process\Process([PHP_BINARY,'-r',
+            'require $argv[2]; '.$script, dirname(__DIR__, 2).'/bootstrap/app.php', dirname(__DIR__, 2).'/vendor/autoload.php'],
+            env: ['YANJI_PUBLIC_PATH'=>$public]);
+        $process->mustRun();
+        self::assertSame($public, $process->getOutput());
+    }
+
     public function test_unrelated_nonempty_directory_is_never_initialized(): void
     {
         $path = $this->directory.'/unrelated';
@@ -85,4 +98,16 @@ class PortableRuntimeTest extends TestCase
         (new Instance($path))->validateDestination();
     }
 
+    public function test_password_file_must_be_private_and_is_consumed_using_stdin(): void
+    {
+        $path = $this->directory.'/password';
+        file_put_contents($path, 'fixture-value');
+        chmod($path, 0600);
+        [$args, $input] = Installation::passwordInput(['yanji:install'], $path);
+        self::assertSame(['yanji:install','--password-stdin','--no-interaction'], $args);
+        self::assertSame("fixture-value\n", $input);
+        chmod($path, 0644);
+        $this->expectException(\RuntimeException::class);
+        Installation::passwordInput(['yanji:install'], $path);
+    }
 }
