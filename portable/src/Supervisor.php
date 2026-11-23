@@ -133,6 +133,7 @@ final class Supervisor
             pcntl_signal($signal, function (): void { $this->stopping = true; });
         }
         try {
+            $this->settleExpired();
             foreach (['web','worker','scheduler'] as $role) {
                 $this->spawn($role);
             }
@@ -211,6 +212,9 @@ final class Supervisor
         foreach ($this->children as $role => $child) {
             $pid = $child['pid'];
             if (!$this->exited($pid)) {
+                if ($role === 'worker') {
+                    JobClock::enforce($this->instance->root.'/run', $pid, $child['generation']);
+                }
                 continue;
             }
             posix_kill(-$pid, SIGKILL);
@@ -222,7 +226,21 @@ final class Supervisor
                 throw new RuntimeException('服务异常退出，已停止本实例。');
             }
             // A work-limit or memory exit and the framework's hard job timeout both require a successor.
+            $this->settleExpired();
             $this->spawn('worker');
+        }
+    }
+
+    private function settleExpired(): void
+    {
+        if (!is_file($this->instance->root.'/run/expired-job.json')) {
+            return;
+        }
+        $release = $this->instance->release();
+        $p = proc_open([$release.'/runtime/bin/php', $release.'/app/portable/settle-timeout.php'],
+            [0=>['file','/dev/null','r'], 1=>STDOUT, 2=>STDERR], $pipes, $release.'/app', $this->instance->environment());
+        if (!is_resource($p) || proc_close($p) !== 0) {
+            throw new RuntimeException('超时作业仍待确认，已暂停服务。');
         }
     }
 
@@ -237,6 +255,9 @@ final class Supervisor
         $deadline = microtime(true) + self::DRAIN_SECONDS;
         do {
             $running = array_filter($this->children, fn ($child) => !$this->exited($child['pid']));
+            if (isset($running['worker'])) {
+                JobClock::enforce($this->instance->root.'/run', $running['worker']['pid'], $running['worker']['generation']);
+            }
             if (!$running) {
                 break;
             }
@@ -248,6 +269,7 @@ final class Supervisor
             $this->event($role, 'stopped');
         }
         $this->children = [];
+        $this->settleExpired();
     }
 
     private function status(): array

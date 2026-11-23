@@ -9,7 +9,7 @@ use Yanji\Portable\Supervisor;
 use Yanji\Portable\Upgrade;
 
 umask(0077);
-foreach (['Instance','Supervisor','Installation'] as $class) {
+foreach (['Instance','Supervisor','Installation','JobClock'] as $class) {
     require __DIR__.'/src/'.$class.'.php';
 }
 if (is_file(__DIR__.'/src/Backup.php')) {
