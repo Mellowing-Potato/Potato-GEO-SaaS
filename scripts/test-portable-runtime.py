@@ -139,7 +139,7 @@ def scenario(args, work):
     threading.Thread(target=server.serve_forever, daemon=True).start()
     restored_instance = work / 'restored-instance'
     try:
-        subprocess.run(install, check=True)
+        subprocess.run(install, check=True, timeout=180)
         (instance / '.portable-acceptance').write_text('ok\n', encoding='utf-8')
         if not IS_WIN:
             (instance / '.portable-acceptance').chmod(0o600)
@@ -295,7 +295,17 @@ def scenario(args, work):
             launcher = inst / ('yanji.cmd' if IS_WIN else 'yanji')
             if launcher.exists():
                 cmd = ['cmd.exe', '/c', str(launcher), 'stop'] if IS_WIN else [str(launcher), 'stop']
-                subprocess.run(cmd, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(cmd, check=False, timeout=30, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if IS_WIN:
+            for inst in (instance, restored_instance):
+                ctrl = inst / 'run/control.json'
+                if ctrl.is_file():
+                    try:
+                        pid = json.loads(ctrl.read_text(encoding='utf-8')).get('pid')
+                        if isinstance(pid, int) and pid > 0:
+                            subprocess.run(['taskkill', '/PID', str(pid), '/T', '/F'], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    except Exception:
+                        pass
         server.shutdown()
         server.server_close()
 

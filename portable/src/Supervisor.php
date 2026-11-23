@@ -292,6 +292,8 @@ final class Supervisor
 
     private function serveWindows(): void
     {
+        $errLog = $this->instance->root.'/logs/manager-err.log';
+        @ini_set('error_log', $errLog);
         $this->startTime = time();
         $lock = fopen($this->instance->root.'/run/supervisor.lock', 'cb');
         if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
@@ -357,6 +359,9 @@ final class Supervisor
                     fclose($client);
                 }
             }
+        } catch (\Throwable $e) {
+            @file_put_contents($errLog, gmdate('c').' '.$e::class.': '.$e->getMessage()."\n", FILE_APPEND);
+            throw $e;
         } finally {
             $this->drainWindows();
             fclose($server);

@@ -390,9 +390,72 @@ PS;
     {
         $ps51 = <<<'PS'
 $ErrorActionPreference = 'Stop'
+$code = @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class YanjiDetacher {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct STARTUPINFO {
+        public int cb;
+        public string lpReserved;
+        public string lpDesktop;
+        public string lpTitle;
+        public int dwX, dwY, dwXSize, dwYSize, dwXCountChars, dwYCountChars, dwFillAttribute, dwFlags;
+        public short wShowWindow, cbReserved2;
+        public IntPtr lpReserved2, hStdInput, hStdOutput, hStdError;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct PROCESS_INFORMATION {
+        public IntPtr hProcess;
+        public IntPtr hThread;
+        public int dwProcessId;
+        public int dwThreadId;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool CreateProcessW(
+        string lpApplicationName,
+        StringBuilder lpCommandLine,
+        IntPtr lpProcessAttributes,
+        IntPtr lpThreadAttributes,
+        bool bInheritHandles,
+        uint dwCreationFlags,
+        IntPtr lpEnvironment,
+        string lpCurrentDirectory,
+        ref STARTUPINFO lpStartupInfo,
+        out PROCESS_INFORMATION lpProcessInformation
+    );
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr hObject);
+
+    public static int Launch(string exe, string cmdLine, string cwd) {
+        var si = new STARTUPINFO();
+        si.cb = Marshal.SizeOf(typeof(STARTUPINFO));
+        PROCESS_INFORMATION pi;
+        var sb = new StringBuilder(cmdLine);
+        bool ok = CreateProcessW(exe, sb, IntPtr.Zero, IntPtr.Zero, false, 0x08000200u, IntPtr.Zero, cwd, ref si, out pi);
+        if (!ok) {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+        int pid = pi.dwProcessId;
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+        return pid;
+    }
+}
+'@
+Add-Type -TypeDefinition $code -Language CSharp
 $count = [int]$env:YANJI_DETACH_ARGC
-$quoted = for ($i = 0; $i -lt $count; $i++) {
-    $s = [string][Environment]::GetEnvironmentVariable("YANJI_DETACH_ARG_$i")
+$all = @($env:YANJI_DETACH_EXE)
+for ($i = 0; $i -lt $count; $i++) {
+    $all += [string][Environment]::GetEnvironmentVariable("YANJI_DETACH_ARG_$i")
+}
+$quoted = foreach ($s in $all) {
     if ($s -eq '' -or $s -match '[\s"]') {
         $s = $s -replace '(\\*)"', '$1$1\"'
         $s = $s -replace '(\\+)$', '$1$1'
@@ -401,17 +464,19 @@ $quoted = for ($i = 0; $i -lt $count; $i++) {
         $s
     }
 }
-$argString = ($quoted -join ' ')
-$p = Start-Process -FilePath $env:YANJI_DETACH_EXE -ArgumentList $argString -WorkingDirectory $env:YANJI_DETACH_CWD -WindowStyle Hidden -RedirectStandardOutput $env:YANJI_DETACH_OUT -RedirectStandardError $env:YANJI_DETACH_ERR -PassThru
-Write-Output $p.Id
+$cmdLine = ($quoted -join ' ')
+$pidOut = [YanjiDetacher]::Launch($env:YANJI_DETACH_EXE, $cmdLine, $env:YANJI_DETACH_CWD)
+[System.IO.File]::WriteAllText($env:YANJI_DETACH_PIDFILE, "$pidOut")
 PS;
+        $pidFile = dirname($stderrLog).'/.spawn-pid-'.bin2hex(random_bytes(8));
         $values = array_values($args);
         $extra = [
             'YANJI_DETACH_EXE' => self::nativePath($exe),
             'YANJI_DETACH_ARGC' => (string) count($values),
             'YANJI_DETACH_CWD' => self::nativePath($cwd),
-            'YANJI_DETACH_OUT' => self::nativePath($stdoutLog),
-            'YANJI_DETACH_ERR' => self::nativePath($stderrLog),
+            'YANJI_DETACH_PIDFILE' => self::nativePath($pidFile),
+            'YANJI_MANAGER_LOG' => self::nativePath($stdoutLog),
+            'YANJI_MANAGER_ERR_LOG' => self::nativePath($stderrLog),
         ];
         foreach ($values as $idx => $val) {
             $extra['YANJI_DETACH_ARG_'.$idx] = (string) $val;
@@ -419,23 +484,27 @@ PS;
         $launchEnv = self::windowsPowerShellEnv($env + $extra);
         $proc = @proc_open(
             [self::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', self::encodePowerShellCommand($ps51)],
-            [0 => ['file', 'NUL', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            [0 => ['file', 'NUL', 'r'], 1 => ['file', 'NUL', 'w'], 2 => ['file', self::nativePath($stderrLog), 'a']],
             $pipes,
             $cwd,
             $launchEnv,
             ['bypass_shell' => true],
         );
-        if (!is_resource($proc)) {
-            throw new RuntimeException('无法在 Windows 上启动实例托管器。');
+        try {
+            if (!is_resource($proc)) {
+                throw new RuntimeException('无法在 Windows 上启动实例托管器。');
+            }
+            $code = proc_close($proc);
+            $out = is_file($pidFile) ? trim((string) file_get_contents($pidFile)) : '';
+            if ($code !== 0 || !preg_match('/\A\d+\z/', $out)) {
+                throw new RuntimeException('无法在 Windows 上确认后台托管器进程号。');
+            }
+            return (int) $out;
+        } finally {
+            if (is_file($pidFile)) {
+                @unlink($pidFile);
+            }
         }
-        $out = trim((string) stream_get_contents($pipes[1], 1024));
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-        $code = proc_close($proc);
-        if ($code !== 0 || !preg_match('/\A\d+\z/', $out)) {
-            throw new RuntimeException('无法在 Windows 上确认后台托管器进程号。');
-        }
-        return (int) $out;
     }
 
     public static function createDirectoryJunction(string $link, string $target): void

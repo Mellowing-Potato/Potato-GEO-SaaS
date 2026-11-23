@@ -13,7 +13,7 @@ jobs:
   windows-x64:
     name: Native Windows x64 Portable Build & Acceptance
     runs-on: windows-2025
-    timeout-minutes: 60
+    timeout-minutes: 20
     env:
       PYTHONUTF8: '1'
     steps:
@@ -168,6 +168,7 @@ jobs:
           if ($renderLines.Count -ne 11) { throw "Expected 11 rendered skill reports, got $($renderLines.Count)" }
 
       - name: Native Windows x64 full cold-install, timeout, private-404 and restore acceptance
+        timeout-minutes: 8
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
