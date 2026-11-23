@@ -132,7 +132,7 @@ final class Installation
     {
         if ($python !== null && (!str_starts_with($python, '/') || !is_executable($python)
             || strpbrk($python, "\r\n\0") !== false)) {
-            throw new RuntimeException('请指定本机 Python 解释器的绝对路径。');
+                throw new RuntimeException('请用 --python-bin 指定本机 Python 解释器的绝对路径。');
         }
         $bin = $python ?? $this->instance->pythonBin($release);
         if (!(self::probePython($bin)['basic'] ?? false)) {
