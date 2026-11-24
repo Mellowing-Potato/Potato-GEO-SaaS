@@ -363,4 +363,84 @@ PHP;
             self::assertFileDoesNotExist($i->root.'/bootstrap-cache/'.$cache);
         }
     }
+
+    public function test_publish_moves_readonly_staging_directory_and_preserves_readonly_mode(): void
+    {
+        $releases = $this->directory.'/releases';
+        mkdir($releases, 0700, true);
+        $stage = $releases.'/.incoming.first';
+        $secondStage = $releases.'/.incoming.second';
+        $target = $releases.'/published-digest';
+        mkdir($stage.'/app', 0700, true);
+        file_put_contents($stage.'/app/VERSION', "0.1.0\n");
+        mkdir($secondStage.'/app', 0700, true);
+        file_put_contents($secondStage.'/app/VERSION', "different\n");
+
+        try {
+            chmod($stage.'/app/VERSION', 0400);
+            chmod($stage.'/app', 0500);
+            chmod($stage, 0500);
+
+            $proc = new \Symfony\Component\Process\Process([
+                PHP_BINARY,
+                '-n',
+                dirname(__DIR__, 2).'/portable/publish.php',
+                $stage,
+                $target,
+            ]);
+            $proc->mustRun();
+
+            self::assertDirectoryDoesNotExist($stage);
+            self::assertDirectoryExists($target);
+            self::assertSame(0500, fileperms($target) & 0777);
+            self::assertSame(0400, fileperms($target.'/app/VERSION') & 0777);
+            self::assertSame("0.1.0\n", file_get_contents($target.'/app/VERSION'));
+
+            // Second publish for an existing target must succeed without replacing the published bytes.
+            chmod($secondStage.'/app/VERSION', 0400);
+            chmod($secondStage.'/app', 0500);
+            chmod($secondStage, 0500);
+            $second = new \Symfony\Component\Process\Process([
+                PHP_BINARY,
+                '-n',
+                dirname(__DIR__, 2).'/portable/publish.php',
+                $secondStage,
+                $target,
+            ]);
+            $second->mustRun();
+            self::assertSame("0.1.0\n", file_get_contents($target.'/app/VERSION'));
+            self::assertDirectoryExists($secondStage);
+
+            // Missing staging directory must fail closed with diagnostic detail.
+            $missing = new \Symfony\Component\Process\Process([
+                PHP_BINARY,
+                '-n',
+                dirname(__DIR__, 2).'/portable/publish.php',
+                $releases.'/.incoming.nonexistent',
+                $releases.'/never-created',
+            ]);
+            $missing->run();
+            self::assertSame(1, $missing->getExitCode());
+            self::assertStringContainsString('无法发布已核验的程序版本', $missing->getErrorOutput());
+            self::assertStringContainsString('rename(', $missing->getErrorOutput());
+            self::assertDirectoryDoesNotExist($releases.'/never-created');
+
+            // Unix installer must invoke publish.php from preflight, never from inside the stage being renamed.
+            $installer = file_get_contents(dirname(__DIR__, 2).'/scripts/install-local.sh');
+            self::assertStringContainsString('"$scratch/preflight/runtime/bin/php" -n "$scratch/preflight/app/portable/publish.php" "$stage" "$release"', $installer);
+            self::assertStringNotContainsString('"$stage/runtime/bin/php" -n "$stage/app/portable/publish.php"', $installer);
+        } finally {
+            foreach ([$stage, $secondStage, $target] as $dir) {
+                if (is_dir($dir)) {
+                    @chmod($dir, 0700);
+                    if (is_dir($dir.'/app')) {
+                        @chmod($dir.'/app', 0700);
+                    }
+                    if (is_file($dir.'/app/VERSION')) {
+                        @chmod($dir.'/app/VERSION', 0600);
+                    }
+                }
+            }
+        }
+    }
 }
