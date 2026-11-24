@@ -203,14 +203,14 @@ PS;
         return self::windowsUserIdentity()['sid'];
     }
 
-    private static function windowsPowerShell(): string
+    public static function windowsPowerShell(): string
     {
         $sysRoot = getenv('SystemRoot') ?: (getenv('WINDIR') ?: 'C:\\Windows');
         $ps = rtrim($sysRoot, '\\/').'\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
         return is_file($ps) ? $ps : 'powershell.exe';
     }
 
-    private static function windowsPowerShellEnv(array $env): array
+    public static function windowsPowerShellEnv(array $env): array
     {
         $sysRoot = getenv('SystemRoot') ?: (getenv('WINDIR') ?: 'C:\\Windows');
         $psMod = rtrim($sysRoot, '\\/').'\\System32\\WindowsPowerShell\\v1.0\\Modules';

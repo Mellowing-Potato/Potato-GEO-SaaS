@@ -190,6 +190,11 @@ $pyCmd = if (Get-Command python -ErrorAction SilentlyContinue) { 'python' } else
 if ($LASTEXITCODE -ne 0) { throw "collect-web-go-notices.py failed" }
 Copy-Item (Join-Path $frankenSrc 'LICENSE') (Join-Path $noticesStage 'frankenphp-LICENSE.txt')
 Copy-Item (Join-Path $brotliSrc 'LICENSE') (Join-Path $noticesStage 'brotli-LICENSE.txt')
+$pthreadsNotice = Get-ChildItem (Join-Path $vcpkgInstalled 'share') -Recurse -File -Filter 'copyright' -ErrorAction SilentlyContinue | Where-Object { $_.Directory.Name -match 'pthread' } | Select-Object -First 1
+if (-not $pthreadsNotice) {
+    throw "Missing vcpkg pthreads license/copyright file in $vcpkgInstalled\share"
+}
+Copy-Item $pthreadsNotice.FullName (Join-Path $noticesStage 'pthreads-LICENSE.txt')
 if (Test-Path (Join-Path $phpRuntimeDir 'license.txt')) {
     Copy-Item (Join-Path $phpRuntimeDir 'license.txt') (Join-Path $noticesStage 'php-LICENSE.txt')
 }
@@ -253,6 +258,8 @@ foreach ($ext in @('php_curl.dll', 'php_fileinfo.dll', 'php_gd.dll', 'php_mbstri
     Copy-Item (Join-Path $phpRuntimeDir "ext\$ext") (Join-Path $cliRuntimeStage "bin\ext\$ext")
 }
 Copy-Item $caPem (Join-Path $cliRuntimeStage 'ca\cacert.pem')
+$caNoticeText = "Mozilla CA certificate bundle extracted by curl (https://curl.se/docs/caextract.html).`nSource URL: $($Spec.ca_bundle.url)`nSHA-256: $($Spec.ca_bundle.sha256)`nLicense: MPL-2.0 (https://www.mozilla.org/en-US/MPL/2.0/)`n"
+[System.IO.File]::WriteAllText((Join-Path $cliRuntimeStage 'ca\NOTICE.txt'), $caNoticeText, [System.Text.UTF8Encoding]::new($false))
 if (Test-Path (Join-Path $phpRuntimeDir 'license.txt')) {
     Copy-Item (Join-Path $phpRuntimeDir 'license.txt') (Join-Path $cliRuntimeStage 'notices\php\LICENSE.txt')
 }

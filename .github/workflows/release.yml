@@ -284,12 +284,17 @@ jobs:
           tar -xzf "$cli_path" -C /tmp/yanji-php
           php_bin=$(find /tmp/yanji-php -path '*/bin/php' -type f | head -n 1)
           test -x "$php_bin"
+          ca_pem=$(find /tmp/yanji-php -name 'cacert.pem' -type f | head -n 1 || true)
+          if [ -z "$ca_pem" ]; then
+            ca_pem=$(python3 -c "import json; print(json.load(open('/tmp/yanji-rt/${TARGET_PLATFORM}-inputs.json')).get('ca',{}).get('path',''))")
+          fi
+          test -f "$ca_pem"
           curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
             --output /tmp/composer.phar https://getcomposer.org/download/2.8.12/composer.phar
           actual_composer=$(python3 -c "import hashlib; print(hashlib.file_digest(open('/tmp/composer.phar','rb'),'sha256').hexdigest())")
           test "$actual_composer" = "f446ea719708bb85fcbf4ef18def5d0515f1f9b4d703f6d820c9c1656e10a2f2"
           cp composer.json composer.lock /tmp/yanji-vendor/
-          (cd /tmp/yanji-vendor && "$php_bin" /tmp/composer.phar install --no-dev --no-interaction --no-scripts --prefer-dist --optimize-autoloader)
+          (cd /tmp/yanji-vendor && "$php_bin" -n -d "curl.cainfo=$ca_pem" -d "openssl.cafile=$ca_pem" /tmp/composer.phar install --no-dev --no-interaction --no-scripts --prefer-dist --optimize-autoloader)
           find /tmp/yanji-vendor/vendor -type d -name .git -exec rm -rf {} +
 
       - name: Assemble and verify portable package
@@ -325,6 +330,15 @@ jobs:
           subprocess.run(cmd, check=True)
           PY
           sums_sha=$(python3 -c "import hashlib; print(hashlib.file_digest(open('/tmp/yanji-candidate/SHA256SUMS','rb'),'sha256').hexdigest())")
+          mkdir -p /tmp/yanji-render-check
+          tar -xzf "/tmp/yanji-candidate/yanji-${TARGET_PLATFORM}.tar.gz" -C /tmp/yanji-render-check
+          cp -R /tmp/yanji-vendor/vendor ./vendor
+          render_out=$(YANJI_REPORT_FONTS_DIR=/tmp/yanji-render-check/runtime/fonts \
+            /tmp/yanji-render-check/runtime/bin/php scripts/test-skill-render-matrix.php \
+            --skills=/tmp/yanji-render-check/app/yao-geo-skills/skills \
+            --python=/tmp/yanji-render-check/runtime/python/bin/python3 --mode=optional)
+          printf '%s\n' "$render_out"
+          test "$(printf '%s\n' "$render_out" | grep -c '^yao-geo-')" -eq 11
           python3 scripts/test-portable-runtime.py --package-dir /tmp/yanji-candidate --manifest-sha256 "$sums_sha"
 
       - name: Upload verified Unix portable release artifact

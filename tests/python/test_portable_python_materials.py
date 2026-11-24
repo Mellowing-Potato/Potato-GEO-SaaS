@@ -218,18 +218,18 @@ class PortablePythonMaterialsTest(unittest.TestCase):
         sums = out / 'SHA256SUMS'
         self.assertIn('yanji-windows-x86_64.zip', sums.read_text(encoding='utf-8'))
 
-        # Verify one-line release bootstrap generator against the emitted SHA256SUMS
+        # Verify one-line release bootstrap generator against the Windows-only SHA256SUMS
         boot_out = self.root / 'boot'
         res = bootstrap.generate('https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.0', sums, boot_out)
         sh_file = boot_out / 'get-yanji.sh'
         ps1_file = boot_out / 'get-yanji.ps1'
-        self.assertTrue(sh_file.is_file() and ps1_file.is_file())
-        self.assertIn(res['manifest_sha256'], sh_file.read_text(encoding='utf-8'))
+        self.assertFalse(sh_file.exists())
+        self.assertTrue(ps1_file.is_file())
         ps1_text = ps1_file.read_text(encoding='utf-8')
         self.assertIn(res['manifest_sha256'], ps1_text)
         self.assertIn('& {', ps1_text)
+        self.assertIn('WebException', ps1_text)
         self.assertNotIn('exit $LASTEXITCODE', ps1_text)
-        subprocess.run(['sh', '-n', str(sh_file)], check=True)
         with self.assertRaisesRegex(ValueError, 'HTTPS'):
             bootstrap.generate('http://example.com/release', sums, boot_out)
 
@@ -271,7 +271,9 @@ class PortablePythonMaterialsTest(unittest.TestCase):
             all_res['files'],
         )
         self.assertTrue((combined / 'get-yanji.sh').is_file() and (combined / 'get-yanji.ps1').is_file())
-        self.assertIn(all_res['manifest_sha256'], (combined / 'get-yanji.sh').read_text(encoding='utf-8'))
+        sh_text = (combined / 'get-yanji.sh').read_text(encoding='utf-8')
+        self.assertIn(all_res['manifest_sha256'], sh_text)
+        self.assertNotIn('exec /bin/sh', sh_text)
         self.assertIn(all_res['manifest_sha256'], (combined / 'get-yanji.ps1').read_text(encoding='utf-8'))
         subprocess.run(['sh', '-n', str(combined / 'get-yanji.sh')], check=True)
 

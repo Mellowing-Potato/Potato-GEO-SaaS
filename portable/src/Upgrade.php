@@ -85,7 +85,9 @@ final class Upgrade
                 throw new RuntimeException('回滚文件无法恢复，保留维护门和原备份 '.$backup);
             }
         }
-        (new Installation($i))->configure($old, $port);
+        $setup = new Installation($i);
+        $setup->configure($old, $port);
+        $setup->protectInstancePaths();
         if ($i->artisan(['yanji:ready','--portable'], quiet:true) !== 0) {
             throw new RuntimeException('恢复后就绪检查失败，保留维护门和原备份 '.$backup);
         }

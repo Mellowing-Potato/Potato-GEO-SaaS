@@ -195,7 +195,7 @@ class RenderBridgeService
                 $this->commandFor($assets, $jsonData, $tempDir, $inputFile, $outputDir)
             );
             $process->setTimeout(180);
-            $env = ['PYTHONIOENCODING' => 'utf-8'];
+            $env = ['PYTHONIOENCODING' => 'utf-8', 'PYTHONUTF8' => '1'];
             $fontsDir = trim((string) config('geo.report_fonts_dir', ''));
             if ($fontsDir !== '') {
                 $env['YANJI_REPORT_FONTS_DIR'] = $fontsDir;

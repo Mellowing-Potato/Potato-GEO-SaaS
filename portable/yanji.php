@@ -76,7 +76,7 @@ function runPortable(array $args): int
         $installed = $i->release();
         if (Platform::isWindows()) {
             $script = Platform::nativePath($installed.'/app/scripts/install-local.ps1');
-            $forward = ['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script,
+            $forward = [Platform::windowsPowerShell(), '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script,
                 '-Upgrade', '-ProgramHome', Platform::nativePath(dirname($installed, 2)), '-Instance', Platform::nativePath($i->root)];
             $map = ['manifest' => '-Manifest', 'manifest-sha256' => '-ManifestSha256', 'package' => '-Package'];
             foreach ($map as $key => $flag) {
@@ -84,6 +84,7 @@ function runPortable(array $args): int
                     array_push($forward, $flag, $options[$key]);
                 }
             }
+            $procEnv = Platform::windowsPowerShellEnv(getenv());
         } else {
             $script = $installed.'/app/scripts/install-local.sh';
             $forward = ['/bin/sh', $script, '--upgrade', '--program-home', dirname($installed, 2), '--instance', $i->root];
@@ -92,8 +93,9 @@ function runPortable(array $args): int
                     array_push($forward, '--'.$key, $options[$key]);
                 }
             }
+            $procEnv = null;
         }
-        $p = proc_open($forward, [STDIN, STDOUT, STDERR], $pipes, null, null, ['bypass_shell' => true]);
+        $p = proc_open($forward, [STDIN, STDOUT, STDERR], $pipes, null, $procEnv, ['bypass_shell' => true]);
         return is_resource($p) ? proc_close($p) : 1;
     }
     if ($command === '__install') {

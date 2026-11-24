@@ -219,7 +219,21 @@ final class Instance
             }
             fclose($handle);
             $handle = null;
-            if (!rename($tmp, $path)) {
+            $moved = false;
+            $attempts = Platform::isWindows() ? 10 : 1;
+            for ($i = 0; $i < $attempts; $i++) {
+                if (@rename($tmp, $path)) {
+                    $moved = true;
+                    break;
+                }
+                if (Platform::isWindows() && is_file($path)) {
+                    @chmod($path, 0600);
+                }
+                if ($i + 1 < $attempts) {
+                    usleep(25000);
+                }
+            }
+            if (!$moved) {
                 throw new RuntimeException('无法发布实例文件。');
             }
         } finally {
@@ -421,6 +435,7 @@ final class Instance
             'XDG_CONFIG_HOME' => $this->root.'/xdg/config', 'XDG_DATA_HOME' => $this->root.'/xdg/data',
             'YANJI_CA_BUNDLE' => Platform::isWindows() ? Platform::windowsShortPath($release.'/runtime/ca/cacert.pem') : $release.'/runtime/ca/cacert.pem',
             'PYTHONDONTWRITEBYTECODE' => '1',
+            'PYTHONUTF8' => '1',
             'PHPRC' => Platform::isWindows() ? Platform::windowsIniDir($this->root) : $this->root.'/php.ini',
             'PHP_INI_SCAN_DIR' => '',
         ]);

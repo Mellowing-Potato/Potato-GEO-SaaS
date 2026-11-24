@@ -176,7 +176,19 @@ final class Installation
     private static function probePython(string $bin): array
     {
         $keep = ['HOME', 'LANG', 'LC_ALL', 'PATH', 'TMPDIR', 'SystemRoot', 'TEMP', 'TMP', 'LOCALAPPDATA', 'USERPROFILE'];
-        $env = array_intersect_key(getenv(), array_flip($keep));
+        if (Platform::isWindows()) {
+            $keepUpper = array_flip(array_map('strtoupper', $keep));
+            $env = [];
+            foreach (getenv() as $k => $v) {
+                if (isset($keepUpper[strtoupper((string) $k)])) {
+                    $env[$k] = $v;
+                }
+            }
+        } else {
+            $env = array_intersect_key(getenv(), array_flip($keep));
+        }
+        $env['PYTHONUTF8'] = '1';
+        $env['PYTHONDONTWRITEBYTECODE'] = '1';
         $script = <<<'PYTHON'
 import importlib
 import json

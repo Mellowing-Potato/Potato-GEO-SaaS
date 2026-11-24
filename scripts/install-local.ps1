@@ -19,13 +19,10 @@ $ErrorActionPreference = 'Stop'
 if ($PSVersionTable.PSEdition -eq 'Desktop' -and $env:SystemRoot) {
     $env:PSModulePath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\Modules'
 }
-try {
-    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-    [Console]::OutputEncoding = $utf8NoBom
-    [Console]::InputEncoding = $utf8NoBom
-    $OutputEncoding = $utf8NoBom
-} catch {
-}
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+$OutputEncoding = $utf8NoBom
+try { [Console]::OutputEncoding = $utf8NoBom } catch {}
+try { [Console]::InputEncoding = $utf8NoBom } catch {}
 
 if ($Help) {
     Write-Output 'install-local.ps1 -Manifest SHA256SUMS -ManifestSha256 SHA [-Package ZIP] [-ProgramHome DIR] [-Instance DIR] [-Port PORT] [-Email EMAIL] [-PasswordFile FILE] [-PythonBin PYTHON] [-Upgrade] [-Diagnosis]'
@@ -93,7 +90,16 @@ function Download-Https([string]$Url, [string]$Dest) {
         $req = [System.Net.HttpWebRequest]::Create($current)
         $req.AllowAutoRedirect = $false
         $req.UserAgent = 'Yanji-Installer/1.0'
-        $resp = $req.GetResponse()
+        $resp = $null
+        try {
+            $resp = $req.GetResponse()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response -and ([int]$_.Exception.Response.StatusCode -in 301, 302, 303, 307, 308)) {
+                $resp = $_.Exception.Response
+            } else {
+                throw
+            }
+        }
         try {
             $code = [int]$resp.StatusCode
             if ($code -in 301, 302, 303, 307, 308) {
@@ -101,6 +107,9 @@ function Download-Https([string]$Url, [string]$Dest) {
                 if (-not $loc) { Fail '远端重定向缺少目标地址。' }
                 $current = ([System.Uri]::new([System.Uri]::new($current), $loc)).AbsoluteUri
                 continue
+            }
+            if ($code -ne 200) {
+                Fail "远端下载返回异常状态码：$code"
             }
             $inStream = $resp.GetResponseStream()
             $outStream = [System.IO.File]::Create($Dest)
@@ -210,10 +219,10 @@ try {
         $seen = @{}
         foreach ($entry in $zip.Entries) {
             $name = $entry.FullName
-            if ($name.EndsWith('/')) { continue }
             if ($name.StartsWith('/') -or $name -match '^[A-Za-z]:' -or $name -match '\\' -or $name -match '(^|/)\.\.(/|$)' -or $name -match '[\x00-\x1f]') {
                 Fail "安装包包含不安全路径：$name"
             }
+            if ($name.EndsWith('/')) { continue }
             if ($seen.ContainsKey($name)) { Fail "安装包包含重复条目：$name" }
             $seen[$name] = $true
         }
@@ -268,8 +277,28 @@ try {
         if (-not (Test-Path -LiteralPath $stage)) { $stage = $null }
     }
 
+    $relItem = Get-Item -LiteralPath $release -Force
+    if ($relItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+        Fail '程序版本目录不能为符号链接或联接。'
+    }
     $cachedDigest = (Get-Content -LiteralPath (Join-Path $release '.archive-sha256') -Raw).Trim()
     if ($cachedDigest -ne $pkgSha) { Fail '程序版本摘要校验失败。' }
+
+    # Verify cached inventory and reject any symlink/reparse point inside the release tree
+    $cachedInvPath = Join-Path $release 'PACKAGE-FILES.sha256'
+    if (-not (Test-Path -LiteralPath $cachedInvPath -PathType Leaf)) {
+        Fail '程序文件清单缺失。'
+    }
+    $cachedInvContent = [System.IO.File]::ReadAllText($cachedInvPath, [System.Text.Encoding]::UTF8)
+    if ($cachedInvContent -cne $manifestFilesContent) {
+        Fail '程序文件清单已更改。'
+    }
+    $allItems = @(Get-ChildItem -LiteralPath $release -Recurse -Force)
+    foreach ($it in $allItems) {
+        if ($it.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+            Fail "程序目录包含未认证的链接：$($it.FullName)"
+        }
+    }
 
     # Verify every file in the cached release against the authenticated PACKAGE-FILES.sha256
     $expectedLines = @($manifestFilesContent -split "`r?`n" | Where-Object { $_.Trim() -ne '' })
@@ -282,7 +311,7 @@ try {
         if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { Fail "程序文件缺失：$rel" }
         if ((Get-Sha256 $full) -ne $Matches[1]) { Fail "程序字节与发行清单不同：$rel" }
     }
-    $actualFiles = @(Get-ChildItem -LiteralPath $release -Recurse -File -Force)
+    $actualFiles = @($allItems | Where-Object { -not $_.PSIsContainer })
     if ($actualFiles.Count -ne ($expectedMap.Count + 2)) {
         Fail '程序目录存在额外文件，请选择新的程序目录。'
     }
@@ -290,9 +319,16 @@ try {
     $mode = if ($Upgrade) { '__upgrade' } else { '__install' }
     $relPhp = Join-Path $release 'runtime\bin\php.exe'
     $relCli = Join-Path $release 'app\portable\yanji.php'
-    $relExt = Join-Path $release 'runtime\bin\ext'
-    $env:YANJI_EXT_DIR = $relExt
-    $env:YANJI_CA_BUNDLE = Join-Path $release 'runtime\ca\cacert.pem'
+    $relForIni = $release
+    if ($relForIni -match '[^\x20-\x7e]') {
+        try {
+            $fso = [Activator]::CreateInstance([Type]::GetTypeFromProgID('Scripting.FileSystemObject'))
+            $shortRel = $fso.GetFolder($release).ShortPath
+            if ($shortRel) { $relForIni = $shortRel }
+        } catch {}
+    }
+    $env:YANJI_EXT_DIR = Join-Path $relForIni 'runtime\bin\ext'
+    $env:YANJI_CA_BUNDLE = Join-Path $relForIni 'runtime\ca\cacert.pem'
     $cmdArgs = @(
         '-n',
         '-d', 'extension_dir=${YANJI_EXT_DIR}',

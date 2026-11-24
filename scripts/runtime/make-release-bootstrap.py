@@ -30,10 +30,11 @@ def generate(base_url: str, sums_path: Path, output_dir: Path) -> dict[str, str]
         raise ValueError('Release base URL must use HTTPS')
     sums_sha = sha256_file(sums_path)
     entries = parse_sums(sums_path)
-    has_sh = 'install-local.sh' in entries
-    has_ps1 = 'install-local.ps1' in entries
+    unix_packages = {'yanji-macos-arm64.tar.gz', 'yanji-linux-aarch64.tar.gz', 'yanji-linux-x86_64.tar.gz'}
+    has_sh = 'install-local.sh' in entries and any(name in entries for name in unix_packages)
+    has_ps1 = 'install-local.ps1' in entries and 'yanji-windows-x86_64.zip' in entries
     if not has_sh and not has_ps1:
-        raise ValueError('SHA256SUMS missing install-local.sh and install-local.ps1')
+        raise ValueError('SHA256SUMS missing matching platform archive and installer pair')
 
     output_dir.mkdir(parents=True, exist_ok=True)
     result = {'manifest_sha256': sums_sha}
@@ -60,9 +61,9 @@ trap 'exit 1' HUP INT TERM
 curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --output "$tmp/install-local.sh" "$BASE_URL/install-local.sh"
 [ "$(hash "$tmp/install-local.sh")" = "$INSTALLER_SHA256" ] || fail '安装脚本校验失败。'
 if [ ! -t 0 ] && [ -r /dev/tty ]; then
-    exec /bin/sh "$tmp/install-local.sh" --manifest "$BASE_URL/SHA256SUMS" --manifest-sha256 "$MANIFEST_SHA256" "$@" </dev/tty
+    /bin/sh "$tmp/install-local.sh" --manifest "$BASE_URL/SHA256SUMS" --manifest-sha256 "$MANIFEST_SHA256" "$@" </dev/tty
 else
-    exec /bin/sh "$tmp/install-local.sh" --manifest "$BASE_URL/SHA256SUMS" --manifest-sha256 "$MANIFEST_SHA256" "$@"
+    /bin/sh "$tmp/install-local.sh" --manifest "$BASE_URL/SHA256SUMS" --manifest-sha256 "$MANIFEST_SHA256" "$@"
 fi
 '''
         sh_out = output_dir / 'get-yanji.sh'
@@ -89,7 +90,16 @@ fi
             $req = [System.Net.HttpWebRequest]::Create($current)
             $req.AllowAutoRedirect = $false
             $req.UserAgent = 'Yanji-Bootstrap/1.0'
-            $resp = $req.GetResponse()
+            $resp = $null
+            try {{
+                $resp = $req.GetResponse()
+            }} catch [System.Net.WebException] {{
+                if ($_.Exception.Response -and ([int]$_.Exception.Response.StatusCode -in 301, 302, 303, 307, 308)) {{
+                    $resp = $_.Exception.Response
+                }} else {{
+                    throw
+                }}
+            }}
             try {{
                 $code = [int]$resp.StatusCode
                 if ($code -in 301, 302, 303, 307, 308) {{
@@ -97,6 +107,9 @@ fi
                     if (-not $loc) {{ throw '远端重定向缺少目标地址。' }}
                     $current = ([System.Uri]::new([System.Uri]::new($current), $loc)).AbsoluteUri
                     continue
+                }}
+                if ($code -ne 200) {{
+                    throw "远端下载返回异常状态码：$code"
                 }}
                 $inStream = $resp.GetResponseStream()
                 $outStream = [System.IO.File]::Create($installer)

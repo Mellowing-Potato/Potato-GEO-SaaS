@@ -56,7 +56,21 @@ final class InstanceEnvironment
                 } finally {
                     fclose($file);
                 }
-                if (! rename($temp, $path)) {
+                $moved = false;
+                $attempts = PHP_OS_FAMILY === 'Windows' ? 10 : 1;
+                for ($i = 0; $i < $attempts; $i++) {
+                    if (@rename($temp, $path)) {
+                        $moved = true;
+                        break;
+                    }
+                    if (PHP_OS_FAMILY === 'Windows' && is_file($path)) {
+                        @chmod($path, 0600);
+                    }
+                    if ($i + 1 < $attempts) {
+                        usleep(25000);
+                    }
+                }
+                if (! $moved) {
                     throw new RuntimeException('无法原子更新实例配置。');
                 }
             } finally {
