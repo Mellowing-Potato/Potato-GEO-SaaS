@@ -88,7 +88,7 @@ awk 'substr($0,1,1)!="-" && substr($0,1,1)!="d" {exit 1}' "$scratch/types" || fa
 # Resolve both physical destinations before changing directories supplied by the user.
 # The checker and standalone CLI come directly from the already authenticated archive.
 mkdir "$scratch/preflight"
-tar -xzf "$scratch/package" -C "$scratch/preflight" runtime/bin/php app/portable/preflight.php app/portable/src/Platform.php app/portable/src/Instance.php
+tar -xzf "$scratch/package" -C "$scratch/preflight" runtime/bin/php app/portable/preflight.php app/portable/publish.php app/portable/src/Platform.php app/portable/src/Instance.php
 "$scratch/preflight/runtime/bin/php" -n "$scratch/preflight/app/portable/preflight.php" "$program" "$instance" > "$scratch/paths"
 { IFS= read -r program; IFS= read -r instance; } < "$scratch/paths"
 [ ! -L "$program" ] && [ ! -L "$program/releases" ] || fail '程序目录不能为符号链接。'
@@ -105,7 +105,7 @@ if [ ! -d "$release" ]; then
     [ -x "$stage/runtime/bin/php" ] && [ -x "$stage/runtime/bin/frankenphp" ] && [ -f "$stage/app/portable/yanji.php" ] || fail '安装包布局无效。'
     printf '%s\n' "$digest" > "$stage/.archive-sha256"
     chmod -R a-w "$stage"
-    "$stage/runtime/bin/php" -n "$stage/app/portable/publish.php" "$stage" "$release"
+    "$scratch/preflight/runtime/bin/php" -n "$scratch/preflight/app/portable/publish.php" "$stage" "$release"
     if [ ! -d "$stage" ]; then stage=; fi
 fi
 [ ! -L "$release" ] && [ "$(cat "$release/.archive-sha256")" = "$digest" ] || fail '程序版本校验失败。'
