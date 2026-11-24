@@ -186,6 +186,10 @@ jobs:
           python -m unittest discover -s tests/python -p test_render_matrix_acceptance.py
           if ($LASTEXITCODE -ne 0) { throw 'Missing ReportLab passed release acceptance' }
 
+      - name: Reject text-equivalent inventory encoding tampering in Windows PowerShell 5.1
+        shell: powershell
+        run: ./tests/powershell/InstallerInventoryTest.ps1
+
       - name: Native Windows x64 full cold-install, timeout, private-404 and restore acceptance
         timeout-minutes: 8
         shell: pwsh

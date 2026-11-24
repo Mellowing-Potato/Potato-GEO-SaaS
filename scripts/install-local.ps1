@@ -234,8 +234,10 @@ try {
                 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
                 [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $dest, $true)
             } elseif ($entry.FullName -eq 'PACKAGE-FILES.sha256') {
-                $reader = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
-                try { $manifestFilesContent = $reader.ReadToEnd() } finally { $reader.Dispose() }
+                $manifestPath = Join-Path $scratch 'PACKAGE-FILES.sha256'
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $manifestPath, $true)
+                $manifestFilesSha256 = Get-Sha256 $manifestPath
+                $manifestFilesContent = [System.IO.File]::ReadAllText($manifestPath, [System.Text.Encoding]::UTF8)
             }
         }
     } finally {
@@ -289,8 +291,7 @@ try {
     if (-not (Test-Path -LiteralPath $cachedInvPath -PathType Leaf)) {
         Fail '程序文件清单缺失。'
     }
-    $cachedInvContent = [System.IO.File]::ReadAllText($cachedInvPath, [System.Text.Encoding]::UTF8)
-    if ($cachedInvContent -cne $manifestFilesContent) {
+    if ((Get-Sha256 $cachedInvPath) -ne $manifestFilesSha256) {
         Fail '程序文件清单已更改。'
     }
     $allItems = @(Get-ChildItem -LiteralPath $release -Recurse -Force)

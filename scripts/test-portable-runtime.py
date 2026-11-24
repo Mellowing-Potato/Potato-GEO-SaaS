@@ -296,12 +296,34 @@ def scenario(args, work):
             if not IS_WIN:
                 asset.chmod(0o400)
 
+        # Decoding to the same text must never authenticate different inventory bytes.
+        inventory_path = release / 'PACKAGE-FILES.sha256'
+        original_inventory = inventory_path.read_bytes()
+        if not IS_WIN:
+            inventory_path.chmod(0o600)
+        try:
+            for altered in (
+                b'\xef\xbb\xbf' + original_inventory,
+                original_inventory.decode('utf-8').encode('utf-16'),
+            ):
+                inventory_path.write_bytes(altered)
+                changed = subprocess.run(install, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=120)
+                if changed.returncode == 0 or '程序文件清单已更改' not in changed.stderr:
+                    raise AssertionError('Changed inventory bytes passed the authenticated cache check: ' + changed.stderr)
+                if status().get('state') != 'stopped':
+                    raise AssertionError('Inventory tampering started the instance')
+        finally:
+            inventory_path.write_bytes(original_inventory)
+            if not IS_WIN:
+                inventory_path.chmod(0o400)
+
         return dict(
             platform='windows-x86_64' if IS_WIN else os.uname().sysname.lower(),
             ready=True,
             private_static_404=True,
             backup_restore_verified=True,
             cached_tampering_rejected=True,
+            inventory_encoding_tampering_rejected=True,
             clean_cache_reinstalled=True,
             shared_cache_second_instance=True,
             completed_jobs=len(rows),
