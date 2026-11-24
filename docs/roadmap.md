@@ -7,8 +7,8 @@
 ## 公开推广之前
 
 - [ ] **R1 首个版本 v0.1.0**：补版本号和更新日志；核对 Linux amd64 的安装和主要流程，把 README 里 amd64 的验证状态改成实际结果。版本标签由维护者本人推送，助手不打标签。
-  - 已完成版本准备：新增 `VERSION`，更新 v0.1.0 未发布日志和 README；剩余 Linux amd64 安装及主要流程实测，取得结果后更新验证状态。
-- [ ] **R2 上手说明**：README 增加三分钟上手流程和界面截图位置说明；另写一份英文 README（`README.en.md`），内容与中文版一致，不新增承诺。
+  - 已发布 `v0.1.0`（含双架构 Docker 镜像与四平台免 Docker 便携包，原生 `linux-x86_64` 便携全链路已通过）；剩余 Linux amd64 Docker 的完整手工安装及主要业务流程实测，取得结果后更新验证状态并关闭本项。
+- [x] **R2 上手说明**：README 增加三分钟上手流程、SEO/GEO 检索结构与界面截图位置说明；新增英文 README（`README.en.md`），内容与中文版一致，不新增承诺。
 - [ ] **R3 Issue 与 PR 模板**：缺陷、功能建议两个 Issue 模板和一个 PR 模板；PR 模板把“跑过的检查”和“没跑的检查”设为必填。
 - [ ] **R4 清理停用代码**：README 已说明没有充值和订购功能。核对 `app/Services` 下计费和旧账号对接相关目录是否仍被引用；确认无引用的删除，仍被引用的在 PR 里列出引用位置，不强行删除。
 
@@ -27,7 +27,7 @@
 - [x] **P5 渲染与材料入库**：Python/技能/字体路径配置化，随包内置 Python 3.12.16 与开源字体；11 个实际渲染入口在 macOS arm64、原生 Windows x64 与双架构 Linux 通过（无宿主机 Python）；缺可选 PDF 引擎或 Poppler 明确降级与提示。
 - [x] **P2/P3 安装与托管**：跨平台本地安装入口（`install-local.sh` / `install-local.ps1` 与固定摘要引导脚本）；macOS/Linux/Windows Web、独立 PHP CLI 队列和调度器托管；一致快照备份恢复、改密、升级；在 macOS arm64 实机与原生 Windows x64 CI 通过独立冷实例隔离、404 护栏、超时接替、热停排水及分钟心跳。
 - [x] **P6 模型接入**：保留双模型及第三方直连；本机 Magpie 探测默认拒绝、显式授权且按实际工作区合并配置；macOS arm64 便携版真实浏览器已核对 `#aikeys` 双入口。
-- [ ] **P1/P7 发布验收**：已完成无 Mercure/Vulcain Web 运行时自建（macOS arm64、Linux aarch64/x86_64、Windows x64，Brotli 升至 1.2.1）、14 项 C 依赖 CVE 核对、随包 Python/字体审计及发布工作流（`.github/workflows/release.yml`）接入；Intel Mac (`macos-x64`) 不纳入首批范围；剩余维护者审阅合并、推送 `v0.1.0` 标签正式发布、Windows 本机桌面浏览器手工复核及 Linux 原生 x86_64 便携冷安装实测。
+- [ ] **P1/P7 发布验收**：已完成无 Mercure/Vulcain Web 运行时自建（macOS arm64、Linux aarch64/x86_64、Windows x64，Brotli 升至 1.2.1）、14 项 C 依赖 CVE 核对、随包 Python/字体审计及发布工作流（`.github/workflows/release.yml`）全绿发行 `v0.1.0`（四平台原生冷安装验收含 `linux-x86_64` 均已通过）；Intel Mac (`macos-x64`) 不纳入首批范围；剩余 Windows 本机桌面浏览器手工复核。
 
 ## 等待维护者实测
 
