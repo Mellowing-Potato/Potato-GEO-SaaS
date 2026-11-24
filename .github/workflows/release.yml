@@ -399,10 +399,21 @@ jobs:
       - name: Upload verified portable assets to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           VERSION: ${{ github.ref_name }}
         run: |
-          if gh release view "$VERSION" >/dev/null 2>&1; then
-            gh release upload "$VERSION" /tmp/yanji-release/* --clobber
-          else
-            gh release create "$VERSION" /tmp/yanji-release/* --title "$VERSION" --generate-notes
+          if ! gh release view "$VERSION" --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release create "$VERSION" --repo "$GH_REPO" --title "$VERSION" --generate-notes
           fi
+          for asset in /tmp/yanji-release/*; do
+            test -f "$asset" || continue
+            ok=0
+            for attempt in 1 2 3 4; do
+              if gh release upload "$VERSION" "$asset" --repo "$GH_REPO" --clobber; then
+                ok=1
+                break
+              fi
+              sleep $((attempt * 5))
+            done
+            test "$ok" -eq 1
+          done
