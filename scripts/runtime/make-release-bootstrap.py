@@ -37,6 +37,11 @@ def generate(base_url: str, sums_path: Path, output_dir: Path) -> dict[str, str]
         raise ValueError('SHA256SUMS missing matching platform archive and installer pair')
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    # Remove only generated entry points whose platforms disappeared from this manifest.
+    if not has_sh:
+        (output_dir / 'get-yanji.sh').unlink(missing_ok=True)
+    if not has_ps1:
+        (output_dir / 'get-yanji.ps1').unlink(missing_ok=True)
     result = {'manifest_sha256': sums_sha}
 
     if has_sh:

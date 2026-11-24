@@ -262,6 +262,28 @@ echo json_encode($probe->invoke(null, $argv[2]), JSON_THROW_ON_ERROR);
         with self.assertRaisesRegex(ValueError, 'HTTPS'):
             bootstrap.generate('http://example.com/release', sums, boot_out)
 
+    def test_bootstrap_regeneration_removes_only_obsolete_platform_entry_points(self):
+        sums = self.root / 'SHA256SUMS'
+        output = self.root / 'boot'
+        output.mkdir()
+        (output / 'keep.txt').write_bytes(b'unrelated release material')
+        windows = ['install-local.ps1', 'yanji-windows-x86_64.zip']
+        unix = ['install-local.sh', 'yanji-linux-x86_64.tar.gz']
+        for names, expected in (
+            (windows + unix, {'get-yanji.sh', 'get-yanji.ps1'}),
+            (windows, {'get-yanji.ps1'}),
+            (unix, {'get-yanji.sh'}),
+            (windows + unix, {'get-yanji.sh', 'get-yanji.ps1'}),
+        ):
+            with self.subTest(manifest=names):
+                sums.write_text(''.join('0' * 64 + '  ' + name + '\n' for name in names), encoding='utf-8')
+                result = bootstrap.generate('https://example.com/release', sums, output)
+                self.assertEqual(expected | {'keep.txt'}, {p.name for p in output.iterdir()})
+                self.assertEqual(expected, set(result) - {'manifest_sha256'})
+                for name in expected:
+                    self.assertIn(result['manifest_sha256'], (output / name).read_text(encoding='utf-8'))
+                self.assertEqual(b'unrelated release material', (output / 'keep.txt').read_bytes())
+
     def test_merge_release_dirs_unifies_multi_platform_sums_and_rejects_conflicts(self):
         win_dir = self.root / 'cand-win'
         mac_dir = self.root / 'cand-mac'
