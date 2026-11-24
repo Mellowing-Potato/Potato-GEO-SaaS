@@ -169,6 +169,23 @@ jobs:
           $renderOut | ForEach-Object { Write-Host $_ }
           if ($renderLines.Count -ne 11) { throw "Expected 11 rendered skill reports, got $($renderLines.Count)" }
 
+      - name: Reject missing ReportLab at both bundled PDF renderer entry points
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $env:GEO_TEST_PHP_COMMAND = ConvertTo-Json -Compress -InputObject @(
+            'D:\yanji-build\render-check\runtime\bin\php.exe', '-n',
+            '-d', 'extension_dir=D:\yanji-build\render-check\runtime\bin\ext',
+            '-d', 'extension=openssl', '-d', 'extension=mbstring', '-d', 'extension=sqlite3',
+            '-d', 'extension=pdo_sqlite', '-d', 'extension=zip', '-d', 'extension=curl',
+            '-d', 'extension=fileinfo', '-d', 'extension=gd'
+          )
+          $env:GEO_TEST_PYTHON = 'D:\yanji-build\render-check\runtime\python\python.exe'
+          $env:GEO_TEST_SKILLS = 'D:\yanji-build\render-check\app\yao-geo-skills\skills'
+          python -m unittest discover -s tests/python -p test_render_matrix_acceptance.py
+          if ($LASTEXITCODE -ne 0) { throw 'Missing ReportLab passed release acceptance' }
+
       - name: Native Windows x64 full cold-install, timeout, private-404 and restore acceptance
         timeout-minutes: 8
         shell: pwsh

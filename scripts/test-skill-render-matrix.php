@@ -75,10 +75,12 @@ try {
             if (! $supported && ($present || $status !== 'unsupported')) {
                 throw new RuntimeException($id.' advertised unsupported '.$format);
             }
-            if ($supported && ($mode === 'full' || $format !== 'pdf') && ! $present) {
+            $requiredHere = $mode === 'full' || $format !== 'pdf'
+                || in_array($id, ['yao-geo-content-refiner', 'yao-geo-title-optimizer'], true);
+            if ($supported && $requiredHere && ! $present) {
                 throw new RuntimeException($id.' lost required '.$format);
             }
-            if ($supported && $mode === 'full' && $status !== 'available') {
+            if ($supported && $requiredHere && $status !== 'available') {
                 throw new RuntimeException($id.' failed its '.$format.' delivery check.');
             }
             if ($supported && ! $present && ! in_array($status, ['unavailable', 'failed'], true)) {
