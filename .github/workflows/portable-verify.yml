@@ -181,6 +181,7 @@ jobs:
             '-d', 'extension=pdo_sqlite', '-d', 'extension=zip', '-d', 'extension=curl',
             '-d', 'extension=fileinfo', '-d', 'extension=gd'
           )
+          $env:YANJI_REPORT_FONTS_DIR = 'D:\yanji-build\render-check\runtime\fonts'
           $env:GEO_TEST_PYTHON = 'D:\yanji-build\render-check\runtime\python\python.exe'
           $env:GEO_TEST_SKILLS = 'D:\yanji-build\render-check\app\yao-geo-skills\skills'
           python -m unittest discover -s tests/python -p test_render_matrix_acceptance.py
