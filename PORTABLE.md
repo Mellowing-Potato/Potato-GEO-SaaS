@@ -2,36 +2,36 @@
 
 免 Docker 便携包使用与 Docker 部署相同的 Laravel 应用、生产 Composer 依赖、已构建网页与锁定技能资产，并随包内置独立 **Python 3.12.16** 与开源报告字体（DejaVu Sans、Noto Serif CJK），普通用户无需预先安装 Docker、PHP 或 Python。程序与实例数据分离存放；浏览器打开本地地址即可使用工作台，支持第三方模型直连与可选本机 [Magpie](https://github.com/yetone/magpie)。
 
-> 正式 GitHub Release 下载包将在维护者合并并推送 `v*` 标签后由发布工作流生成，届时同步提供统一 `SHA256SUMS` 与固定摘要的一行/两行安装入口。当前版本仍为 `v0.1.0（未发布）`，不会伪造已发布下载链接。
+> `v0.1.0` 已正式发布，统一 `SHA256SUMS`（`5cc6eda319766dbc050869ac4c84b50f590947ca8fe66b390297d803b3efc570`）、四平台便携安装包、对应源码/重链接材料及固定摘要引导脚本均可在 [GitHub Release v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0) 获取。
 
 ## 支持平台与当前验证状态
 
 | 平台 | 运行时与随包资产 | 当前验证状态 |
 | --- | --- | --- |
-| **macOS Apple Silicon (`macos-arm64`)** | 自建 PHP 8.5.13 CLI + 无 Mercure/Vulcain FrankenPHP + 随包 Python 3.12.16 + 开源字体 | **真机实测通过**：无宿主机 Python 冷安装、`yanji` 帮助与 `doctor`、私有静态 404 护栏、501 作业轮换、2 秒硬超时接替、热停排水、备份恢复、缓存篡改拒绝、11 技能渲染、真实浏览器登录/工作台/`#aikeys`/建项端到端 |
-| **Windows x64 (`windows-x86_64`)** | 自建无 Mercure/Vulcain `frankenphp.exe`（Brotli 1.2.1）+ PHP 8.5.13 ZTS + 随包 Python 3.12.16 + 开源字体 | **原生 `windows-2025` CI 完整通过**：全套构建、11 技能渲染矩阵（仅随包 Python 与字体）、中文空格路径冷安装（`install-local.ps1`）、`yanji.cmd` 帮助与 `doctor`、私有静态 404 与公开联接对照、501 作业轮换、2 秒硬超时接替、热停排水、备份恢复与篡改拒绝（本机桌面浏览器手工点击与真实付费模型调用未在此阶段实测） |
-| **Linux arm64 (`linux-aarch64`)** | 自建 PHP 8.5.13 CLI + 无 Mercure/Vulcain FrankenPHP + 随包 Python 3.12.16 + 开源字体 | **原生架构通过**：arm64 VM 冷安装/404/超时/恢复；`ubuntu-24.04-arm` 原生 CI 全量双库测试与随包 Python / WOFF2 子集化 |
-| **Linux x64 (`linux-x86_64`)** | 自建 PHP 8.5.13 CLI + 无 Mercure/Vulcain FrankenPHP + 随包 Python 3.12.16 + 开源字体 | **原生 CI + 仿真通过**：`ubuntu-24.04` 原生双库测试与随包 Python / WOFF2 子集化已通过；完整冷安装此前经 Rosetta 仿真验收，原生 x86_64 实机冷安装待发布前补齐 |
-| **Intel Mac (`macos-x64`)** | 不纳入首批发布范围 | 未构建、未验证 |
+| **macOS Apple Silicon (`macos-arm64`)** | 自建 PHP 8.5.13 CLI + 无 Mercure/Vulcain FrankenPHP + 随包 Python 3.12.16 + 开源字体 | **本地实机与 `macos-15` 发布流均已通过**：无宿主机 Python 冷安装、`yanji` 帮助与 `doctor`、私有静态 404 护栏、501 作业轮换、2 秒硬超时接替、热停排水、备份恢复、同实例重装/共享缓存复用、缓存与清单编码篡改拒绝、11 技能渲染、真实浏览器登录/工作台/`#aikeys`/建项端到端 |
+| **Windows x64 (`windows-x86_64`)** | 自建无 Mercure/Vulcain `frankenphp.exe`（Brotli 1.2.1）+ PHP 8.5.13 ZTS + 随包 Python 3.12.16 + 开源字体 | **原生 `windows-2025` 发布流完整通过**：全套构建、11 技能渲染矩阵（仅随包 Python 与字体）、中文空格路径冷安装（`install-local.ps1`）、`yanji.cmd` 帮助与 `doctor`、私有静态 404 与公开联接对照、501 作业轮换、2 秒硬超时接替、热停排水、备份恢复、同实例重装/共享缓存复用与篡改拒绝（本机桌面浏览器手工点击与真实付费模型调用未在此阶段实测） |
+| **Linux arm64 (`linux-aarch64`)** | 自建 PHP 8.5.13 CLI + 无 Mercure/Vulcain FrankenPHP + 随包 Python 3.12.16 + 开源字体 | **原生架构 VM 与 `ubuntu-24.04-arm` 发布流完整通过**：11 技能渲染矩阵、无宿主机 Python 冷安装、404、501 作业轮换、超时接替、热停排水、备份恢复、重装/缓存复用与篡改拒绝 |
+| **Linux x64 (`linux-x86_64`)** | 自建 PHP 8.5.13 CLI + 无 Mercure/Vulcain FrankenPHP + 随包 Python 3.12.16 + 开源字体 | **原生 `ubuntu-24.04` 发布流完整通过**：11 技能渲染矩阵、无宿主机 Python 冷安装、404、501 作业轮换、超时接替、热停排水、备份恢复、重装/缓存复用与篡改拒绝 |
+| **Intel Mac (`macos-x64`)** | 不纳入首批发布范围 | 未构建、未验证（请使用 Docker 部署） |
 
 > 同步说明：14 项底层 C 依赖已做公开 CVE 核对；Brotli 已在 `licenses/portable-web.json` 与 Windows Web 构建中升级至 `v1.2.1`；SQLite 3.45.2 之后的相关 CVE 经源码路径核对在言及固定表结构与查询路径中不可达。发布物采用免费 `SHA256SUMS` 校验与固定摘要引导脚本，未购买 Apple Developer ID 公证或 Windows EV 代码签名。
 
 ## 安装
 
-### 方式一：正式发布后的一行安装（推荐）
+### 方式一：正式发布的一行安装（推荐）
 
-正式发布标签（例如 `v0.1.0`）上传 GitHub Releases 后，将命令中的 `<TAG>` 替换为实际发布标签即可：
+以下以已发布的 `v0.1.0` 为例（未来版本将 `v0.1.0` 替换为目标标签即可）：
 
 **macOS（Apple Silicon）与 Linux：**
 
 ```sh
-curl -fsSL "https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/<TAG>/get-yanji.sh" | sh
+curl -fsSL "https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.0/get-yanji.sh" | sh
 ```
 
 **Windows 10 / 11 x64（PowerShell 5.1 或 PowerShell 7）：**
 
 ```powershell
-irm "https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/<TAG>/get-yanji.ps1" | iex
+irm "https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.0/get-yanji.ps1" | iex
 ```
 
 引导脚本固定了对应发布版本的 `SHA256SUMS` 与安装脚本摘要，仅允许 HTTPS（含重定向），并在安装前逐文件核验包内 `PACKAGE-FILES.sha256`。

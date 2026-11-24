@@ -2,7 +2,7 @@
 
 适用于人和编程助手。只操作你准备安装的本机 Docker；不要自行连接服务器。模型 Key 在网页「设置」中填写，不写进 `.env`、命令或安装记录。
 
-免 Docker 的本机便携版（支持 macOS Apple Silicon、Windows x64 与 Linux，随包内置 Python 3.12.16 与开源字体，无需预先安装 Docker）见 [PORTABLE.md](PORTABLE.md)。待维护者推送 `v0.1.0` 标签后将通过 GitHub Releases 提供正式便携包；本页下面的 Docker 安装、备份恢复与开发流程继续完整适用。
+免 Docker 的本机便携版（支持 macOS Apple Silicon、Windows x64 与 Linux x86_64 / ARM64，随包内置 Python 3.12.16 与开源字体，无需预先安装 Docker）见 [PORTABLE.md](PORTABLE.md)，`v0.1.0` 便携安装包与多架构镜像详情见 [GitHub Release v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0)；本页下面的 Docker 安装、备份恢复与开发流程继续完整适用。
 
 ## 1. 准备
 
