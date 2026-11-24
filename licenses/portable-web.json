@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "frankenphp": {
+    "repository": "https://github.com/php/frankenphp",
+    "version": "1.13.6",
+    "commit": "6775138789d2d0b834b6447cdc3e56b383fd651d",
+    "archive_url": "https://codeload.github.com/php/frankenphp/tar.gz/6775138789d2d0b834b6447cdc3e56b383fd651d",
+    "archive_sha256": "b28fb1ae7bd96baedeb554d5c037b7cc9a61d3ea027df9d1cab283069027882b",
+    "license": "MIT",
+    "entry_point": "caddy/frankenphp"
+  },
+  "dependency_locks": {
+    "go.mod": "7c177a2ebb4e67622508774c6fe31a9c61f1750d221c673305eabfa6e01d32dd",
+    "go.sum": "b31a29ae1684878fca2306bd61ed531e7ead74235acad931c3653ccfb0207f6c",
+    "caddy/go.mod": "c6e95bcf2214024a176070fbe8e670cc4618cddce609bff8d6babc1439a29e6b",
+    "caddy/go.sum": "c86fe7566f9d2aaf164f1bb51bda27c768ce7f56f37c9004f1119cb4455d2094"
+  },
+  "php": {
+    "version": "8.5.13",
+    "thread_safety": "zts",
+    "sapi": "embed",
+    "archive_url": "https://www.php.net/distributions/php-8.5.13.tar.xz",
+    "archive_sha256": "607602acaf0c3061818e9916ec44a058e8b3d43959a83862b9cd3ec7bf5b785f",
+    "license": "PHP-3.01 AND Zend-2.0",
+    "bundled_notices": "Include the actual embedded components and linked native libraries from each build."
+  },
+  "static_php_cli": {
+    "repository": "https://github.com/crazywhalecc/static-php-cli",
+    "commit": "c8eb4459cbdffdec9889a080000a5a7e97577504",
+    "license": "MIT"
+  },
+  "go": {
+    "version": "1.27.4",
+    "source_url": "https://go.dev/dl/go1.27.4.src.tar.gz",
+    "source_sha256": "73cfb8571aec0c01177687db87163d46aa20e9779672772891aa17654d9a6099",
+    "license": "BSD-3-Clause"
+  },
+  "caddy": {
+    "module": "github.com/caddyserver/caddy/v2",
+    "version": "v2.11.9",
+    "zip_sha256": "fdac2c0901e3e4064bf1da1558f9860cd175eecdf7179b17611d820008268e9b",
+    "license": "Apache-2.0"
+  },
+  "extra_caddy_modules": [
+    {
+      "module": "github.com/dunglas/caddy-cbrotli",
+      "version": "v1.0.1",
+      "zip_sha256": "b18f381989d2f799ca2a188f47719336185e3b4d322acc3203c346fd835356cb",
+      "license": "MIT"
+    }
+  ],
+  "brotli": {
+    "version": "v1.2.0",
+    "archive_sha256": "816c96e8e8f193b40151dad7e8ff37b1221d019dbcb9c35cd3fadbfe6477dfec",
+    "patched_version": "v1.2.1",
+    "patched_archive_url": "https://github.com/google/brotli/archive/refs/tags/v1.2.1.tar.gz",
+    "patched_archive_sha256": "98d35d11a78dc453aebb7d10c3748f3f73ff78c8267c0dc697b8631f67bf7e8f",
+    "cve_fix": "CVE-2026-111497",
+    "license": "MIT"
+  },
+  "windows_php": {
+    "version": "8.5.13",
+    "runtime_url": "https://downloads.php.net/~windows/releases/php-8.5.13-Win32-vs17-x64.zip",
+    "runtime_archive_url": "https://downloads.php.net/~windows/releases/archives/php-8.5.13-Win32-vs17-x64.zip",
+    "runtime_sha256": "792fe1553895ee98f9bc3c9d50c539910f7d0066676a6523207ca91429d4d475",
+    "devel_url": "https://downloads.php.net/~windows/releases/php-devel-pack-8.5.13-Win32-vs17-x64.zip",
+    "devel_archive_url": "https://downloads.php.net/~windows/releases/archives/php-devel-pack-8.5.13-Win32-vs17-x64.zip",
+    "devel_sha256": "771a2834aaa0ba1fd1385c7bc6df3c2873a294c0838e99a553f43208769ea744",
+    "license": "PHP-3.01 AND Zend-2.0"
+  },
+  "ca_bundle": {
+    "filename": "cacert-2026-11-05.pem",
+    "url": "https://curl.se/ca/cacert-2026-11-05.pem",
+    "sha256": "427c064216761a1e72a8b30f0d954d08cb6e4435a82091fb865afd20c8497285",
+    "license": "MPL-2.0",
+    "license_url": "https://www.mozilla.org/media/MPL/2.0/index.f75d2927d3c1.txt"
+  },
+  "build_tags": [
+    "nomercure",
+    "novulcain",
+    "nowatcher",
+    "nobadger",
+    "nomysql",
+    "nopgx"
+  ],
+  "disabled_modules": [
+    "github.com/dunglas/mercure",
+    "github.com/dunglas/vulcain"
+  ],
+  "target_platforms": [
+    "macos-arm64",
+    "linux-aarch64",
+    "linux-x86_64",
+    "windows-x86_64"
+  ],
+  "delivery_requirements": [
+    "Runtime notices for every linked component, including transitive Go modules and embedded C code.",
+    "Per-platform source archives, verified checksums, actual configuration and applied patches.",
+    "ZTS libphp and native archives, linker command and map, offline Go sources and toolchain sources.",
+    "Independent recipient relink with a modified LGPL library and an observed behavior change.",
+    "Match the final binary and source/relink archive digests in the release manifest."
+  ]
+}

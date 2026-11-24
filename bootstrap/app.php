@@ -152,8 +152,21 @@ $application = Application::configure(basePath: dirname(__DIR__))
 
 // Docker keeps the encryption key in a shared persistent volume. Configuration
 // supplied by Compose still takes precedence over the saved environment file.
+if (PHP_OS_FAMILY === 'Windows') {
+    foreach (range('A', 'Z') as $drive) {
+        $application->addAbsoluteCachePathPrefix($drive.':\\');
+        $application->addAbsoluteCachePathPrefix($drive.':/');
+        $application->addAbsoluteCachePathPrefix(strtolower($drive).':\\');
+        $application->addAbsoluteCachePathPrefix(strtolower($drive).':/');
+    }
+}
+
 if ($environmentPath = getenv('YANJI_ENV_PATH')) {
     $application->useEnvironmentPath($environmentPath);
+}
+
+if ($publicPath = getenv('YANJI_PUBLIC_PATH')) {
+    $application->usePublicPath($publicPath);
 }
 
 return $application;

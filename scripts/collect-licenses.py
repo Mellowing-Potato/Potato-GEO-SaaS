@@ -37,7 +37,7 @@ def collect(mode, root, output):
     output.mkdir(parents=True, exist_ok=True)
     rows = []
     if mode == 'npm':
-        packages = json.loads((root / 'package-lock.json').read_text())['packages']
+        packages = json.loads((root / 'package-lock.json').read_text(encoding='utf-8'))['packages']
         for location, item in sorted(packages.items()):
             if not location or not (root / location).is_dir():
                 continue  # optional packages for other architectures are not installed
@@ -46,7 +46,7 @@ def collect(mode, root, output):
                          'license': item.get('license'), 'source': item.get('resolved'),
                          'notices': copy_notices(root / location, output / location)})
     elif mode == 'runtime':
-        lock = json.loads((root / 'composer.lock').read_text())
+        lock = json.loads((root / 'composer.lock').read_text(encoding='utf-8'))
         for item in lock['packages']:
             package_root = root / 'vendor' / item['name']
             if not package_root.is_dir():
@@ -88,7 +88,7 @@ def collect(mode, root, output):
             shutil.copytree(shared, output / 'system-licenses', dirs_exist_ok=True)
     else:
         raise ValueError('Expected npm or runtime')
-    (output / 'inventory.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2) + '\n')
+    (output / 'inventory.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print('Collected', len(rows), mode, 'dependency records')
 
 

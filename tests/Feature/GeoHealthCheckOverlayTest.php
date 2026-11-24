@@ -38,6 +38,7 @@ class GeoHealthCheckOverlayTest extends TestCase
             $_ENV['SKILLS_REPO_PATH'] ?? null,
             $_SERVER['SKILLS_REPO_PATH'] ?? null,
         ];
+        config(['geo.skills_repo_path' => $this->skillsFixture]);
         putenv('SKILLS_REPO_PATH='.$this->skillsFixture);
         $_ENV['SKILLS_REPO_PATH'] = $this->skillsFixture;
         $_SERVER['SKILLS_REPO_PATH'] = $this->skillsFixture;

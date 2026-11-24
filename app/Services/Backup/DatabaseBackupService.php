@@ -19,7 +19,7 @@ use Symfony\Component\Process\Process;
  *                这条是 §9.2 的关键：没演练过的备份等于没有备份。
  *
  * 驱动差异：
- *   sqlite —— 用 SQLite 自己的 backup API/CLI 做一致副本，演练 = 打开副本跑 integrity_check + 行数；
+ *   sqlite —— 用 SQLite VACUUM INTO 做一致副本，演练 = 打开副本跑 integrity_check + 行数；
  *   pgsql  —— pg_dump -Fc 产出 custom 格式；演练 = 建一个临时库 → pg_restore 进去 → 数行数 → 删库。
  *
  * 为什么把"外部命令执行器"做成可注入：pg_dump / pg_restore / createdb 在本机（开发环境）没有，
@@ -64,21 +64,24 @@ class DatabaseBackupService
     public function backup(?string $to = null, int $keep = 0): array
     {
         $dir = $this->directory();
-        if (! is_dir($dir) && ! mkdir($dir, 0755, true) && ! is_dir($dir)) {
+        if (! is_dir($dir) && ! mkdir($dir, 0700, true) && ! is_dir($dir)) {
             throw new \RuntimeException("备份目录不可用：{$dir}");
         }
 
         $driver = $this->driver();
-        $to ??= $dir.'/geo-saas-'.$driver.'-'.date('Ymd-His').($driver === 'pgsql' ? '.dump' : '.sqlite');
+        $to ??= $dir.'/geo-saas-'.$driver.'-'.date('Ymd-His').($driver === 'pgsql' ? '.dump' : '-'.bin2hex(random_bytes(3)).'.sqlite');
 
-        $driver === 'pgsql' ? $this->backupPostgres($to) : $this->backupSqlite($to);
-
-        if (! is_file($to) || filesize($to) === 0) {
-            throw new \RuntimeException("备份失败（文件不存在或为空）：{$to}");
+        if ($driver === 'pgsql') {
+            $this->backupPostgres($to);
+            if (! is_file($to) || filesize($to) === 0) {
+                throw new \RuntimeException("备份失败（文件不存在或为空）：{$to}");
+            }
+            $sha = hash_file('sha256', $to);
+            file_put_contents($to.'.sha256', $sha.'  '.basename($to)."\n");
+        } else {
+            $snapshot = SqliteSnapshot::create((string) Config::get('database.connections.sqlite.database'), $to, withChecksum: true);
+            $sha = $snapshot['sha256'];
         }
-
-        $sha = hash_file('sha256', $to);
-        file_put_contents($to.'.sha256', $sha.'  '.basename($to)."\n");
 
         return [
             'path' => $to,
@@ -87,33 +90,6 @@ class DatabaseBackupService
             'sha256' => (string) $sha,
             'pruned' => $keep > 0 ? $this->prune($dir, $keep) : [],
         ];
-    }
-
-    /** SQLite：优先 CLI 的 .backup（对 WAL 最稳），回退 checkpoint + 文件拷贝。 */
-    private function backupSqlite(string $to): void
-    {
-        $db = (string) Config::get('database.connections.sqlite.database');
-        if (! is_file($db)) {
-            throw new \RuntimeException("源库不存在：{$db}");
-        }
-
-        $result = ($this->runner)(['sqlite3', $db, '.backup '.$to]);
-        if ($result['exit'] === 0 && is_file($to)) {
-            return;
-        }
-
-        try {
-            $pdo = new \PDO('sqlite:'.$db);
-            $pdo->exec('PRAGMA wal_checkpoint(TRUNCATE)');
-        } catch (\Throwable) {
-            // 忽略：下面的拷贝仍然可用（WAL 内容会随 -wal 文件一起拷）
-        }
-        copy($db, $to);
-        foreach (['-wal', '-shm'] as $suffix) {
-            if (is_file($db.$suffix)) {
-                copy($db.$suffix, $to.$suffix);
-            }
-        }
     }
 
     /** PostgreSQL：pg_dump -Fc（custom 格式，pg_restore 可直接吃）。 */
@@ -177,19 +153,19 @@ class DatabaseBackupService
 
     private function latestBackup(): ?string
     {
-        $files = array_filter(
-            glob($this->directory().'/*') ?: [],
-            // 只认**备份命名**（geo-saas-*），别把目录里别的东西（日志、临时的源库副本）当成备份。
-            fn (string $f) => is_file($f)
-                && str_starts_with(basename($f), 'geo-saas-')
-                && ! str_ends_with($f, '.sha256'),
-        );
+        $files = $this->backupFiles($this->directory());
         if ($files === []) {
             return null;
         }
         usort($files, fn (string $a, string $b) => filemtime($b) <=> filemtime($a));
 
         return $files[0];
+    }
+
+    private function backupFiles(string $dir): array
+    {
+        return array_filter(glob($dir.'/geo-saas-*') ?: [], static fn (string $path): bool =>
+            is_file($path) && ! preg_match('/(?:\.sha256|-wal|-shm|-journal)$/D', $path));
     }
 
     private function drillSqlite(string $source, ?bool $checksumOk): array
@@ -199,12 +175,12 @@ class DatabaseBackupService
 
         // 拷到临时文件再打开：演练过程绝不碰备份本体，也绝不碰生产库。
         $tmp = tempnam(sys_get_temp_dir(), 'geo-drill-');
-        copy($source, $tmp);
-        if (is_file($source.'-wal')) {
-            copy($source.'-wal', $tmp.'-wal');
-        }
-
+        $integrity = 'unavailable';
         try {
+            if ($tmp === false || ! copy($source, $tmp)
+                || (is_file($source.'-wal') && ! copy($source.'-wal', $tmp.'-wal'))) {
+                throw new \RuntimeException('无法完整读取待演练的备份文件。');
+            }
             $pdo = new \PDO('sqlite:'.$tmp);
             $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
             $integrity = (string) $pdo->query('PRAGMA integrity_check')->fetchColumn();
@@ -221,8 +197,14 @@ class DatabaseBackupService
         } catch (\Throwable $e) {
             $problems[] = '打开备份失败：'.$e->getMessage();
         } finally {
-            @unlink($tmp);
-            @unlink($tmp.'-wal');
+            unset($pdo);
+            if ($tmp !== false) {
+                foreach (['', '-wal', '-shm'] as $suffix) {
+                    if (is_file($tmp.$suffix)) {
+                        unlink($tmp.$suffix);
+                    }
+                }
+            }
         }
 
         if ($checksumOk === false) {
@@ -233,7 +215,7 @@ class DatabaseBackupService
             'ok' => $problems === [],
             'driver' => 'sqlite',
             'source' => $source,
-            'checks' => ['integrity_check' => 'ok', 'sha256_verified' => $checksumOk],
+            'checks' => ['integrity_check' => $integrity, 'sha256_verified' => $checksumOk],
             'problems' => $problems,
             'tables' => $tables,
         ];
@@ -304,10 +286,7 @@ class DatabaseBackupService
     /** @return list<string> 被删掉的旧备份 */
     private function prune(string $dir, int $keep): array
     {
-        $files = array_filter(
-            glob($dir.'/geo-saas-*') ?: [],
-            fn (string $f) => is_file($f) && ! str_ends_with($f, '.sha256'),
-        );
+        $files = $this->backupFiles($dir);
         if (count($files) <= $keep) {
             return [];
         }

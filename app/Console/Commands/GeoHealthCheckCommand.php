@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Project;
 use App\Services\SkillAgent\SkillAssetLoader;
 use Illuminate\Console\Command;
+use Symfony\Component\Process\Process;
 
 /**
  * 由 scripts/migrate-console-command.mjs 从 routes/console.php 迁出（计划 §7 第 4 条：
@@ -49,9 +50,14 @@ class GeoHealthCheckCommand extends Command
             ],
         ];
 
-        $pythonOutput = [];
-        $pythonCode = 1;
-        @exec('python3 -c "import docx; print(\'python-docx OK\')" 2>&1', $pythonOutput, $pythonCode);
+        $python = new Process([(string) config('geo.python_bin'), '-c', 'import docx']);
+        $python->setTimeout(10);
+        try {
+            $python->run();
+            $pythonReady = $python->isSuccessful();
+        } catch (\RuntimeException) {
+            $pythonReady = false;
+        }
 
         $checks = [
             [
@@ -68,9 +74,9 @@ class GeoHealthCheckCommand extends Command
             ],
             [
                 'key' => 'python_docx_available',
-                'ok' => $pythonCode === 0,
-                'message' => 'python3 and python-docx are available for render_panorama.py.',
-                'evidence' => ['output' => implode("\n", $pythonOutput)],
+                'ok' => $pythonReady,
+                'message' => 'The configured Python and python-docx are available for render_panorama.py.',
+                'evidence' => ['python_docx' => $pythonReady],
             ],
         ];
 

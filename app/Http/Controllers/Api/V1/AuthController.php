@@ -87,7 +87,7 @@ class AuthController extends Controller
     {
         LocalSession::revoke($request->user(), LocalSession::fingerprintFromRequest($request));
         $request->user()->currentAccessToken()?->delete();
-        return response()->json(['message' => '已退出登录'])->withCookie(new Cookie('geo_session', '', 1, '/', null, $request->isSecure(), true, false, 'lax'));
+        return response()->json(['message' => '已退出登录'])->withCookie(new Cookie(LocalSession::cookieName(), '', 1, '/', null, $request->isSecure(), true, false, 'lax'));
     }
 
     public function profile(Request $request): JsonResponse

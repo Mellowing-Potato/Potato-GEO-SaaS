@@ -251,6 +251,7 @@ RUN apk add --no-cache libstdc++ git \
     && if [ -n "${COMPOSER_REPO}" ]; then composer config -g repos.packagist composer "${COMPOSER_REPO}"; fi
 COPY --chown=www-data:www-data . .
 COPY --from=test-sources --chown=www-data:www-data / /app/tests/
+COPY --from=skill-assets /skills /app/yao-geo-skills
 COPY --from=frontend-assets /app/public/build ./public/build
 # 测试镜像带上 npm ci 锁定的 node_modules：排版测试直接用 postcss（vite 的依赖）。
 COPY --from=frontend-assets /app/node_modules ./node_modules

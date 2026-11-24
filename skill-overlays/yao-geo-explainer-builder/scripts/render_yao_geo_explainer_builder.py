@@ -15,12 +15,18 @@ import argparse
 import datetime as dt
 import hashlib
 import html
+import importlib.util
 import json
+import os
 import re
 import shutil
 import subprocess
 import zipfile
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from render_formats import OutputFormats, weasy_pdf
 from typing import Any
 from xml.sax.saxutils import escape as xml_escape
 
@@ -85,11 +91,23 @@ PAGE_HEIGHT_DXA = 16838
 PAGE_MARGIN_DXA = 1134
 DOCX_CONTENT_WIDTH_DXA = PAGE_WIDTH_DXA - PAGE_MARGIN_DXA * 2
 DOCX_CELL_MARGIN_DXA = 90
-PACKAGED_FONTS = {
-    "NotoSerifCJK-Regular.ttc": Path("/usr/share/fonts/noto/NotoSerifCJK-Regular.ttc"),
-    "DejaVuSans.ttf": Path("/usr/share/fonts/dejavu/DejaVuSans.ttf"),
-    "DejaVuSans-Bold.ttf": Path("/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf"),
-}
+def _resolve_packaged_fonts() -> dict[str, Path]:
+    override = os.environ.get("YANJI_REPORT_FONTS_DIR", "").strip()
+    if override:
+        base = Path(override)
+        return {
+            "NotoSerifCJK-Regular.ttc": base / "NotoSerifCJK-Regular.ttc",
+            "DejaVuSans.ttf": base / "DejaVuSans.ttf",
+            "DejaVuSans-Bold.ttf": base / "DejaVuSans-Bold.ttf",
+        }
+    return {
+        "NotoSerifCJK-Regular.ttc": Path("/usr/share/fonts/noto/NotoSerifCJK-Regular.ttc"),
+        "DejaVuSans.ttf": Path("/usr/share/fonts/dejavu/DejaVuSans.ttf"),
+        "DejaVuSans-Bold.ttf": Path("/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf"),
+    }
+
+
+PACKAGED_FONTS = _resolve_packaged_fonts()
 KAMI_FONT_FILES = list(PACKAGED_FONTS)
 # NotoSerifCJK-Regular.ttc 是 5 合 1 字体集（JP/KR/SC/TC/HK），子集化需指定 font-number。
 # 其余单字体（DejaVuSans*.ttf）font-number 为 None，即默认 0。
@@ -1063,6 +1081,11 @@ def subset_fonts(html_text: str, html_dir: Path) -> dict[str, str]:
         return {}
     text = "".join(chars)
 
+    subsetter = (
+        [sys.executable, "-m", "fontTools.subset"]
+        if importlib.util.find_spec("fontTools.subset") is not None
+        else ["pyftsubset"]
+    )
     font_dir = html_dir / "fonts"
     result: dict[str, str] = {}
     for output_name, source in PACKAGED_FONTS.items():
@@ -1071,7 +1094,7 @@ def subset_fonts(html_text: str, html_dir: Path) -> dict[str, str]:
         out_name = SUBSET_FONT_NAMES[output_name]
         out_path = font_dir / out_name
         cmd = [
-            "pyftsubset",
+            *subsetter,
             str(source),
             f"--text={text}",
             f"--output-file={out_path}",
@@ -1308,8 +1331,13 @@ def review(data: dict[str, Any], paths: dict[str, Path], fixes: list[str]) -> di
     check("markdown_required_headings", not missing_md, missing=missing_md)
     check("html_required_headings", not missing_html, missing=missing_html)
     check("docx_required_headings", not missing_docx, missing=missing_docx)
-    from pypdf import PdfReader
-    pages = len(PdfReader(str(paths["pdf"])).pages)
+    pages = 0
+    if paths["pdf"].is_file():
+        try:
+            from pypdf import PdfReader
+            pages = len(PdfReader(str(paths["pdf"])).pages)
+        except ImportError:
+            pass
     check("pdf_page_count", pages > 0, pages=pages)
     chars = len(re.sub(r"\s+", "", data["core_answer"]))
     check("core_answer_80_to_120_chars", 80 <= chars <= 120, chars=chars)
@@ -1380,7 +1408,18 @@ def main() -> None:
     subset_map = subset_fonts(html_doc, html_dir)
     if subset_map:
         html_doc = render_html(data, subset_map)
-    paths["manifest"].write_text(json.dumps({"skill_id": data["skill_id"], "slug": slug, "formats": ["markdown", "html-package", "docx", "pdf"], "assets": {"fonts": copied_fonts}}, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Use the document's existing system font stack if a portable installation lacks the shipped fonts.
+    # The quality report still records whether the complete design fonts were packaged.
+    def usable_font_face(match):
+        face = match.group(0)
+        name = re.search(r'url\("fonts/([^"/]+)"\)', face)
+        if name is None:
+            return face
+        candidate = html_dir / "fonts" / name.group(1)
+        return face if candidate.is_file() and candidate.stat().st_size <= 4 * 1024 * 1024 else ""
+
+    original_font_css = html_doc
+    html_doc = re.sub(r'@font-face\s*\{[^{}]*\}', usable_font_face, html_doc)
     paths["input"].write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     # 显式使用 LF，使 Windows 本地验收与 Linux 生产的正文散列都匹配实际文件字节。
     article = data.get("publishable_article_markdown")
@@ -1391,15 +1430,20 @@ def main() -> None:
     paths["markdown"].write_text(md, encoding="utf-8")
     paths["html"].write_text(html_doc, encoding="utf-8")
     paths["index"].write_text(html_doc, encoding="utf-8")
-    render_docx(data, paths["docx"])
-    from weasyprint import HTML
-    HTML(filename=str(paths["html"]), base_url=str(html_dir)).write_pdf(str(paths["pdf"]))
+    formats = OutputFormats(out)
+    if html_doc != original_font_css:
+        formats.record("html", "failed", "html_fonts")
+    formats.write("docx", paths["docx"], lambda: render_docx(data, paths["docx"]))
+    formats.write("pdf", paths["pdf"], lambda: weasy_pdf(paths["pdf"], filename=str(paths["html"]), base_url=str(html_dir)))
+    emitted = [name for name, key in [("markdown", "markdown"), ("html-package", "html"), ("docx", "docx"), ("pdf", "pdf")]
+               if paths[key].is_file()]
+    paths["manifest"].write_text(json.dumps({"skill_id": data["skill_id"], "slug": slug,
+        "formats": emitted, "assets": {"fonts": copied_fonts}}, ensure_ascii=False, indent=2), encoding="utf-8")
     quality = review(data, paths, fixes)
     (out / "quality-report.json").write_text(json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Rendered Markdown: {paths['markdown']}")
-    print(f"Rendered HTML package: {paths['html']}")
-    print(f"Rendered DOCX: {paths['docx']}")
-    print(f"Rendered PDF: {paths['pdf']}")
+    for key in ("markdown", "html", "docx", "pdf"):
+        if paths[key].is_file():
+            print(f"Rendered {key}: {paths[key]}")
     print(f"Quality report: {out / 'quality-report.json'}")
 
 

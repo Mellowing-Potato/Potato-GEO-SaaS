@@ -51,6 +51,25 @@ class AppServiceProvider extends ServiceProvider
         // Looping 每轮循环都发（空闲时也发），正是「我还活着」语义，挂它而非 JobProcessed/WorkerStarting。
         // 🔴 红线 1：监听器 : void 无 return，禁止返回 false（否则整台 worker 永久停摆）。
         Event::listen(Looping::class, [RecordWorkerHeartbeat::class, 'handleLooping']);
+        if ($generation = getenv('YANJI_WORKER_GENERATION')) {
+            $run = getenv('YANJI_ENV_PATH').'/run';
+            require_once base_path('portable/src/Instance.php');
+            require_once base_path('portable/src/JobClock.php');
+            Event::listen(JobProcessing::class, static function (JobProcessing $event) use ($run, $generation): void {
+                $job = $event->job;
+                if ($job instanceof \Illuminate\Queue\Jobs\DatabaseJob) {
+                    $seconds = $job->timeout() ?? (int) config('worker.timeout');
+                    \Yanji\Portable\JobClock::record($run, $seconds > 0 ? [
+                        'pid'=>getmypid(), 'generation'=>$generation, 'deadline'=>hrtime(true) + $seconds * 1_000_000_000,
+                        'id'=>$job->getJobId(), 'uuid'=>$job->uuid(), 'attempts'=>$job->attempts(),
+                        'reserved_at'=>(int) $job->getJobRecord()->reserved_at,
+                    ] : null);
+                }
+            });
+            foreach ([JobProcessed::class, JobExceptionOccurred::class, JobFailed::class] as $done) {
+                Event::listen($done, static fn () => \Yanji\Portable\JobClock::record($run, null));
+            }
+        }
         Event::listen(WorkerStopping::class, [RecordWorkerHeartbeat::class, 'handleStopping']);
 
         // Database queue workers reuse the same PHP process. A job that exits through an
@@ -76,6 +95,22 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(Looping::class, static function (): void {
             TenantContext::endQueueJob();
         });
+        if ($hold = getenv('YANJI_UPGRADE_HOLD')) {
+            // Record the real loop heartbeat, then pause before reserving any new job.
+            Event::listen(Looping::class, static function () use ($hold): ?bool {
+                clearstatcache(true, $hold);
+                return is_file($hold) ? false : null;
+            });
+        }
+        if ($stopFile = getenv('YANJI_STOP_FILE')) {
+            // Portable Windows workers drain in-flight work and exit cleanly via this stop signal file.
+            Event::listen(Looping::class, static function () use ($stopFile): void {
+                clearstatcache(true, $stopFile);
+                if (is_file($stopFile)) {
+                    exit(0);
+                }
+            });
+        }
         Event::listen(WorkerStopping::class, static function (): void {
             TenantContext::endQueueJob();
         });

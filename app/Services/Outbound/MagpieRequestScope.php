@@ -28,6 +28,7 @@ final readonly class MagpieRequestScope
         private string $profileRevision,
         private string $path,
         public ?string $pinnedIp,
+        private bool $discovery = false,
     ) {}
 
     public static function forProfile(
@@ -52,6 +53,23 @@ final readonly class MagpieRequestScope
         return $scope;
     }
 
+    /** This capability cannot read a catalog, send a completion or obtain credentials. */
+    public static function forLocalDiscovery(bool $authorized = false): self
+    {
+        $tenantId = TenantContext::id();
+        if (! $authorized || $tenantId === null || $tenantId <= 0) {
+            throw new MagpieException('target_unauthorized');
+        }
+        $target = new MagpieTarget('local-discovery', 'http://127.0.0.1:3425', '127.0.0.1', 3425,
+            'loopback', 'discovery', ['127.0.0.1']);
+        return new self(new MagpieTargets(), $target, $tenantId, 0, '', '', '/api/hello', '127.0.0.1', true);
+    }
+
+    public function isDiscovery(): bool
+    {
+        return $this->discovery;
+    }
+
     public function url(): string
     {
         return $this->target->origin.$this->path;
@@ -64,7 +82,7 @@ final readonly class MagpieRequestScope
 
     public function currentProfile(): ModelConnectionProfile
     {
-        if (TenantContext::id() !== $this->tenantId) {
+        if ($this->discovery || TenantContext::id() !== $this->tenantId) {
             throw new MagpieException('target_unauthorized');
         }
         $target = $this->targets->forTenant($this->target->alias);
@@ -121,6 +139,13 @@ final readonly class MagpieRequestScope
     {
         if ($method !== $this->method() || $url !== $this->url()) {
             throw new OutboundRequestBlockedException('magpie_operation_forbidden');
+        }
+        if ($this->discovery) {
+            if ($method !== 'GET' || $url !== 'http://127.0.0.1:3425/api/hello'
+                || TenantContext::id() !== $this->tenantId) {
+                throw new OutboundRequestBlockedException('magpie_operation_forbidden');
+            }
+            return;
         }
 
         try {

@@ -362,6 +362,9 @@ class ExecuteSkillJob implements ShouldQueue
         if ($mode) {
             $outputData['pipeline_mode'] = $mode;
         }
+        if (isset($result->intermediateData['format_status'])) {
+            $outputData['format_status'] = $result->intermediateData['format_status'];
+        }
         if (isset($result->intermediateData['rendered_formats'])) {
             $outputData['rendered_formats'] = $this->normalizeRenderedFormats($result->intermediateData['rendered_formats']);
         }

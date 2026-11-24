@@ -35,6 +35,40 @@ class WorkerHeartbeatTest extends TestCase
         config(['geo.worker_heartbeat.enabled' => true]);
     }
 
+    public function test_portable_worker_heartbeat_belongs_to_the_current_service_generation(): void
+    {
+        $old = getenv('YANJI_SERVICE_GENERATION');
+        $generation = bin2hex(random_bytes(16));
+        putenv('YANJI_SERVICE_GENERATION='.$generation);
+        try {
+            $this->app['events']->until(new Looping('database', 'default', new WorkerOptions()));
+            $beat = WorkerHeartbeat::query()->where('worker_id', env('WORKER_ID') ?: gethostname())->sole();
+            $this->assertSame('running', $beat->status);
+            $this->assertSame(getmypid(), $beat->meta['pid']);
+            $this->assertSame($generation, $beat->meta['generation'] ?? null);
+        } finally {
+            putenv($old === false ? 'YANJI_SERVICE_GENERATION' : 'YANJI_SERVICE_GENERATION='.$old);
+        }
+    }
+
+    public function test_scheduler_reports_its_inherited_generation_and_omits_it_outside_the_supervisor(): void
+    {
+        $old = getenv('YANJI_SERVICE_GENERATION');
+        $generation = bin2hex(random_bytes(16));
+        try {
+            putenv('YANJI_SERVICE_GENERATION='.$generation);
+            $this->artisan('ops:heartbeat')->assertSuccessful();
+            $beat = WorkerHeartbeat::where('worker_id', 'scheduler')->sole();
+            $this->assertSame('running', $beat->status);
+            $this->assertSame($generation, $beat->meta['generation'] ?? null);
+            putenv('YANJI_SERVICE_GENERATION');
+            $this->artisan('ops:heartbeat')->assertSuccessful();
+            $this->assertArrayNotHasKey('generation', $beat->fresh()->meta);
+        } finally {
+            putenv($old === false ? 'YANJI_SERVICE_GENERATION' : 'YANJI_SERVICE_GENERATION='.$old);
+        }
+    }
+
     /**
      * 🔴 红线 1（W6）：监听器 : void，不返回 false。
      * Queue::looping 是可中断派发——返回 false 会让整台 worker 永久停摆。
@@ -127,5 +161,39 @@ class WorkerHeartbeatTest extends TestCase
         $this->assertTrue($byId['stale-worker']['stale'], '121 秒前心跳应判为 stale');
 
         Carbon::setTestNow();
+    }
+
+    public function test_upgrade_hold_cleans_up_queue_tenant_context_before_pausing_reservations(): void
+    {
+        $hold = tempnam(sys_get_temp_dir(), 'yanji-hold-');
+        $this->assertNotFalse($hold);
+        try {
+            $script = <<<'PHP'
+require $argv[1].'/vendor/autoload.php';
+$app = require $argv[1].'/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+App\Support\TenantContext::beginQueueJob();
+$before = App\Support\TenantContext::id();
+$result = $app['events']->until(new Illuminate\Queue\Events\Looping('database', 'default', new Illuminate\Queue\WorkerOptions()));
+$after = App\Support\TenantContext::id();
+echo json_encode(['before' => $before, 'result' => $result, 'after' => $after]);
+PHP;
+            $process = new \Symfony\Component\Process\Process(
+                [PHP_BINARY, '-r', $script, base_path()],
+                env: [
+                    'APP_ENV' => 'testing',
+                    'DB_CONNECTION' => 'sqlite',
+                    'DB_DATABASE' => ':memory:',
+                    'YANJI_UPGRADE_HOLD' => $hold,
+                ],
+            );
+            $process->mustRun();
+            $payload = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+            $this->assertSame(-1, $payload['before']);
+            $this->assertFalse($payload['result'], '升级门存在时 Looping 应返回 false 暂停拉取新任务');
+            $this->assertNull($payload['after'], '升级门生效前必须先执行 TenantContext::endQueueJob()');
+        } finally {
+            @unlink($hold);
+        }
     }
 }

@@ -29,6 +29,12 @@ case "${1:-}" in
         export DB_CONNECTION=sqlite DB_DATABASE=:memory: DB_URL=
         python3 -m unittest discover -s tests/python -p 'test_*font*.py'
         python3 -m unittest discover -s tests/python -p 'test_skill_snapshot.py'
+        python3 -m unittest discover -s tests/python -p 'test_optional_skill_formats.py'
+        python3 -m unittest discover -s tests/python -p 'test_portable_web_materials.py'
+        python3 -m unittest discover -s tests/python -p 'test_portable_python_materials.py'
+        python3 -m unittest discover -s tests/python -p 'test_compiled_go_notices.py'
+        python3 -m unittest discover -s tests/python -p 'test_render_matrix_acceptance.py'
+        php scripts/test-skill-render-matrix.php --mode=full
         php artisan config:clear
         php_status=0
         js_status=0

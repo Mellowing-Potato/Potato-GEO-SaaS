@@ -69,6 +69,7 @@ class UnknownModelAttemptRecoveryTest extends TestCase
         $this->previousSkillsRepoPath = [getenv('SKILLS_REPO_PATH'), $_ENV['SKILLS_REPO_PATH'] ?? null, $_SERVER['SKILLS_REPO_PATH'] ?? null];
         $this->skillsRoot = sys_get_temp_dir().'/unknown-attempt-skills-'.bin2hex(random_bytes(4));
         File::ensureDirectoryExists($this->skillsRoot.'/'.$skillId);
+        config(['geo.skills_repo_path' => $this->skillsRoot]);
         putenv('SKILLS_REPO_PATH='.$this->skillsRoot);
         $_ENV['SKILLS_REPO_PATH'] = $this->skillsRoot;
         $_SERVER['SKILLS_REPO_PATH'] = $this->skillsRoot;

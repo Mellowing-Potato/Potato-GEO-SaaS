@@ -401,6 +401,7 @@ class SkillAssetAuditTest extends TestCase
 
     private function setSkillsRoot(string $path): void
     {
+        config(['geo.skills_repo_path' => $path]);
         putenv('SKILLS_REPO_PATH='.$path);
         $_ENV['SKILLS_REPO_PATH'] = $path;
         $_SERVER['SKILLS_REPO_PATH'] = $path;

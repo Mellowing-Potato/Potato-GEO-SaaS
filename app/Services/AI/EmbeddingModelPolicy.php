@@ -48,12 +48,14 @@ final class EmbeddingModelPolicy
         if (! is_array($vector) || ! array_is_list($vector) || count($vector) !== self::DIMENSIONS) {
             return false;
         }
+        $hasDirection = false;
         foreach ($vector as $value) {
             if ((! is_int($value) && ! is_float($value)) || ! is_finite((float) $value)) {
                 return false;
             }
+            $hasDirection = $hasDirection || $value != 0.0;
         }
 
-        return true;
+        return $hasDirection;
     }
 }

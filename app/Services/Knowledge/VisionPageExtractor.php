@@ -100,6 +100,12 @@ class VisionPageExtractor
                 continue;
             }
 
+            // A missing rasterizer must never start a paid vision request.
+            if (app(PopplerTools::class)->missing(['pdftoppm']) !== []) {
+                $pages[$page] = $this->pageEntry('skipped', null, 'poppler_missing', 0, 0);
+                continue;
+            }
+
             // ── B4-1 渲染 ──
             $jpg = $this->renderPage($document, $pdfAbsPath, (int) $page);
             if ($jpg === null) {
@@ -258,7 +264,7 @@ class VisionPageExtractor
         }
 
         $process = new Process([
-            'pdftoppm', '-jpeg', '-r', '150', '-scale-to', (string) $scaleTo,
+            app(PopplerTools::class)->command('pdftoppm'), '-jpeg', '-r', '150', '-scale-to', (string) $scaleTo,
             '-f', (string) $page, '-l', (string) $page,
             $pdfAbsPath, $tmpPrefix,
         ]);
@@ -305,7 +311,7 @@ class VisionPageExtractor
             $metadata['vision_attempts'][$attempt] = ['status' => 'prepared'];
             $current->update(['metadata' => $metadata]);
             return null;
-        });
+        }, attempts: 3);
         if ($saved !== null) {
             return new AiProviderCallResult(...$saved);
         }
@@ -317,7 +323,7 @@ class VisionPageExtractor
             $metadata = $current->metadata ?? [];
             $metadata['vision_attempts'][$attempt] = ['status' => 'recorded', 'result' => get_object_vars($result)];
             $current->update(['metadata' => $metadata]);
-        });
+        }, attempts: 3);
         $document->refresh();
         if ($document->project_id && $document->uploaded_by && ($result->gateway['request_sent'] ?? true) !== false) {
             app(\App\Services\Billing\AssistUsageRecorder::class)->record(

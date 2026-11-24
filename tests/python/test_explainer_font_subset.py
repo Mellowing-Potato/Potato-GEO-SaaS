@@ -32,6 +32,8 @@ class ExplainerFontSubsetTest(unittest.TestCase):
 
         def run_subset(command, **kwargs):
             commands.append(command)
+            if command[:3] == [sys.executable, "-m", "fontTools.subset"]:
+                return original_run(command, **kwargs)
             return original_run([sys.executable, "-m", "fontTools.subset", *command[1:]], **kwargs)
 
         with tempfile.TemporaryDirectory() as directory:

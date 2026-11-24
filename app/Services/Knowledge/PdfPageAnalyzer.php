@@ -77,7 +77,11 @@ class PdfPageAnalyzer
      */
     protected function pageSizes(string $pdfFullPath): array
     {
-        $process = new Process(['pdfinfo', '-f', '1', '-l', (string) PHP_INT_MAX, $pdfFullPath]);
+        $command = app(PopplerTools::class)->command('pdfinfo');
+        if ($command === null) {
+            return [];
+        }
+        $process = new Process([$command, '-f', '1', '-l', (string) PHP_INT_MAX, $pdfFullPath]);
         $process->setTimeout(self::CMD_TIMEOUT)->run();
 
         if (! $process->isSuccessful()) {
@@ -112,7 +116,11 @@ class PdfPageAnalyzer
      */
     protected function imageAreasPerPage(string $pdfFullPath): ?array
     {
-        $process = new Process(['pdfimages', '-list', $pdfFullPath]);
+        $command = app(PopplerTools::class)->command('pdfimages');
+        if ($command === null) {
+            return null;
+        }
+        $process = new Process([$command, '-list', $pdfFullPath]);
         $process->setTimeout(self::CMD_TIMEOUT)->run();
 
         if (! $process->isSuccessful()) {
@@ -160,8 +168,12 @@ class PdfPageAnalyzer
             return [];
         }
 
+        $command = app(PopplerTools::class)->command('pdftotext');
+        if ($command === null) {
+            return null;
+        }
         $process = new Process([
-            'pdftotext', '-enc', 'UTF-8', '-f', '1', '-l', (string) $totalPages, $pdfFullPath, '-',
+            $command, '-enc', 'UTF-8', '-f', '1', '-l', (string) $totalPages, $pdfFullPath, '-',
         ]);
         $process->setTimeout(self::CMD_TIMEOUT)->run();
 

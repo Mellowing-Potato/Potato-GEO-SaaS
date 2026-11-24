@@ -204,7 +204,7 @@ class SkillAssetLoader
 
     private function resolveSkillsRoot(): string
     {
-        $configured = trim((string) env('SKILLS_REPO_PATH', ''));
+        $configured = trim((string) config('geo.skills_repo_path', ''));
         if ($configured !== '') {
             return rtrim($configured, '/\\');
         }

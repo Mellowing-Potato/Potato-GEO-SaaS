@@ -20,7 +20,7 @@ Artisan::command('inspire', function () {
 \Illuminate\Support\Facades\Schedule::command('tasks:tick')->everyMinute();
 
 // 单 9 · 调度器心跳保活（geo-scheduler 不消费队列，Looping 永不响，靠每分钟调度写一条心跳）
-\Illuminate\Support\Facades\Schedule::command('ops:heartbeat')->everyMinute();
+\Illuminate\Support\Facades\Schedule::command('ops:heartbeat')->everyMinute()->name('ops:heartbeat');
 
 // ─────────────────────────────────────────────────────────────
 //  平台运营台授权（T6：禁止手工 SQL，统一走命令；幂等）
@@ -125,3 +125,15 @@ Schedule::command('geo:account-purge --apply')->dailyAt('03:45');
 // ⚠️ 故意**不带** --include-money：钱相关表（调用流水/扣点对账）保留 ≥24 个月，
 //    要清必须人工显式加 --include-money（那道闸不该交给定时任务）。
 Schedule::command('geo:privacy-purge --apply')->dailyAt('03:50');
+
+
+if ($hold = getenv('YANJI_UPGRADE_HOLD')) {
+    foreach (Schedule::events() as $event) {
+        if ($event->description !== 'ops:heartbeat') {
+            $event->when(static function () use ($hold): bool {
+                clearstatcache(true, $hold);
+                return !is_file($hold);
+            });
+        }
+    }
+}

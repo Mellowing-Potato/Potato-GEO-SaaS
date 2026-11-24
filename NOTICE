@@ -27,8 +27,18 @@ This product uses yao-geo-skills, Copyright (c) 2026 Yao, under the MIT License.
 Source: https://github.com/yaojingang/yao-geo-skills
 Pinned commit: 136eb92c90946ea56ec63f912d5025bcbc884f39
 Yanji's skill overlays modify prompts, report rendering, validation and fonts.
+The renderer adaptations and corresponding upstream file hashes are listed
+in licenses/skill-renderers.json.
 The MIT license is included at skill-overlays/LICENSE and, in built images,
 yao-geo-skills/LICENSE. Original notices in individual assets are retained.
+
+Portable Web build inputs are pinned in licenses/portable-web.json.
+Platform Web runtime bundles retain their original notices; separate
+corresponding-source/relink kits accompany those runtime distributions.
+
+Portable Python and open-source report font inputs are pinned in
+licenses/portable-python.json and licenses/font-sources.json, and retain
+their upstream notices inside runtime/python/notices/ and runtime/fonts/notices/.
 
 Third-party dependencies and fonts keep their own licenses. See
 THIRD_PARTY_NOTICES.md and the license texts bundled with those components.

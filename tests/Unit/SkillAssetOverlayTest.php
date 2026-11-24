@@ -44,6 +44,7 @@ class SkillAssetOverlayTest extends TestCase
     /** SkillAssetLoader 直接读 env()，所以三处都要设，不能只 putenv。 */
     private function setSkillsRepoPath(string $path): void
     {
+        config(['geo.skills_repo_path' => $path]);
         putenv("SKILLS_REPO_PATH={$path}");
         $_ENV['SKILLS_REPO_PATH'] = $path;
         $_SERVER['SKILLS_REPO_PATH'] = $path;

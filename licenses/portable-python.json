@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "python_build_standalone": {
+    "repository": "https://github.com/astral-sh/python-build-standalone",
+    "release_tag": "20261110",
+    "python_version": "3.12.16",
+    "license": "PSF-2.0 AND MPL-2.0",
+    "license_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261110/LICENSE",
+    "license_sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+    "gpl_exclusion": "Uses libedit instead of GNU readline and disables _gdbm."
+  },
+  "platforms": {
+    "macos-arm64": {
+      "asset": "cpython-3.12.16+20261110-aarch64-apple-darwin-install_only_stripped.tar.gz",
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.12.16%2B20261110-aarch64-apple-darwin-install_only_stripped.tar.gz",
+      "sha256": "2f11b8aa3726bdbd87dd9eb76568412faddf4f47e26913fa45d6a2e424972acd",
+      "executable": "bin/python3"
+    },
+    "linux-aarch64": {
+      "asset": "cpython-3.12.16+20261110-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz",
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.12.16%2B20261110-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz",
+      "sha256": "b6a41defec4975d94b4ff1950236e7383e5c02ba40ea48c9ec33c66087a35aab",
+      "executable": "bin/python3"
+    },
+    "linux-x86_64": {
+      "asset": "cpython-3.12.16+20261110-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.12.16%2B20261110-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+      "sha256": "6a9e62dad033790aef722dbd370e0ce76ce17b73627ba3ae679f537049350b39",
+      "executable": "bin/python3"
+    },
+    "windows-x86_64": {
+      "asset": "cpython-3.12.16+20261110-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.12.16%2B20261110-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
+      "sha256": "355ee61b8207b91574491b1c6dc9b0ebb4408fc56bfafe498f3ef439314b52dc",
+      "executable": "python.exe"
+    }
+  },
+  "packages": [
+    "python-docx==1.2.0",
+    "lxml==6.1.3",
+    "typing_extensions==4.16.0",
+    "Markdown==3.10.3",
+    "beautifulsoup4==4.15.0",
+    "soupsieve==4.1",
+    "reportlab==5.0.0",
+    "pillow==13.0.0",
+    "charset-normalizer==3.5.2",
+    "pypdf==7.0.1",
+    "fonttools==4.68.0",
+    "brotli==1.2.1"
+  ],
+  "report_fonts": {
+    "dejavu_archive": {
+      "url": "https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.tar.bz2",
+      "sha256": "fa9ca4d13871dd122f61258a80d01751d603b4d3ee14095d65453b4e846e17d7",
+      "files": {
+        "DejaVuSans.ttf": {
+          "member": "dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf",
+          "sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954"
+        },
+        "DejaVuSans-Bold.ttf": {
+          "member": "dejavu-fonts-ttf-2.37/ttf/DejaVuSans-Bold.ttf",
+          "sha256": "e6476c1b80502924294eed40894c5b18e06c181444ca953e5334262df9c27724"
+        }
+      }
+    },
+    "noto_serif_cjk": {
+      "filename": "NotoSerifCJK-Regular.ttc",
+      "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/523d033d6cb47f4a80c58a35753646f5c3608a78/Serif/OTC/NotoSerifCJK-Regular.ttc",
+      "sha256": "a04178ec485dffdff7cc0c0c20e1fce9202d7e2160d805e8e44a4c8841c58481"
+    },
+    "license_manifest": "licenses/font-sources.json"
+  }
+}

@@ -4,6 +4,7 @@ namespace App\Services\SkillAgent;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
 
 /**
@@ -75,7 +76,7 @@ class RenderBridgeService
 
     public function __construct()
     {
-        $this->pythonBin = env('PYTHON_BIN', 'python3');
+        $this->pythonBin = (string) config('geo.python_bin');
         $this->schemaRegistry = new RenderSchemaRegistry;
         $this->markdownBuilder = new StructuredMarkdownBuilder;
     }
@@ -107,12 +108,12 @@ class RenderBridgeService
         $contract = self::MARKDOWN_SOURCE_SCRIPTS[$assets->skillId] ?? null;
 
         if ($contract === null) {
-            return [
-                $this->pythonBin,
-                $assets->renderScript,
-                '--input', $inputFile,
-                '--output-dir', $outputDir,
-            ];
+            $command = [$this->pythonBin, $assets->renderScript, '--input', $inputFile, '--output-dir', $outputDir];
+            if ($assets->skillId === 'yao-geo-content-refiner') {
+                $command = [...$command, '--basename', 'content-refiner'];
+            }
+
+            return $command;
         }
 
         $markdownFile = $tempDir.'/report_source.md';
@@ -148,13 +149,21 @@ class RenderBridgeService
      * @param  SkillAssets  $assets  Skill 资产包（含 renderScript 路径）
      * @param  int  $executionId  执行记录 ID，用于隔离输出目录
      */
-    public function render(array $jsonData, SkillAssets $assets, int $executionId): RenderResult
+    public function render(array $jsonData, SkillAssets $assets, int $executionId, bool $isolatedOutput = false): RenderResult
     {
         if (! $this->hasRenderScript($assets)) {
             return RenderResult::skipped('No render script available');
         }
 
+        if (! is_executable($this->pythonBin) && (new ExecutableFinder)->find($this->pythonBin) === null) {
+            return RenderResult::failure('未找到配置的 Python 解释器。', $this->formats($assets->skillId, [], [], 'python'));
+        }
+
         $tempDir = storage_path("app/temp/render-{$executionId}-".uniqid());
+        $baseStoragePath = "executions/{$executionId}";
+        if ($isolatedOutput) {
+            $baseStoragePath .= '/rerender-'.bin2hex(random_bytes(12));
+        }
         $inputFile = $tempDir.'/report_input.json';
         $outputDir = $tempDir.'/output';
 
@@ -170,7 +179,7 @@ class RenderBridgeService
 
             // ─── 2. 创建临时目录并写入 JSON ───
             if (! is_dir($tempDir)) {
-                mkdir($tempDir, 0755, true);
+                mkdir($tempDir, 0700, true);
             }
             $encodedInput = json_encode(
                 $jsonData,
@@ -186,7 +195,12 @@ class RenderBridgeService
                 $this->commandFor($assets, $jsonData, $tempDir, $inputFile, $outputDir)
             );
             $process->setTimeout(180);
-            $process->setEnv(['PYTHONIOENCODING' => 'utf-8']);
+            $env = ['PYTHONIOENCODING' => 'utf-8', 'PYTHONUTF8' => '1'];
+            $fontsDir = trim((string) config('geo.report_fonts_dir', ''));
+            if ($fontsDir !== '') {
+                $env['YANJI_REPORT_FONTS_DIR'] = $fontsDir;
+            }
+            $process->setEnv($env);
 
             Log::info('RenderBridge: invoking Python script', [
                 'script' => basename($assets->renderScript),
@@ -203,7 +217,7 @@ class RenderBridgeService
 
             if (is_dir($outputDir)) {
                 $htmlFontDeliveryCheck = null;
-                $paths = $this->collectOutputFiles($outputDir, $executionId, $htmlFontDeliveryCheck);
+                $paths = $this->collectOutputFiles($outputDir, $executionId, $htmlFontDeliveryCheck, $baseStoragePath);
                 $qualityReport = $this->normalizeRendererQualityReport($this->loadQualityReport($outputDir));
                 // A successful font check alone must not replace the runner's
                 // fallback content checks when Python produced no quality report.
@@ -220,7 +234,7 @@ class RenderBridgeService
                     // The downloadable quality report must describe the final
                     // normalized verdict and stored HTML, not the renderer's
                     // potentially contradictory raw fields.
-                    $qualityPath = "executions/{$executionId}/quality-report.json";
+                    $qualityPath = $baseStoragePath.'/quality-report.json';
                     Storage::disk('reports')->put($qualityPath, json_encode($qualityReport, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
                     $paths['quality-report'] = $qualityPath;
                 }
@@ -229,6 +243,13 @@ class RenderBridgeService
                 }
             }
 
+            $record = is_file($outputDir.'/format-status.json')
+                ? json_decode((string) file_get_contents($outputDir.'/format-status.json'), true) : [];
+            $record = is_array($record) ? $record : [];
+            if (isset($htmlFontDeliveryCheck) && ! $htmlFontDeliveryCheck['passed']) {
+                $record['html'] = ['status' => 'failed', 'reason' => 'html_fonts'];
+            }
+            $formatStatus = $this->formats($assets->skillId, $paths, $record);
             if (! $process->isSuccessful()) {
                 $stderr = $process->getErrorOutput();
                 Log::warning('RenderBridge: Python script exited non-zero, checking partial output', [
@@ -264,10 +285,11 @@ class RenderBridgeService
                         qualityReport: $qualityReport,
                         errorMessage: $stderr !== '' ? mb_substr($stderr, -1000) : null,
                         publishableArticle: $publishableArticle,
+                        formatStatus: $formatStatus,
                     );
                 }
 
-                return RenderResult::failure($stderr ?: 'Python render script failed');
+                return RenderResult::failure($stderr ?: 'Python render script failed', $formatStatus);
             }
 
             Log::info('RenderBridge: Python script succeeded', [
@@ -279,6 +301,7 @@ class RenderBridgeService
                 renderedPaths: $paths,
                 qualityReport: $qualityReport,
                 publishableArticle: $publishableArticle,
+                formatStatus: $formatStatus,
             );
 
         } catch (\Throwable $e) {
@@ -287,11 +310,41 @@ class RenderBridgeService
                 'execution_id' => $executionId,
             ]);
 
-            return RenderResult::failure($e->getMessage());
+            return RenderResult::failure($e->getMessage(), $this->formats($assets->skillId, [], []));
         } finally {
             // 清理临时目录
             $this->cleanupDir($tempDir);
         }
+    }
+
+    /** A retained draft can be downloaded while its delivery check is still failing. */
+    private function formats(string $skillId, array $paths, array $record, ?string $missingDependency = null): array
+    {
+        $status = [];
+        $supported = RenderResult::supportedFormats($skillId);
+        foreach (['markdown', 'html', 'docx', 'pdf'] as $format) {
+            $entry = is_array($record[$format] ?? null) ? $record[$format] : [];
+            if ($format === 'html' && ($entry['status'] ?? null) === 'failed' && ($entry['reason'] ?? null) === 'html_fonts') {
+                $status[$format] = ['status' => 'failed', 'reason' => 'html_fonts'];
+            } elseif (isset($paths[$format])) {
+                $status[$format] = ['status' => 'available'];
+            } elseif ($supported !== [] && ! in_array($format, $supported, true)) {
+                $status[$format] = ['status' => 'unsupported'];
+            } elseif ($missingDependency !== null) {
+                $status[$format] = ['status' => 'unavailable', 'reason' => $missingDependency];
+            } else {
+                $status[$format] = [
+                    'status' => ($entry['status'] ?? null) === 'unavailable' ? 'unavailable' : 'failed',
+                    'reason' => in_array($entry['reason'] ?? '', [
+                        'pdf_engine', 'python_docx', 'reportlab', 'python_markdown', 'beautifulsoup',
+                        'pdf_reader', 'python_dependency', 'pandoc', 'pdftoppm', 'pyftsubset',
+                        'native_library', 'html_fonts', 'export_failed',
+                    ], true) ? $entry['reason'] : 'missing_output',
+                ];
+            }
+        }
+
+        return $status;
     }
 
     /**
@@ -303,10 +356,10 @@ class RenderBridgeService
      *
      * @return array<string, string> 格式 => 存储路径
      */
-    private function collectOutputFiles(string $outputDir, int $executionId, ?array &$htmlFontDeliveryCheck = null): array
+    private function collectOutputFiles(string $outputDir, int $executionId, ?array &$htmlFontDeliveryCheck = null, ?string $baseStoragePath = null): array
     {
         $paths = [];
-        $baseStoragePath = "executions/{$executionId}";
+        $baseStoragePath ??= "executions/{$executionId}";
 
         // 搜索目录列表：deliverables/ 子目录 + 根输出目录
         $searchDirs = [$outputDir];
@@ -428,7 +481,7 @@ class RenderBridgeService
         try {
             $html = file_get_contents($srcPath);
             $packageRoot = realpath(dirname($srcPath));
-            if ($html === false || $packageRoot === false) {
+            if ($html === false || trim($html) === '' || $packageRoot === false) {
                 throw new \RuntimeException('HTML package could not be read.');
             }
             $fontBytes = 0;
@@ -519,7 +572,25 @@ class RenderBridgeService
     {
         try {
             $content = file_get_contents($srcPath);
-            if ($content === false || ! Storage::disk('reports')->put($storagePath, $content)) {
+            if ($content === false || $content === '') {
+                return null;
+            }
+            $extension = strtolower(pathinfo($srcPath, PATHINFO_EXTENSION));
+            if ($extension === 'pdf' && ! str_starts_with($content, '%PDF-')) {
+                return null;
+            }
+            if ($extension === 'docx') {
+                $document = new \ZipArchive;
+                if ($document->open($srcPath, \ZipArchive::RDONLY) !== true) {
+                    return null;
+                }
+                $hasBody = $document->locateName('word/document.xml') !== false;
+                $document->close();
+                if (! $hasBody) {
+                    return null;
+                }
+            }
+            if (! Storage::disk('reports')->put($storagePath, $content)) {
                 throw new \RuntimeException('Report file could not be stored.');
             }
 

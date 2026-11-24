@@ -1416,6 +1416,19 @@
       : qualityWarning || recoveryStage || status === "billing_pending" ? "warning"
       : status === "completed" ? "success" : status === "failed" ? "danger" : "neutral";
     const artifactLine = execution.article_id || execution.article_url ? `${executionProducesArticle(execution) ? "已保存到文章库" : "已归档到历史报告"}。<button class="format-link" type="button" data-open-article="${escapeHtml(execution.article_id || "")}">${executionProducesArticle(execution) ? "打开文章" : "去历史报告列表"}</button>` : "";
+    const reasons = {
+      python: "未找到 Python", pdf_engine: "缺少 PDF 引擎", native_library: "缺少本地渲染库",
+      pandoc: "未安装 Pandoc", python_docx: "未安装 python-docx", reportlab: "未安装 ReportLab",
+      pdf_reader: "未安装 pypdf", python_markdown: "未安装 Markdown", beautifulsoup: "未安装 Beautiful Soup",
+      python_dependency: "缺少 Python 组件", pdftoppm: "缺少 Poppler", pyftsubset: "缺少字体子集工具",
+      html_fonts: "字体附件未通过检查", export_failed: "导出失败", missing_output: "未生成文件",
+    };
+    const formatNotes = ["markdown", "html", "docx", "pdf"].flatMap((format) => {
+      const item = execution.format_status?.[format];
+      if (!item || item.status === "available") return [];
+      const detail = item.status === "unsupported" ? "此技能不提供" : reasons[item.reason] || "未生成文件";
+      return [escapeHtml(formatLabel(format)) + "（" + escapeHtml(detail) + "）"];
+    });
     const exportLine = formats.length ? `导出报告：${formats.map((format) => `<button class="format-link" type="button" data-format="${escapeHtml(format)}">${escapeHtml(formatLabel(format))}</button>`).join(" ")}` : "";
     elements.skillExecutionResult.innerHTML = `
       <div class="report-heading">
@@ -1433,6 +1446,7 @@
       ${renderExecutionGlance(execution, text)}
       ${billingWarning ? "" : billingLine}
       ${artifactLine || exportLine ? `<p class="muted">${artifactLine}${exportLine}</p>` : ""}
+      ${formatNotes.length ? `<p class="muted" data-format-status>${formatNotes.join(" · ")}</p>` : ""}
       ${skillNextActionPanel(execution)}
     `;
     elements.skillExecutionResult

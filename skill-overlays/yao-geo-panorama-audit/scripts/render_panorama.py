@@ -23,6 +23,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from render_formats import OutputFormats
+
 # ─────────────────────────────────────────────────────────────
 #  Constants
 # ─────────────────────────────────────────────────────────────
@@ -615,7 +618,7 @@ def _try_import_docx():
             "Pt": Pt,
             "RGBColor": RGBColor,
         }
-    except ImportError:
+    except (ImportError, OSError):
         return None
 
 
@@ -1166,15 +1169,21 @@ def main() -> None:
 
     # 3. DOCX
     docx_path = deliver_dir / f"{slug}-panorama-audit.docx"
+    status = OutputFormats(output_dir)
     if render_docx(data, docx_path):
         formats.append("docx")
         print(f"[render_panorama] DOCX: {docx_path}")
+    else:
+        status.record("docx", "unavailable", "python_docx")
 
     # 4. PDF (from HTML)
     pdf_path = deliver_dir / f"{slug}-panorama-audit.pdf"
     if render_pdf(html_path, pdf_path):
         formats.append("pdf")
         print(f"[render_panorama] PDF: {pdf_path}")
+    else:
+        pdf_path.unlink(missing_ok=True)
+        status.record("pdf", "unavailable", "pdf_engine")
 
     # 5. Quality report and manifest
     quality = write_quality_report(data, output_dir, formats)

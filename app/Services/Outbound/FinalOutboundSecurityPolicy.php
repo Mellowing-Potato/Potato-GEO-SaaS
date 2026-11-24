@@ -135,6 +135,12 @@ final class FinalOutboundSecurityPolicy
             $target->url,
             $crossOrigin,
         );
+        if ($target->magpieScope?->isDiscovery()) {
+            // Discard caller/global middleware credentials and entity headers at the terminal boundary.
+            $request = new \GuzzleHttp\Psr7\Request('GET', $target->url, [
+                'Accept' => 'application/json', 'User-Agent' => 'Yanji',
+            ]);
+        }
         $curl = $this->secureCurlOptions(
             $target,
             (string) $request->getUri()->withFragment(''),

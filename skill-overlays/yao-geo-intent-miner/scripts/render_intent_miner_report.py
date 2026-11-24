@@ -31,7 +31,11 @@ import re
 import shutil
 import subprocess
 import zipfile
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from render_formats import OutputFormats
 from xml.sax.saxutils import escape as xml_escape
 
 
@@ -695,8 +699,10 @@ def quality_report(data: dict, paths: dict[str, Path]) -> dict:
         "evidence_sources_present": bool(data.get("evidence_sources")),
         "compliance_boundaries_present": "合规" in section_text and any(as_text(q.get("compliance_level")).startswith("L") for q in question_bank),
     }
-    checks.update(check_docx(paths["docx"]))
-    checks.update(check_pdf(paths["pdf"]))
+    if paths["docx"].is_file():
+        checks.update(check_docx(paths["docx"]))
+    if paths["pdf"].is_file():
+        checks.update(check_pdf(paths["pdf"]))
     failed = [name for name, passed in checks.items() if isinstance(passed, bool) and not passed]
     return {
         "report": data.get("title"),
@@ -735,8 +741,9 @@ def main() -> None:
     }
     paths["markdown"].write_text(render_markdown(data), encoding="utf-8")
     paths["html"].write_text(render_html(data), encoding="utf-8")
-    render_docx(data, paths["docx"])
-    render_pdf(paths["html"], paths["pdf"])
+    formats = OutputFormats(output_dir)
+    formats.write("docx", paths["docx"], lambda: render_docx(data, paths["docx"]))
+    formats.write("pdf", paths["pdf"], lambda: render_pdf(paths["html"], paths["pdf"]))
     (output_dir / "index.html").write_text(paths["html"].read_text(encoding="utf-8"), encoding="utf-8")
     report = quality_report(data, paths)
     paths["quality"].write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")

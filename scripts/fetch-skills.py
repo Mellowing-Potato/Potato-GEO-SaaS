@@ -12,7 +12,7 @@ SOURCE = 'https://codeload.github.com/yaojingang/yao-geo-skills/tar.gz/'
 
 
 def install(lock_path, destination):
-    lock = json.loads(Path(lock_path).read_text())
+    lock = json.loads(Path(lock_path).read_text(encoding='utf-8'))
     commit = lock['upstream_commit']
     if len(commit) != 40 or any(c not in '0123456789abcdef' for c in commit):
         raise ValueError('Invalid locked commit')
@@ -45,7 +45,7 @@ def install(lock_path, destination):
             target = output / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
-        (output / '.upstream-commit').write_text(commit + '\n')
+        (output / '.upstream-commit').write_text(commit + '\n', encoding='utf-8')
     print('Verified skill files:', len(lock['files']))
 
 

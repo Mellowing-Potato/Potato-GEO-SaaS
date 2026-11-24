@@ -33,6 +33,10 @@ class RecordSchedulerHeartbeat extends Command
             'pid' => getmypid(),
             'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 1),
         ];
+        $generation = getenv('YANJI_SERVICE_GENERATION');
+        if (is_string($generation) && preg_match('/^[a-f0-9]{32}$/D', $generation)) {
+            $meta['generation'] = $generation;
+        }
 
         try {
             WorkerHeartbeat::query()->updateOrCreate(

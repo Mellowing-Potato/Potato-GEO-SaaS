@@ -7,6 +7,7 @@ use App\Models\KnowledgeBase;
 use App\Models\KnowledgeChunk;
 use App\Models\KnowledgeDocument;
 use App\Services\AI\ModelConnectionResolver;
+use App\Services\AI\EmbeddingModelPolicy;
 use App\Services\Billing\AssistUsageRecorder;
 use App\Services\Content\HtmlVisibility;
 use App\Services\Contracts\AiProvider;
@@ -23,6 +24,7 @@ use DOMElement;
 use DOMNode;
 use DOMText;
 use DOMXPath;
+use Illuminate\Contracts\Database\ConcurrencyErrorDetector;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
@@ -470,7 +472,12 @@ class DocumentIngestionService
             $vision = null;
             $visionApplicable = $this->visionApplicable($document);
             $visionNotice = null;
-            if ($document->mime_type === 'application/pdf' || str_starts_with((string) $document->mime_type, 'image/')) {
+            $poppler = app(PopplerTools::class);
+            $missingPoppler = $visionApplicable ? $poppler->missing() : [];
+            if ($missingPoppler !== []) {
+                $visionNotice = $poppler->notice($missingPoppler);
+                $document->update(['metadata' => array_replace($document->metadata ?? [], ['vision_notice' => $visionNotice])]);
+            } elseif ($document->mime_type === 'application/pdf' || str_starts_with((string) $document->mime_type, 'image/')) {
                 $availability = app(ModelConnectionResolver::class)->availability(
                     'vision', $document->tenant_id,
                     snapshot: $document->metadata['vision_connection_snapshot'] ?? null,
@@ -482,7 +489,7 @@ class DocumentIngestionService
                 }
             }
             // A saved per-page result is local and remains usable after the source changes.
-            if ($visionApplicable && ($visionNotice === null || ! empty($document->metadata['vision_attempts']))) {
+            if ($visionApplicable && $missingPoppler === [] && ($visionNotice === null || ! empty($document->metadata['vision_attempts']))) {
                 try {
                     $vision = $this->extractWithVision($document);
                 } catch (\Throwable $e) {
@@ -972,103 +979,74 @@ class DocumentIngestionService
         // document is a new business operation even when its row ID is stable.
         $contentVersion = substr(hash('sha256', json_encode($chunks, JSON_THROW_ON_ERROR)), 0, 32);
 
-        // Batch embed (up to 20 at a time)
-        // Note: array_values() is required because array_chunk() preserves original
-        // keys, but the API returns embeddings with 0-based indices. Without re-indexing,
-        // $embeddings[$i] would misalign for any batch after the first.
         $embeddingKey = app(\App\Services\AI\ModelConfiguration::class)->active('embedding', $tenantId);
         $batchSize = $embeddingKey && config("ai-providers.{$embeddingKey->provider}.embedding_protocol") === 'ark_multimodal' ? 1 : 10;
-        foreach (array_chunk($chunks, $batchSize) as $batchIndex => $batch) {
-            $batch = array_values($batch);
+        $batches = array_chunk($chunks, $batchSize);
+        foreach ($batches as $batchIndex => $batch) {
             $attemptKey = $contentVersion.':'.$batchIndex;
-            $reuse = DB::transaction(function () use ($document, $attemptKey, $batch): bool {
-                $document->refresh();
+            $journal = DB::connection()->getDriverName() === 'sqlite' ? new PendingEmbeddingResponse($document, $attemptKey) : null;
+            $received = $journal?->read();
+            $state = DB::transaction(function () use ($document, $attemptKey, $batch, $received) {
                 $current = KnowledgeDocument::query()->whereKey($document->id)->lockForUpdate()->firstOrFail();
                 app(\App\Services\AI\ModelConfiguration::class)->assertDocumentModel($current);
                 $metadata = $current->metadata ?? [];
                 $prior = $metadata['embedding_batches'][$attemptKey] ?? null;
-                if (($prior['status'] ?? null) === 'completed') {
-                    return true;
-                }
                 if ($prior !== null) {
-                    throw new IngestionFailure('结果未知，可手动重新执行；如需重新入库，请删除这份材料后重新导入。');
+                    if (($prior['status'] ?? null) === 'prepared' && $received !== null) {
+                        return null;
+                    }
+                    if (! in_array($prior['status'] ?? null, ['completed', 'usage_pending', 'failed'], true)) {
+                        throw new IngestionFailure('结果未知，可手动重新执行；如需重新入库，请删除这份材料后重新导入。');
+                    }
+                    return $prior;
+                }
+                if ($received !== null) {
+                    throw new IngestionFailure('已保存的向量回执缺少原入库批次，请核对实例备份。');
                 }
                 $metadata['embedding_batches'][$attemptKey] = ['status' => 'prepared', 'count' => count($batch)];
                 $current->update(['metadata' => $metadata]);
-                return false;
-            });
-            if ($reuse) {
+
+                return null;
+            }, attempts: 3);
+
+            if ($state === null) {
+                // This is the only external call. No database retry can reach it.
+                $result = $received ?? $this->aiProvider->embedBatch($batch, 'embedding', [
+                    'feature_id' => 'knowledge-ingestion', 'task_id' => 'document:'.$document->id.':'.$contentVersion,
+                    'step_id' => (string) $batchIndex,
+                ]);
+                try {
+                    $state = $this->saveEmbeddingBatch($document, $attemptKey, $batch, $count, $result, $batchIndex, count($batches));
+                } catch (\PDOException $e) {
+                    if (! $journal || ! app(ConcurrencyErrorDetector::class)->causedByConcurrencyError($e)) {
+                        throw $e;
+                    }
+                    $journal->save($result);
+                    throw new IngestionFailure('数据库正忙，模型回执已保存在本地；重试本次入库任务可继续处理。');
+                }
+            } elseif ($state['status'] !== 'failed' && empty($state['error'])) {
                 $stored = KnowledgeChunk::query()->where('document_id', $document->id)
                     ->whereBetween('chunk_index', [$count, $count + count($batch) - 1])->orderBy('chunk_index')->get();
                 if ($stored->count() !== count($batch)) {
                     throw new IngestionFailure('已保存的材料切片不完整，请删除这份材料后重新导入。');
                 }
                 foreach ($stored as $i => $chunk) {
-                    if ($chunk->content !== $batch[$i] || ! \App\Services\AI\EmbeddingModelPolicy::validVector($chunk->embedding)) {
+                    if ($chunk->content !== $batch[$i] || ! EmbeddingModelPolicy::validVector($chunk->embedding)) {
                         throw new IngestionFailure('已保存的材料切片与正文不一致，请删除这份材料后重新导入。');
                     }
                 }
-                $count += count($batch);
-                continue;
-            }
-            $result = $this->aiProvider->embedBatch($batch, 'embedding', ['feature_id' => 'knowledge-ingestion', 'task_id' => 'document:'.$document->id.':'.$contentVersion, 'step_id' => (string) $batchIndex]);
-            $embeddings = $result['embeddings'] ?? [];
-            if ($this->assistRecorder && $document->uploaded_by && isset($result['provider'], $result['model'])) {
-                $usage = $result['gateway']['usage'] ?? [];
-                $this->assistRecorder->record($document->project_id, $document->uploaded_by, new AiProviderCallResult(
-                    success: $embeddings !== [], provider: $result['provider'], model: $result['model'],
-                    promptTokens: $usage['prompt_tokens'] ?? 0, completionTokens: $usage['completion_tokens'] ?? 0,
-                    totalTokens: $usage['total_tokens'] ?? 0, gateway: $result['gateway'] ?? [],
-                ), 'ai-assist-kb-embedding', '知识库向量化', metadata: ['document_id' => $document->id, 'batch' => $batchIndex]);
             }
 
-            // 整批空 = 向量化真的失败了，不是这批文本没内容。继续往下走会把文档
-            // 标成「已解析、0 切片」——检索一条都召不回，而用户看到的是绿色成功。
-            // 2026-08-20 在生产实打一次 embedBatch，402 余额不足就走的这条路。
-            if ($embeddings === []) {
-                throw new IngestionFailure(sprintf(
-                    '向量化失败（第 %d 批，共 %d 批）：%s',
-                    $batchIndex + 1,
-                    (int) ceil(count($chunks) / $batchSize),
-                    $result['error'] ?? '未知原因',
-                ));
+            if ($received !== null) {
+                $journal->forget(); // The same response is now committed in the database.
             }
-
-            // One transaction commits both vectors and their receipt. A crash before
-            // this commit leaves the prepared marker and must never trigger a resend.
-            DB::transaction(function () use ($document, $attemptKey, $embeddings, $result, $batch, $tenantId, &$count): void {
-                $current = KnowledgeDocument::query()->whereKey($document->id)->lockForUpdate()->firstOrFail();
-                app(\App\Services\AI\ModelConfiguration::class)->assertDocumentModel($current);
-                foreach ($batch as $i => $chunkText) {
-                $embedding = $embeddings[$i] ?? null;
-                if (! \App\Services\AI\EmbeddingModelPolicy::validVector($embedding)) {
-                    throw new IngestionFailure('向量维度不匹配，知识库只接受 1024 维向量。');
-                }
-
-                // Try to extract section title from the chunk
-                $sectionTitle = null;
-                if (preg_match('/^#+\s+(.+)$/m', $chunkText, $m)) {
-                    $sectionTitle = trim($m[1]);
-                }
-
-                KnowledgeChunk::create([
-                    'tenant_id' => $tenantId,
-                    'document_id' => $document->id,
-                    'chunk_index' => $count,
-                    'content' => $chunkText,
-                    'section_title' => $sectionTitle,
-                    'token_count' => (int) ceil(mb_strlen($chunkText) / 4), // rough estimate
-                    'embedding' => $embedding,
-                ]);
-                $count++;
+            if ($state['status'] === 'usage_pending') {
+                $state = $this->recordEmbeddingBatchUsage($document, $attemptKey, $batchIndex);
             }
-                $metadata = $current->metadata ?? [];
-                $metadata['embedding_batches'][$attemptKey] = ['status' => 'completed', 'count' => count($batch)];
-                if (! empty($result['gateway'])) {
-                    $metadata['embedding_requests'][] = $result['gateway'];
-                }
-                $current->update(['metadata' => $metadata]);
-            });
+            if ($state['status'] === 'failed') {
+                throw new IngestionFailure($state['error']);
+            }
+            $count += count($batch);
             $document->refresh();
         }
 
@@ -1080,4 +1058,85 @@ class DocumentIngestionService
 
         return $count;
     }
+
+    /** Store a received response before settlement so queue replay can finish it locally. */
+    private function saveEmbeddingBatch(KnowledgeDocument $document, string $key, array $batch, int $offset,
+        array $result, int $batchIndex, int $totalBatches): array
+    {
+        $embeddings = $result['embeddings'] ?? [];
+        $error = null;
+        if ($embeddings === []) {
+            $error = sprintf('向量化失败（第 %d 批，共 %d 批）：%s', $batchIndex + 1, $totalBatches, $result['error'] ?? '未知原因');
+        } elseif (! is_array($embeddings) || ! array_is_list($embeddings) || count($embeddings) !== count($batch)
+            || ! array_all($embeddings, EmbeddingModelPolicy::validVector(...))) {
+            $error = '向量维度不匹配，知识库只接受有方向的 1024 维向量。';
+        }
+        $state = ['status' => $error === null ? 'completed' : 'failed', 'count' => count($batch)];
+        if ($error !== null) {
+            $state['error'] = $error;
+        }
+        if ($this->assistRecorder && $document->uploaded_by && isset($result['provider'], $result['model'])) {
+            $state['status'] = 'usage_pending';
+            $state['usage'] = ['success' => $embeddings !== [], 'provider' => $result['provider'],
+                'model' => $result['model'], 'gateway' => $result['gateway'] ?? []];
+        }
+
+        return DB::transaction(function () use ($document, $key, $state, $batch, $offset, $embeddings, $result, $error) {
+            $current = KnowledgeDocument::query()->whereKey($document->id)->lockForUpdate()->firstOrFail();
+            app(\App\Services\AI\ModelConfiguration::class)->assertDocumentModel($current);
+            $meta = $current->metadata ?? [];
+            $prior = $meta['embedding_batches'][$key] ?? [];
+            if (in_array($prior['status'] ?? null, ['usage_pending', 'completed', 'failed'], true)) {
+                return $prior; // Another recovery worker already committed this batch.
+            }
+            if (($prior['status'] ?? null) !== 'prepared') {
+                throw new IngestionFailure('入库批次已变更，请核对这份材料的状态。');
+            }
+            if ($error === null) {
+                foreach ($batch as $i => $text) {
+                    $title = preg_match('/^#+\s+(.+)$/m', $text, $m) ? trim($m[1]) : null;
+                    KnowledgeChunk::create(['tenant_id' => $document->tenant_id, 'document_id' => $document->id,
+                        'chunk_index' => $offset + $i, 'content' => $text, 'section_title' => $title,
+                        'token_count' => (int) ceil(mb_strlen($text) / 4), 'embedding' => $embeddings[$i]]);
+                }
+            }
+            $meta['embedding_batches'][$key] = $state;
+            if (! empty($result['gateway'])) {
+                $meta['embedding_requests'][] = $result['gateway'];
+            }
+            $current->update(['metadata' => $meta]);
+
+            return $state;
+        }, attempts: 3);
+    }
+
+    private function recordEmbeddingBatchUsage(KnowledgeDocument $document, string $key, int $batchIndex): array
+    {
+        return DB::transaction(function () use ($document, $key, $batchIndex) {
+            $current = KnowledgeDocument::query()->whereKey($document->id)->lockForUpdate()->firstOrFail();
+            $meta = $current->metadata;
+            $state = $meta['embedding_batches'][$key];
+            if ($state['status'] !== 'usage_pending') {
+                return $state;
+            }
+            $response = $state['usage'];
+            $gateway = $response['gateway'];
+            $usage = $gateway['usage'] ?? [];
+            $log = $this->assistRecorder?->record($current->project_id, $current->uploaded_by, new AiProviderCallResult(
+                success: $response['success'], provider: $response['provider'], model: $response['model'],
+                promptTokens: $usage['prompt_tokens'] ?? 0, completionTokens: $usage['completion_tokens'] ?? 0,
+                totalTokens: $usage['total_tokens'] ?? 0, gateway: $gateway,
+            ), 'ai-assist-kb-embedding', '知识库向量化', metadata: ['document_id' => $current->id, 'batch' => $batchIndex]);
+            if (! $log) {
+                throw new IngestionFailure('已保存模型回执，用量暂未记录；重试本次入库任务可继续记账。');
+            }
+            unset($state['usage']);
+            $state['status'] = isset($state['error']) ? 'failed' : 'completed';
+            $meta['embedding_batches'][$key] = $state;
+            $current->update(['metadata' => $meta]);
+
+            return $state;
+        }, attempts: 3);
+    }
+
 }

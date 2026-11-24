@@ -242,6 +242,7 @@ class SkillChunkFinalizer
             // ─── 渲染管线 ───
             $renderExecutionId = $brief->executionId ?? time();
             $renderResult = $this->renderBridge->render($structured, $assets, $renderExecutionId);
+            $intermediateData['format_status'] = $renderResult->formatStatus;
 
             if ($renderResult->success) {
                 $outputPaths = $renderResult->renderedPaths;
