@@ -22,14 +22,16 @@ class RenderMatrixAcceptanceTest(unittest.TestCase):
         ):
             with self.subTest(skill=skill), tempfile.TemporaryDirectory(prefix='yanji-missing-reportlab-') as tmp:
                 hook = Path(tmp) / 'sitecustomize.py'
+                # Match the bundled runtime, which has no WeasyPrint native stack.
+                # Force the title renderer through its ReportLab fallback even on full CI images.
                 hook.write_text(
                     'import importlib.abc, sys\n'
-                    'class MissingReportLab(importlib.abc.MetaPathFinder):\n'
+                    'class MissingBundledPdfDependencies(importlib.abc.MetaPathFinder):\n'
                     '    def find_spec(self, fullname, path=None, target=None):\n'
-                    '        if fullname.split(".")[0] == "reportlab":\n'
-                    '            raise ModuleNotFoundError("ReportLab intentionally unavailable")\n'
+                    '        if fullname.split(".")[0] in ("reportlab", "weasyprint"):\n'
+                    '            raise ModuleNotFoundError("Bundled PDF dependency intentionally unavailable")\n'
                     f'if sys.argv[0].endswith({script!r}):\n'
-                    '    sys.meta_path.insert(0, MissingReportLab())\n', encoding='utf-8',
+                    '    sys.meta_path.insert(0, MissingBundledPdfDependencies())\n', encoding='utf-8',
                 )
                 result = subprocess.run(
                     [*php, str(ROOT / 'scripts/test-skill-render-matrix.php'),
