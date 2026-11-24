@@ -6,6 +6,8 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import sys
+import venv
 import tarfile
 import tempfile
 import unittest
@@ -72,6 +74,33 @@ class PortablePythonMaterialsTest(unittest.TestCase):
             'fonts/notices/dejavu/LICENSE': b'dejavu-license',
         })
         return path
+
+    def test_python_probe_keeps_writable_runtime_bytes_and_forces_utf8(self):
+        runtime = self.root / 'python'
+        venv.EnvBuilder(with_pip=False, symlinks=sys.platform != 'win32').create(runtime)
+        python = runtime / ('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')
+        site_packages = Path(subprocess.check_output(
+            [str(python), '-I', '-c', 'import sysconfig; print(sysconfig.get_path("purelib"))'], text=True,
+        ).strip())
+        for name in ('bs4', 'markdown', 'reportlab', 'pypdf'):
+            (site_packages / (name + '.py')).write_text('# probe fixture\n', encoding='utf-8')
+        (site_packages / 'docx.py').write_text(
+            'import sys\n'
+            'def Document():\n'
+            '    if not sys.dont_write_bytecode or sys.flags.utf8_mode != 1:\n'
+            '        raise OSError("Probe must disable bytecode and enable UTF-8")\n', encoding='utf-8',
+        )
+        before = {p.relative_to(runtime): p.read_bytes() for p in runtime.rglob('*') if p.is_file()}
+        code = r"""
+require $argv[1].'/portable/src/Installation.php';
+$probe = new ReflectionMethod(\Yanji\Portable\Installation::class, 'probePython');
+echo json_encode($probe->invoke(null, $argv[2]), JSON_THROW_ON_ERROR);
+"""
+        for _ in range(2):
+            result = subprocess.run(['php', '-r', code, str(ROOT), str(python)], capture_output=True, text=True, check=True)
+            self.assertTrue(json.loads(result.stdout)['basic'], 'Probe must pass with -B and explicit UTF-8 in isolated mode')
+            after = {p.relative_to(runtime): p.read_bytes() for p in runtime.rglob('*') if p.is_file()}
+            self.assertEqual(before, after, 'Python probing modified the writable runtime inventory')
 
     def test_valid_python_and_fonts_archives_pass_inspection(self):
         py = self._valid_python_tar('macos-arm64')

@@ -2,6 +2,7 @@
 """Exercise a verified native package in an isolated local instance without paid services."""
 import argparse
 import http.server
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -156,6 +157,7 @@ def scenario(args, work):
     server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), BlockedResponse)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     restored_instance = work / 'restored-instance'
+    second_instance = work / 'second-instance'
     try:
         subprocess.run(install, check=True, timeout=180)
         (instance / '.portable-acceptance').write_text('ok\n', encoding='utf-8')
@@ -248,8 +250,36 @@ def scenario(args, work):
             raise AssertionError(f'Restored instance doctor failed: {restored_doc}')
         run_manage(restored_launcher, 'stop')
 
-        # Verify cached tampering rejection
+        # A successful probe and doctor must leave every authenticated program byte intact.
         release = release_path()
+        inventory = (release / 'PACKAGE-FILES.sha256').read_text(encoding='utf-8')
+        for line in inventory.splitlines():
+            digest, name = line.split('  ', 1)
+            actual = hashlib.sha256((release / name).read_bytes()).hexdigest()
+            if actual != digest:
+                raise AssertionError(f'Installation or doctor modified cached program bytes: {name}')
+        expected_files = {line.split('  ', 1)[1] for line in inventory.splitlines()}
+        actual_files = {p.relative_to(release).as_posix() for p in release.rglob('*') if p.is_file()}
+        if actual_files != expected_files | {'PACKAGE-FILES.sha256', '.archive-sha256'}:
+            raise AssertionError('Installation or doctor added unexpected files to the program cache')
+
+        # Reinstall the same instance, then initialize an independent instance from the same cache.
+        subprocess.run(install, check=True, timeout=180)
+        run_manage(launcher, 'stop')
+        with socket.socket() as free3:
+            free3.bind(('127.0.0.1', 0))
+            second_port = free3.getsockname()[1]
+        second_install = install.copy()
+        second_install[second_install.index('-Instance' if IS_WIN else '--instance') + 1] = str(second_instance)
+        second_install[second_install.index('-Port' if IS_WIN else '--port') + 1] = str(second_port)
+        subprocess.run(second_install, check=True, timeout=180)
+        second_launcher = second_instance / ('yanji.cmd' if IS_WIN else 'yanji')
+        second_doc = json.loads(run_manage(second_launcher, 'doctor', capture_output=True).stdout)
+        if not second_doc.get('database_key_admin_ready') or second_doc.get('release') != str(release).replace('\\', '/'):
+            raise AssertionError('Independent instance failed to reuse the authenticated program cache')
+        run_manage(second_launcher, 'stop')
+
+        # Verify cached tampering rejection
         asset = release / 'app/VERSION'
         if not IS_WIN and (asset.stat().st_mode & 0o222):
             raise AssertionError('Installed program files must be read-only')
@@ -272,6 +302,8 @@ def scenario(args, work):
             private_static_404=True,
             backup_restore_verified=True,
             cached_tampering_rejected=True,
+            clean_cache_reinstalled=True,
+            shared_cache_second_instance=True,
             completed_jobs=len(rows),
             worker_generations=2,
             blocked_requests=len(requests),
@@ -295,12 +327,12 @@ def scenario(args, work):
                 print(lp.read_text(encoding='utf-8', errors='replace')[-4000:], file=sys.stderr)
         raise
     finally:
-        for inst in (instance, restored_instance):
+        for inst in (instance, restored_instance, second_instance):
             inst_launcher = inst / ('yanji.cmd' if IS_WIN else 'yanji')
             if inst_launcher.exists():
                 run_manage(inst_launcher, 'stop', check=False, timeout=30, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if IS_WIN:
-            for inst in (instance, restored_instance):
+            for inst in (instance, restored_instance, second_instance):
                 ctrl = inst / 'run/control.json'
                 if ctrl.is_file():
                     try:

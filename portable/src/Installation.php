@@ -213,7 +213,7 @@ print(json.dumps(dict(basic=basic, version=sys.version.split()[0], weasyprint=lo
     reportlab=load_module('reportlab'), pypdf=load_module('pypdf'), poppler=bool(shutil.which('pdftotext')))))
 PYTHON;
         $null = Platform::nullDevice();
-        $process = @proc_open([$bin, '-I', '-c', $script],
+        $process = @proc_open([$bin, '-I', '-B', '-X', 'utf8', '-c', $script],
             [0 => ['file', $null, 'r'], 1 => ['pipe', 'w'], 2 => ['file', $null, 'w']], $pipes, null, $env, ['bypass_shell' => true]);
         $data = null;
         if (is_resource($process)) {
