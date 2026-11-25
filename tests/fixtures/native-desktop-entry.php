@@ -74,10 +74,13 @@ try {
     $shell = New-Object -ComObject WScript.Shell
     $phase = 'shortcut_create'
     $link = $shell.CreateShortcut($env:YANJI_ENTRY_SHORTCUT)
-    $phase = 'shortcut_properties'
+    $phase = 'shortcut_target'
     $link.TargetPath = $env:YANJI_ENTRY_FILE
+    $phase = 'shortcut_arguments'
     $link.Arguments = ''
+    $phase = 'shortcut_description'
     $link.Description = $env:YANJI_ENTRY_MARKER
+    $phase = 'shortcut_working_directory'
     $link.WorkingDirectory = $env:YANJI_ENTRY_DIRECTORY
     $phase = 'shortcut_save'
     $link.Save()
@@ -111,7 +114,8 @@ PS;
             if (in_array($detail['code'] ?? null, ['saved', 'exception'], true)) {
                 $safe['code'] = $detail['code'];
             }
-            if (in_array($detail['phase'] ?? null, ['com_shell', 'shortcut_create', 'shortcut_properties', 'shortcut_save', 'complete'], true)) {
+            if (in_array($detail['phase'] ?? null, ['com_shell', 'shortcut_create', 'shortcut_target', 'shortcut_arguments',
+                'shortcut_description', 'shortcut_working_directory', 'shortcut_save', 'complete'], true)) {
                 $safe['phase'] = $detail['phase'];
             }
             if (is_int($detail['hresult'] ?? null)) {
