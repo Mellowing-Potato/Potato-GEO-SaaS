@@ -30,7 +30,7 @@ sh install-local.sh --manifest "$YANJI_RELEASE_MANIFEST" --manifest-sha256 "$YAN
 ```
 
 ```powershell
-& .\install-local.ps1 -Manifest $YanjiReleaseManifest -ManifestSha256 $YanjiReleaseSha256
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install-local.ps1 -Manifest "$YanjiReleaseManifest" -ManifestSha256 "$YanjiReleaseSha256"
 ```
 
 不要将正式版 URL 当作候选下载地址，也不要从未经独立核对的下载文件自行推导“可信摘要”。Docker 安装则在已安装并运行 Docker 的本机，依次执行 `git clone https://github.com/Mellowing-Potato/Potato-GEO-SaaS.git yanji`、`cd yanji`、`bash scripts/install.sh`，由使用者完成管理员登录设置。
