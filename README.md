@@ -2,6 +2,8 @@
 
 **简体中文** | [English](README.en.md) · 最新正式版：[v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0) · 许可：[Apache-2.0](LICENSE) · [免 Docker 便携版](PORTABLE.md) · [Docker 部署](INSTALL.md) · [常见问题 FAQ](#常见问题-faq)
 
+> **目标版本 `v0.1.1` 正在准备发行，尚未发布。** 本机免登录与网页连接 Magpie 的变更及本轮验收边界见 [更新日志](CHANGELOG.md)。下方一行安装命令目前仍指向已发布的 `v0.1.0`。
+
 **言及（Yanji GEO-SaaS）** 是一款可自部署的开源 **GEO（Generative Engine Optimization，生成式引擎优化 / AI 搜索优化）项目管理与内容交付工作台**，面向 GEO 代运营个人、小团队与品牌市场人员。支持 **macOS Apple Silicon / Windows x64 / Linux 免 Docker 一键运行** 与 **Docker 自部署**，自带模型 Key（BYOK）、无订阅抽成，在独立隔离工作区中串联客户资料、1024 维向量知识库、11 项 GEO 技能报告与内容生成、中文平台草稿助手以及豆包 AI 搜索可见性监测。
 
 > **目录**：[核心能力与六阶段工作流](#核心能力与六阶段工作流) · [快速安装（v0.1.0）](#快速安装v010) · [三分钟上手流程](#三分钟上手流程) · [界面预览](#界面预览) · [能力与边界](#能力与边界) · [言及与 GEOFlow 的区别](#言及与-geoflow-的区别) · [渠道支持](#渠道支持) · [常见问题 FAQ](#常见问题-faq) · [已验证与待验证](#已验证与待验证) · [许可与来源](#许可来源与品牌)
@@ -57,13 +59,17 @@ curl -fsSL https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download
 irm https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.0/get-yanji.ps1 | iex
 ```
 
-> 离线安装、可审计两步安装、macOS 手动浏览器下载解除隔离属性及日常运维命令详见 [PORTABLE.md](PORTABLE.md)。Intel Mac（`macos-x64`）不含在便携包内，请使用下方 Docker 方式。
+> 首次安装需下载约 170–220 MB 便携运行时并进行完整校验，视网络速度可能需要 1–3 分钟后才会提示输入管理员邮箱与密码；已知 `v0.1.0` 发布资产在下载与校验阶段不会输出进度，请耐心等待（后续版本源码已补充实时进度提示）。离线安装、可审计两步安装、macOS 手动浏览器下载解除隔离属性及日常运维命令详见 [PORTABLE.md](PORTABLE.md)。Intel Mac（`macos-x64`）不含在便携包内，请使用下方 Docker 方式。
+
+> **目标 `v0.1.1` 的便携流程（发行准备，未发布）**：全新便携实例默认无需填写邮箱和密码，由本机启动器授权打开工作台；`yanji open` 可再次打开。已有账号实例或显式账号模式保留原登录方式。维护者已确认 Mac 候选包的安装、更新、免登录工作台和本机 Magpie 服务检测与目录读取；Magpie 模型激活与真实推理未跑，详见 [PORTABLE.md](PORTABLE.md)。本文 `v0.1.0` 发布资产仍使用邮箱密码。
 
 ### 方式二：Docker 自部署
 
-适用于服务器部署、PostgreSQL / pgvector 生产环境或 Intel Mac。下载并解压仓库后在项目目录运行（先安装并启动 Docker）：
+适用于服务器部署、PostgreSQL / pgvector 生产环境或 Intel Mac。先安装并启动 Docker，再克隆仓库并进入项目目录运行：
 
 ```bash
+git clone https://github.com/Mellowing-Potato/Potato-GEO-SaaS.git yanji
+cd yanji
 bash scripts/install.sh
 ```
 
@@ -207,6 +213,7 @@ bash scripts/install.sh
 
 ## 已验证与待验证
 
+- **v0.1.1 发行准备（尚未发布）：** 维护者已在 Apple Silicon Mac 候选包上确认安装、更新、免登录进入工作台，以及网页检测本机 Magpie 服务和读取模型目录。当前来源截图仍为第三方直连，不能据此认定 Magpie 已激活或实际推理通过。`v0.1.1` 正式发行 CI、其他平台本轮发行验收和新增网页连接后的真实推理未跑；以下 `v0.1.0` 平台结果为历史验证。
 - **自动化测试与 v0.1.0 发布流水线：** SQLite、PostgreSQL、前端、字体与技能快照均具备自动化测试（本地运行见 [贡献指南](CONTRIBUTING.md)）。`v0.1.0` 正式发布流（[#45369285542](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45369285542)）全部 8 项任务通过，已公开 [GitHub Release v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0)（17 项资产）与双架构 Docker 镜像。自动化测试通过不等于全部真实第三方平台账号均已验收。
 - **界面实测：** 新安装、登录与退出、三种真实模型连接、材料入库和检索、豆包监测、标题内容生成、报告下载、用量、未知结果不自动重发、窄屏模型表单。
 - **Magpie 实测：** 原生回环接入已实测文本请求、队列生成结构化标题报告和合成扫描件识别。
