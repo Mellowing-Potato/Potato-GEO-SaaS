@@ -11,8 +11,8 @@
         'publishingHelperVersion' => app(\App\Services\Publishing\BrowserExtensionPackage::class)->version(),
         'publishingHelperOrigin' => app(\App\Services\Publishing\BrowserExtensionPackage::class)->instance()['origin'],
     ];
-    $cssVersion = file_exists(public_path('geo-manual-publish.css')) ? filemtime(public_path('geo-manual-publish.css')) : time();
-    $jsVersion  = file_exists(public_path('geo-manual-publish.js'))  ? filemtime(public_path('geo-manual-publish.js'))  : time();
+    $cssVersion = file_exists(public_path('geo-manual-publish.css')) ? \App\Support\PublicAssetVersion::for('geo-manual-publish.css') : time();
+    $jsVersion  = file_exists(public_path('geo-manual-publish.js'))  ? \App\Support\PublicAssetVersion::for('geo-manual-publish.js')  : time();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -27,14 +27,14 @@
         window.GEO_MANUAL_PUBLISH_CONFIG = @json($mpConfig);
     </script>
     {{-- 设计令牌：必须排在页面自身样式表【前面】，页面里的覆盖才压得住。 --}}
-    <link rel="stylesheet" href="/geo-tokens.css?v={{ file_exists(public_path('geo-tokens.css')) ? filemtime(public_path('geo-tokens.css')) : time() }}">
-    <link rel="stylesheet" href="/geo-shell.css?v={{ filemtime(public_path('geo-shell.css')) }}">
-    <link rel="stylesheet" href="/geo-components.css?v={{ filemtime(public_path('geo-components.css')) }}">
-    <link rel="stylesheet" href="/geo-fonts.css?v={{ filemtime(public_path('geo-fonts.css')) }}">
-    <link rel="stylesheet" href="/geo-brand-pages.css?v={{ filemtime(public_path('geo-brand-pages.css')) }}">
+    <link rel="stylesheet" href="/geo-tokens.css?v={{ file_exists(public_path('geo-tokens.css')) ? \App\Support\PublicAssetVersion::for('geo-tokens.css') : time() }}">
+    <link rel="stylesheet" href="/geo-shell.css?v={{ \App\Support\PublicAssetVersion::for('geo-shell.css') }}">
+    <link rel="stylesheet" href="/geo-components.css?v={{ \App\Support\PublicAssetVersion::for('geo-components.css') }}">
+    <link rel="stylesheet" href="/geo-fonts.css?v={{ \App\Support\PublicAssetVersion::for('geo-fonts.css') }}">
+    <link rel="stylesheet" href="/geo-brand-pages.css?v={{ \App\Support\PublicAssetVersion::for('geo-brand-pages.css') }}">
     <link rel="stylesheet" href="/geo-manual-publish.css?v={{ $cssVersion }}">
-    <link rel="stylesheet" href="/geo-typography.css?v={{ filemtime(public_path('geo-typography.css')) }}">
-    <link rel="stylesheet" href="/geo-page-navigation.css?v={{ filemtime(public_path('geo-page-navigation.css')) }}">
+    <link rel="stylesheet" href="/geo-typography.css?v={{ \App\Support\PublicAssetVersion::for('geo-typography.css') }}">
+    <link rel="stylesheet" href="/geo-page-navigation.css?v={{ \App\Support\PublicAssetVersion::for('geo-page-navigation.css') }}">
 </head>
 <body class="mp geo-app geo-standalone">
 
@@ -260,11 +260,11 @@
     </div>
 </div>
 
-<script src="/geo-page-navigation.js?v={{ filemtime(public_path('geo-page-navigation.js')) }}" defer></script>
-<script src="/geo-weibo-drafts.js?v={{ filemtime(public_path('geo-weibo-drafts.js')) }}" defer></script>
-<script src="/geo-publication-drafts.js?v={{ filemtime(public_path('geo-publication-drafts.js')) }}" defer></script>
-<script src="/geo-wechat-drafts.js?v={{ filemtime(public_path('geo-wechat-drafts.js')) }}" defer></script>
-<script src="/geo-publication-article-source.js?v={{ filemtime(public_path('geo-publication-article-source.js')) }}" defer></script>
+<script src="/geo-page-navigation.js?v={{ \App\Support\PublicAssetVersion::for('geo-page-navigation.js') }}" defer></script>
+<script src="/geo-weibo-drafts.js?v={{ \App\Support\PublicAssetVersion::for('geo-weibo-drafts.js') }}" defer></script>
+<script src="/geo-publication-drafts.js?v={{ \App\Support\PublicAssetVersion::for('geo-publication-drafts.js') }}" defer></script>
+<script src="/geo-wechat-drafts.js?v={{ \App\Support\PublicAssetVersion::for('geo-wechat-drafts.js') }}" defer></script>
+<script src="/geo-publication-article-source.js?v={{ \App\Support\PublicAssetVersion::for('geo-publication-article-source.js') }}" defer></script>
 <script src="/geo-manual-publish.js?v={{ $jsVersion }}" defer></script>
 </body>
 </html>

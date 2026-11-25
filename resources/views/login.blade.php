@@ -7,10 +7,10 @@
     <link rel="icon" type="image/svg+xml" href="/brand/yanji/v1/favicon.svg">
     <link rel="alternate icon" href="/brand/yanji/v1/favicon.ico">
     <link rel="apple-touch-icon" href="/brand/yanji/v1/apple-touch-icon.png">
-    <link rel="stylesheet" href="/geo-tokens.css?v={{ filemtime(public_path('geo-tokens.css')) }}">
-    <link rel="stylesheet" href="/geo-fonts.css?v={{ filemtime(public_path('geo-fonts.css')) }}">
-    <link rel="stylesheet" href="/geo-login.css?v={{ filemtime(public_path('geo-login.css')) }}">
-    <link rel="stylesheet" href="/geo-typography.css?v={{ filemtime(public_path('geo-typography.css')) }}">
+    <link rel="stylesheet" href="/geo-tokens.css?v={{ \App\Support\PublicAssetVersion::for('geo-tokens.css') }}">
+    <link rel="stylesheet" href="/geo-fonts.css?v={{ \App\Support\PublicAssetVersion::for('geo-fonts.css') }}">
+    <link rel="stylesheet" href="/geo-login.css?v={{ \App\Support\PublicAssetVersion::for('geo-login.css') }}">
+    <link rel="stylesheet" href="/geo-typography.css?v={{ \App\Support\PublicAssetVersion::for('geo-typography.css') }}">
 </head>
 <body class="geo-app geo-login">
     <div class="stage">
@@ -49,6 +49,6 @@
         </main>
         <div class="eco-note">{{ config('brand.name') }} · GEO 内容优化平台</div>
     </div>
-    <script src="/geo-login.js?v={{ filemtime(public_path('geo-login.js')) }}"></script>
+    <script src="/geo-login.js?v={{ \App\Support\PublicAssetVersion::for('geo-login.js') }}"></script>
 </body>
 </html>
