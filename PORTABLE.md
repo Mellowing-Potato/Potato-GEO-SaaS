@@ -1,16 +1,18 @@
 # 本机运行言及（免 Docker 便携版）
 
+> **v0.1.1 安装文件同版本修复重发（2026-11-25）**：修复 macOS UTF-8 Shell 的远程下载变量边界；下载地址仍为 v0.1.1，使用下方标准 `curl ... | sh` 命令。旧版安装在账号提示前中断、尚未生成实例密钥且默认数据库为空时，安装器会检查原配置与初始化/绑定状态，符合条件后接续本机免账号初始化；已有账号和数据保留。 本次替换安装文件、清单及对应引导脚本，并将发布标签对齐修复源码；请使用新摘要，首次发行的旧摘要不适用于重发资产。v0.1.0 资产保持不变。本次完整 CI：10 项发行任务全部成功，覆盖双架构测试/审计、四平台便携构建、Docker 镜像发布、资产发布和两场 Mac 公开入口验收（[本次修复重发流 #45594562303](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303)）。本次 Mac 标准公开入口分别验收：fresh 全新安装：通过；使用公开标准 `curl ... | sh`、默认目录和 8000 端口，服务就绪，已核对免账号 Cookie、工作区受保护 API 及拒绝匿名/无绑定令牌（[任务日志](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303/job/139153283994)）；interrupted 中断安装：通过；使用公开标准 `curl ... | sh`、默认目录和 8000 端口，服务就绪，已核对免账号 Cookie、工作区受保护 API 及拒绝匿名/无绑定令牌（[任务日志](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303/job/139153284005)）。入口证据仅含默认目录和端口、标准命令、工作台 Cookie 与受保护 API；不扩大为完整 GUI 或 Magpie 真实推理验收。 v0.1.1 首次发行的八项任务成功和本地包验收属于历史记录，没有覆盖当时读者经生成引导脚本走 HTTPS 下载的入口，不能当作该入口成功证据。
+
 免 Docker 便携包使用与 Docker 部署相同的 Laravel 应用、生产 Composer 依赖、已构建网页与锁定技能资产，并随包内置独立 **Python 3.12.16** 与开源报告字体（DejaVu Sans、Noto Serif CJK），普通用户无需预先安装 Docker、PHP 或 Python。程序与实例数据分离存放；浏览器打开本地地址即可使用工作台，支持第三方模型直连与可选本机 [Magpie](https://github.com/yetone/magpie)。
 
-> `v0.1.1` 已正式发布，统一 `SHA256SUMS`（`543a9e4227b9a0ecb7534ec50568e15e7f066e6dfa9f2e3a73131118431f23a3`）、平台便携安装包、对应源码/重链接材料及固定摘要引导脚本见 [GitHub Release v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1)。
+> `v0.1.1` 已正式发布，统一 `SHA256SUMS`（`51e92778fce0c1c2caae9cdf72c650b055623e8c57f1897dddc34ded18b8230a`）、平台便携安装包、对应源码/重链接材料及固定摘要引导脚本见 [GitHub Release v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1)。
 
-> **v0.1.1 本机单人模式**：全新便携实例无需邮箱、密码或手动登录，由本机启动器授权打开工作台；`yanji open` 可再次打开。保留独立工作区、正常会话鉴权和仅本机回环访问。已有账号实例或显式账号模式保留原登录方式，不覆盖账号与数据。维护者已确认 Apple Silicon Mac 候选安装、更新和免登录体验；其他平台的本轮发行证据：8 个任务全部通过：双架构完整测试与审计、四平台组包和原生验收、双架构镜像及 17 项发行资产上传（[发行流 #45572085735](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45572085735)）。
+> **v0.1.1 本机单人模式**：全新便携实例无需邮箱、密码或手动登录，由本机启动器授权打开工作台；`yanji open` 可再次打开。保留独立工作区、正常会话鉴权和仅本机回环访问。已有账号实例或显式账号模式保留原登录方式，不覆盖账号与数据。维护者已确认 Apple Silicon Mac 候选安装、更新和免登录体验；v0.1.1 首次发行的历史证据：8 个任务全部通过：双架构完整测试与审计、四平台组包和原生验收、双架构镜像及 17 项发行资产上传（[发行流 #45572085735](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45572085735)）。
 
 > **v0.1.1 模型接入**：在「设置 → 模型配置」填写自己的模型 Key，或在本机单人模式点击「连接本机 Magpie」，检测已启动的服务并读取当前用途的模型目录。无需查工作区 ID 或执行授权命令。维护者已确认 Mac 候选服务检测和目录读取；当前来源截图仍为第三方直连，模型激活与真实推理未跑。使用者仍须选择、保存并明确启用模型。
 
 ## 支持平台与当前验证状态
 
-下表保留 `v0.1.0` 运行时和平台的历史验收；本轮 `v0.1.1` 正式发行 CI 另见：8 个任务全部通过：双架构完整测试与审计、四平台组包和原生验收、双架构镜像及 17 项发行资产上传（[发行流 #45572085735](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45572085735)）。四平台正式包的完整 GUI 人工验收尚未完成；已确认的 Mac 候选流程见上方，Windows 桌面浏览器和 Linux amd64 Docker 完整手工流程仍待验收。
+下表及首次 v0.1.1 发行流均为历史验收，不作为旧 Mac 远程入口已通过的证据；本次同版本修复重发 CI：10 项发行任务全部成功，覆盖双架构测试/审计、四平台便携构建、Docker 镜像发布、资产发布和两场 Mac 公开入口验收（[本次修复重发流 #45594562303](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303)）。四平台完整 GUI、Windows 桌面与 Linux amd64 Docker 手工业务流程仍待验收。
 
 | 平台 | 运行时与随包资产 | 当前验证状态 |
 | --- | --- | --- |
