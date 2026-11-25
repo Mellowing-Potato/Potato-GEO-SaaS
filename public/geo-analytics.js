@@ -143,7 +143,7 @@
   }
 
   /* ---------------- 各视图渲染 ---------------- */
-  var COLORS = { human: '#9A7132', search_bot: '#3B4F5C', ai_bot: '#3F7A61', other_bot: '#986524', unknown: '#A49C93' };
+  var COLORS = { human: '#8C5811', search_bot: '#484E4A', ai_bot: '#2D5F4C', other_bot: '#5E6560', unknown: '#B8BDB9' };
 
   function renderOverview(d) {
     var k = (d && d.kpis) || {};
@@ -166,21 +166,21 @@
     rows.forEach(function (r) {
       var len = (Number(r.count) || 0) / total * C;
       if (len <= 0) return;
-      segs += '<circle cx="60" cy="60" r="50" fill="none" stroke="' + (COLORS[r.key] || '#A49C93') +
+      segs += '<circle cx="60" cy="60" r="50" fill="none" stroke="' + (COLORS[r.key] || '#B8BDB9') +
         '" stroke-width="16" stroke-dasharray="' + len.toFixed(2) + ' ' + (C - len).toFixed(2) +
         '" stroke-dashoffset="' + (-off).toFixed(2) + '" transform="rotate(-90 60 60)"></circle>';
       off += len;
     });
     var legend = rows.map(function (r) {
       var pct = total ? Math.round((Number(r.count) || 0) / total * 100) : 0;
-      return '<div class="lg"><span class="dot" style="background:' + (COLORS[r.key] || '#A49C93') + '"></span>' +
+      return '<div class="lg"><span class="dot" style="background:' + (COLORS[r.key] || '#B8BDB9') + '"></span>' +
         trafficLabel(r.key) + ' · ' + fmtInt(r.count) + '（' + pct + '%）</div>';
     }).join('');
     donut.innerHTML =
       '<svg width="120" height="120" viewBox="0 0 120 120" aria-label="流量构成">' +
-        '<circle cx="60" cy="60" r="50" fill="none" stroke="#E9E2D6" stroke-width="16"></circle>' + segs +
-        '<text x="60" y="56" text-anchor="middle" font-size="15" font-weight="700" fill="#223E36">' + fmtInt(total) + '</text>' +
-        '<text x="60" y="72" text-anchor="middle" font-size="10" fill="#5D5650">总 PV</text>' +
+        '<circle cx="60" cy="60" r="50" fill="none" stroke="#EAECEB" stroke-width="16"></circle>' + segs +
+        '<text x="60" y="56" text-anchor="middle" font-size="15" font-weight="700" fill="#171A18">' + fmtInt(total) + '</text>' +
+        '<text x="60" y="72" text-anchor="middle" font-size="10" fill="#5E6560">总 PV</text>' +
       '</svg>' +
       '<div class="donut-legend">' + legend + '</div>';
   }
@@ -215,12 +215,12 @@
     }
     host.innerHTML =
       '<svg class="trend-svg" viewBox="0 0 600 200" preserveAspectRatio="none" aria-label="每日 PV 趋势">' +
-        '<line x1="10" y1="190" x2="590" y2="190" stroke="#E9E2D6"></line>' +
-        '<polyline fill="none" stroke="#3B4F5C" stroke-width="2" points="' + pts('pv') + '"></polyline>' +
-        '<polyline fill="none" stroke="#3F7A61" stroke-width="2" points="' + pts('ai_bot_pv') + '"></polyline>' +
+        '<line x1="10" y1="190" x2="590" y2="190" stroke="#EAECEB"></line>' +
+        '<polyline fill="none" stroke="#484E4A" stroke-width="2" points="' + pts('pv') + '"></polyline>' +
+        '<polyline fill="none" stroke="#2D5F4C" stroke-width="2" points="' + pts('ai_bot_pv') + '"></polyline>' +
       '</svg>' +
-      '<div class="trend-legend"><span><span class="sw" style="background:#3B4F5C"></span>总 PV</span>' +
-      '<span><span class="sw" style="background:#3F7A61"></span>AI 爬虫 PV</span></div>';
+      '<div class="trend-legend"><span><span class="sw" style="background:#484E4A"></span>总 PV</span>' +
+      '<span><span class="sw" style="background:#2D5F4C"></span>AI 爬虫 PV</span></div>';
   }
 
   function renderArticles(d) {

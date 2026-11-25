@@ -73,7 +73,7 @@
     if (!t) {
       t = document.createElement('div');
       t.id = 'gwToast';
-      t.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--md-text);color:#F7F4ED;padding:9px 16px;border-radius:999px;font-size:var(--md-fs-xs);box-shadow:var(--md-shadow-modal);z-index:80;opacity:0;transition:opacity .18s ease;pointer-events:none;';
+      t.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--md-text);color:var(--md-on-primary);padding:9px 16px;border-radius:999px;font-size:var(--md-fs-xs);box-shadow:var(--md-shadow-modal);z-index:80;opacity:0;transition:opacity .18s ease;pointer-events:none;';
       document.body.appendChild(t);
     }
     t.textContent = msg;

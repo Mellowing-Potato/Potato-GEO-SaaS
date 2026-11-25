@@ -87,15 +87,15 @@
 }
 
 .lf-alert--ok {
-    background: #e8ffea;
-    color: #10911c;
-    border: 1px solid #b7ebc0;
+    background: var(--md-success-soft);
+    color: var(--md-success-ink);
+    border: 1px solid var(--md-success-border);
 }
 
 .lf-alert--err {
-    background: #ffece8;
-    color: #d92916;
-    border: 1px solid #f5c2b8;
+    background: var(--md-danger-soft);
+    color: var(--md-danger-ink);
+    border: 1px solid var(--md-danger-border);
 }
 /* UI batch 12: public form, including server-rendered and JS feedback. */
 .geo-public-form { margin: 0; background: var(--md-bg-page); color: var(--md-text); font: var(--md-fs-base)/var(--md-leading-ui) var(--md-font-sans); }

@@ -144,8 +144,8 @@ body.geo-app .workspace-topbar .topbar-avatar {
   width: 28px;
   height: 28px;
   border-radius: var(--md-radius-pill);
-  background: var(--md-primary-soft);
-  color: var(--md-primary-pressed);
+  background: var(--md-bg-subtle);
+  color: var(--md-text-secondary);
 }
 body.geo-app .workspace-topbar .topbar-avatar svg {
   width: 17px;
@@ -318,10 +318,10 @@ body.geo-app .workspace-sidebar .workspace-menu-link {
 body.geo-app .workspace-sidebar .workspace-menu-link::before { display: none; }
 body.geo-app .workspace-sidebar .workspace-menu-link:hover { background: var(--md-surface-hover); }
 body.geo-app .workspace-sidebar .workspace-menu-link[aria-current="page"] {
-  background: var(--md-primary-soft);
-  box-shadow: none;
-  color: var(--md-text-strong);
-  font-weight: var(--md-weight-medium);
+  background: var(--md-surface);
+  box-shadow: var(--md-shadow-xs);
+  color: var(--md-primary-hover);
+  font-weight: var(--md-weight-semibold);
 }
 body.geo-app .workspace-sidebar .workspace-sidebar-bottom {
   display: flex;

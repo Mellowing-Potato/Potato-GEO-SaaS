@@ -325,10 +325,10 @@
 }
 .geo-app .md-empty .md-btn { margin-top: var(--md-space-2); }
 
-/* Panels: only md-panel itself is mapped; page/card families remain untouched. */
+/* Panels: crisp white surface with clear 1px neutral frame on stone canvas. */
 .geo-app .md-panel {
   background: var(--md-surface);
-  border: 1px solid var(--md-border-subtle);
+  border: 1px solid var(--md-border);
   border-radius: var(--md-radius-md);
   box-shadow: var(--md-shadow-xs);
   min-width: 0;
@@ -398,7 +398,7 @@
 .geo-app .md-stat .delta-down { color: var(--md-danger-ink); font-weight: var(--md-weight-medium); }
 .geo-app .md-stat .delta-flat { color: var(--md-text-muted); font-weight: var(--md-weight-medium); }
 
-/* Badges: six semantic tones, including the newly authorized primary tone. */
+/* Badges: restrained monochrome default; semantic tones stay calm and AA-legible. */
 .geo-app .md-badge {
   display: inline-flex;
   align-items: center;
@@ -407,7 +407,7 @@
   padding: 0 var(--md-space-2);
   border: 1px solid;
   border-radius: var(--md-radius-pill);
-  background: var(--md-surface-soft);
+  background: var(--md-bg-subtle);
   border-color: var(--md-border);
   color: var(--md-text-secondary);
   font-size: var(--md-fs-xs);
@@ -416,10 +416,10 @@
   white-space: nowrap;
   box-sizing: border-box;
 }
-.geo-app .md-badge--neutral { background: var(--md-surface-soft); border-color: var(--md-border); color: var(--md-text-secondary); }
-.geo-app .md-badge--success { background: var(--md-success-soft); border-color: var(--md-success-border); color: var(--md-success-ink); }
-.geo-app .md-badge--warning { background: var(--md-warning-soft); border-color: var(--md-warning-border); color: var(--md-warning-ink); }
+.geo-app .md-badge--neutral { background: var(--md-bg-subtle); border-color: var(--md-border); color: var(--md-text-secondary); }
+.geo-app .md-badge--success { background: var(--md-primary-soft); border-color: var(--md-primary-border); color: var(--md-primary-hover); }
+.geo-app .md-badge--warning { background: var(--md-surface); border-color: var(--md-warning-border); color: var(--md-warning-ink); }
 .geo-app .md-badge--danger { background: var(--md-danger-soft); border-color: var(--md-danger-border); color: var(--md-danger-ink); }
-.geo-app .md-badge--info { background: var(--md-info-soft); border-color: var(--md-info-border); color: var(--md-info-ink); }
-.geo-app .md-badge--primary { background: var(--md-primary-soft); border-color: var(--md-primary-border); color: var(--md-primary-pressed); }
+.geo-app .md-badge--info { background: var(--md-surface); border-color: var(--md-border); color: var(--md-text-secondary); }
+.geo-app .md-badge--primary { background: var(--md-primary-soft); border-color: var(--md-primary-border); color: var(--md-primary-hover); }
 /* A4 · END */
