@@ -275,16 +275,48 @@ if ($env:YANJI_ENTRY_INSPECT -eq '1') {
     $legacy = $link.Path -ceq $env:YANJI_ENTRY_FILE -and $fullArguments -ceq '' -and $link.WorkingDirectory -ceq $env:YANJI_ENTRY_DIRECTORY
     if ($link.Description -cne $env:YANJI_ENTRY_MARKER -or -not ($current -or $legacy)) { exit 3 }
 } else {
-    $shell = New-Object -ComObject WScript.Shell
-    $link = $shell.CreateShortcut($env:YANJI_ENTRY_SHORTCUT)
-    $link.TargetPath = $env:YANJI_ENTRY_TARGET
-    $link.Description = $env:YANJI_ENTRY_MARKER
-    $link.WorkingDirectory = $env:YANJI_ENTRY_WORKING_DIRECTORY
-    $link.Save()
-    $unicodeLink = (Open-SavedLinkItem).GetLink
-    if ($null -eq $unicodeLink) { throw 'Shortcut writer is unavailable.' }
-    $unicodeLink.Arguments = $env:YANJI_ENTRY_ARGUMENTS
-    [void]$unicodeLink.Save()
+    # IShellLinkW and IPersistFile use Unicode for both properties and the destination filename.
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Text;
+[ComImport, Guid("000214F9-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface YanjiIShellLinkW {
+    void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder path, int count, IntPtr data, uint flags);
+    void GetIDList(out IntPtr idList);
+    void SetIDList(IntPtr idList);
+    void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder text, int count);
+    void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string text);
+    void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder path, int count);
+    void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string path);
+    void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder arguments, int count);
+    void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string arguments);
+    void GetHotkey(out short hotkey);
+    void SetHotkey(short hotkey);
+    void GetShowCmd(out int command);
+    void SetShowCmd(int command);
+    void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder path, int count, out int index);
+    void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string path, int index);
+    void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string path, uint reserved);
+    void Resolve(IntPtr window, uint flags);
+    void SetPath([MarshalAs(UnmanagedType.LPWStr)] string path);
+}
+public static class YanjiPortableShellLink {
+    public static void Create(string file, string target, string arguments, string description, string directory) {
+        object value = Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("00021401-0000-0000-C000-000000000046")));
+        try {
+            var link = (YanjiIShellLinkW)value;
+            link.SetPath(target);
+            link.SetArguments(arguments);
+            link.SetDescription(description);
+            link.SetWorkingDirectory(directory);
+            ((IPersistFile)value).Save(file, false);
+        } finally { Marshal.FinalReleaseComObject(value); }
+    }
+}
+'@
+    [YanjiPortableShellLink]::Create($env:YANJI_ENTRY_SHORTCUT, $env:YANJI_ENTRY_TARGET, $env:YANJI_ENTRY_ARGUMENTS, $env:YANJI_ENTRY_MARKER, $env:YANJI_ENTRY_WORKING_DIRECTORY)
     $link = (Open-SavedLinkItem).GetLink
     if ($null -eq $link) { throw 'Shortcut reader is unavailable.' }
     $fullArguments = Read-FullLinkArguments

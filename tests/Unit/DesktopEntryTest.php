@@ -40,7 +40,7 @@ final class DesktopEntryTest extends TestCase
 
     private function folder(string $kind): string
     {
-        return $this->directory.'/known folders/'.$kind;
+        return $this->directory.'/known folders 中文/'.$kind;
     }
 
     private function fakePowerShell(string $script, array $variables): array
@@ -50,7 +50,6 @@ final class DesktopEntryTest extends TestCase
             return ['code' => 0, 'stdout' => $this->folder(str_contains($script, 'DesktopDirectory') ? 'desktop' : 'start_menu')];
         }
         self::assertStringNotContainsString($this->directory, $script, 'Paths must be passed as data, never interpolated PowerShell code.');
-        self::assertStringContainsString('CreateShortcut($env:YANJI_ENTRY_SHORTCUT)', $script);
         self::assertStringNotContainsString('Start-Process', $script);
         $path = PHP_OS_FAMILY === 'Windows' ? $variables['YANJI_ENTRY_SHORTCUT'] : str_replace('\\', '/', $variables['YANJI_ENTRY_SHORTCUT']);
         $record = ['target' => $variables['YANJI_ENTRY_TARGET'] ?? $variables['YANJI_ENTRY_FILE'],
@@ -75,8 +74,13 @@ final class DesktopEntryTest extends TestCase
             return ['code' => $stored === $record || $stored === $legacy ? 0 : 3, 'stdout' => ''];
         }
         self::assertFileDoesNotExist($path);
+        // The native WSH writer failed in a Unicode destination directory even with valid properties.
+        $unicodeWriter = str_contains($script, '[YanjiPortableShellLink]::Create($env:YANJI_ENTRY_SHORTCUT,');
+        if (preg_match('/[^\x00-\x7f]/u', dirname($path)) && !$unicodeWriter) {
+            return ['code' => 3, 'stdout' => ''];
+        }
         $saved = $record;
-        if (!str_contains($script, '$unicodeLink.Arguments = $env:YANJI_ENTRY_ARGUMENTS')) {
+        if (!$unicodeWriter && !str_contains($script, '$unicodeLink.Arguments = $env:YANJI_ENTRY_ARGUMENTS')) {
             $saved['arguments'] = substr(preg_replace('/[^\x00-\x7f]/u', '?', $saved['arguments']), 0, 1023);
         }
         file_put_contents($path, json_encode($saved, JSON_THROW_ON_ERROR));
@@ -123,7 +127,7 @@ final class DesktopEntryTest extends TestCase
         }
         self::assertSame($result, DesktopEntry::describe($instance, $platform));
         self::assertSame($result, $this->install($instance, $platform), 'Repeated registration must retain the same files without conflict.');
-        self::assertSame([], glob($this->directory.'/known folders/*/.yanji-entry-*'));
+        self::assertSame([], glob(dirname($this->folder('desktop')).'/*/.yanji-entry-*'));
     }
 
     #[DataProvider('platforms')]
@@ -209,8 +213,12 @@ final class DesktopEntryTest extends TestCase
         $result = $this->install($instance, 'Windows');
         self::assertSame([], $result['warnings']);
         foreach ($this->powerShellCalls as [$script, $variables]) {
-            self::assertStringContainsString('$link.TargetPath = $env:YANJI_ENTRY_TARGET', $script);
-            self::assertStringNotContainsString('$link.TargetPath = $env:YANJI_ENTRY_FILE', $script);
+            self::assertStringContainsString('[YanjiPortableShellLink]::Create($env:YANJI_ENTRY_SHORTCUT, $env:YANJI_ENTRY_TARGET, $env:YANJI_ENTRY_ARGUMENTS, $env:YANJI_ENTRY_MARKER, $env:YANJI_ENTRY_WORKING_DIRECTORY)', $script);
+            self::assertStringContainsString('Guid("000214F9-0000-0000-C000-000000000046")', $script);
+            self::assertStringContainsString('InterfaceType(ComInterfaceType.InterfaceIsIUnknown)', $script);
+            self::assertStringContainsString('void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string arguments)', $script);
+            self::assertStringContainsString('void SetPath([MarshalAs(UnmanagedType.LPWStr)] string path)', $script);
+            self::assertStringContainsString('((IPersistFile)value).Save(file, false)', $script);
             self::assertLessThanOrEqual(1023, intdiv(strlen(mb_convert_encoding($variables['YANJI_ENTRY_ARGUMENTS'], 'UTF-16LE', 'UTF-8')), 2));
             self::assertStringContainsString("ExtendedProperty('System.Link.Arguments')", $script);
             self::assertStringContainsString('$arguments -isnot [string]', $script);
@@ -222,10 +230,8 @@ final class DesktopEntryTest extends TestCase
             self::assertStringContainsString('$link.Path -ceq $env:YANJI_ENTRY_TARGET', $script);
             self::assertStringContainsString('$link.Path -cne $env:YANJI_ENTRY_TARGET', $script);
             self::assertStringNotContainsString('$link.TargetPath -c', $script);
-            self::assertStringContainsString('$unicodeLink = (Open-SavedLinkItem).GetLink', $script);
-            self::assertStringContainsString('$unicodeLink.Arguments = $env:YANJI_ENTRY_ARGUMENTS', $script);
-            self::assertStringContainsString('[void]$unicodeLink.Save()', $script);
-            self::assertStringNotContainsString('$link.Arguments = $env:YANJI_ENTRY_ARGUMENTS', $script);
+            self::assertStringNotContainsString('WScript.Shell', $script);
+            self::assertStringNotContainsString('CreateShortcut(', $script);
             self::assertMatchesRegularExpression('/\A[A-Za-z]:\\\\.+\\\\System32\\\\WindowsPowerShell\\\\v1\.0\\\\powershell\.exe\z/', $variables['YANJI_ENTRY_TARGET']);
             self::assertSame(substr($variables['YANJI_ENTRY_TARGET'], 0, -strlen('\\powershell.exe')), $variables['YANJI_ENTRY_WORKING_DIRECTORY']);
             self::assertSame(1, preg_match('/\A-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "([^"\r\n]+)"\z/', $variables['YANJI_ENTRY_ARGUMENTS'], $fileArgument));
@@ -382,7 +388,7 @@ final class DesktopEntryTest extends TestCase
         $instance = $this->instance();
         self::assertNull(DesktopEntry::describe($instance, 'Darwin')['file']);
         self::assertFileDoesNotExist($instance->root.'/desktop-entry.json');
-        self::assertDirectoryDoesNotExist($this->directory.'/known folders');
+        self::assertDirectoryDoesNotExist(dirname($this->folder('desktop')));
         $result = $this->install($instance, 'Darwin');
         $statePath = $instance->root.'/desktop-entry.json';
         $state = json_decode(file_get_contents($statePath), true);
