@@ -2,14 +2,16 @@
 set -eu
 umask 077
 fail() { printf '%s\n' "$1" >&2; exit 1; }
+step() { printf '%s\n' "$1" >&2; }
 usage() {
-    printf '%s\n' 'install-local.sh --manifest SHA256SUMS --manifest-sha256 SHA [--package ARCHIVE] [--program-home DIR] [--instance DIR] [--port PORT] [--email EMAIL] [--password-file FILE] [--python-bin PYTHON] [--upgrade]'
+    printf '%s\n' 'install-local.sh --manifest SHA256SUMS --manifest-sha256 SHA [--package ARCHIVE] [--program-home DIR] [--instance DIR] [--port PORT] [--email EMAIL] [--password-file FILE] [--python-bin PYTHON] [--upgrade] [--no-browser]'
 }
-manifest= pin= package= program= instance= port= email= passfile= python= mode=install
+manifest= pin= package= program= instance= port= email= passfile= python= mode=install no_browser=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --help|-h) usage; exit 0;;
         --upgrade) mode=upgrade; shift; continue;;
+        --no-browser) no_browser=1; shift; continue;;
         --manifest|--manifest-sha256|--package|--program-home|--instance|--port|--email|--password-file|--python-bin)
             [ "$#" -ge 2 ] || fail '选项需要一个值。';;
         *) fail '不支持此选项，请使用 --help。';;
@@ -45,7 +47,13 @@ else
 fi
 get() {
     case "$1" in
-        https://*) curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --output "$2" "$1";;
+        https://*)
+            if [ "${3:-}" = progress ] && [ -t 2 ]; then
+                curl --fail --location --connect-timeout 30 --proto '=https' --proto-redir '=https' --output "$2" "$1"
+            else
+                curl --fail --silent --show-error --location --connect-timeout 30 --proto '=https' --proto-redir '=https' --output "$2" "$1"
+            fi
+            ;;
         *://*) fail '远端安装材料仅接受 HTTPS。';;
         *) [ -f "$1" ] || fail '缺少本地安装材料。'; cp "$1" "$2";;
     esac
@@ -57,6 +65,7 @@ trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 case "$program" in /|*/../*|*/./*|*/..|*/.) fail '程序路径无效。';; esac
 case "$instance" in /|*/../*|*/./*|*/..|*/.) fail '实例路径无效。';; esac
+step '正在获取并校验发行清单...'
 get "$manifest" "$scratch/sums"
 [ "$(hash "$scratch/sums")" = "$pin" ] || fail '发行清单校验失败。'
 entry() {
@@ -66,10 +75,12 @@ bootstrap=$(entry install-local.sh) || fail '清单缺少唯一安装脚本摘�
 if [ ! -f "$0" ] || [ "$(hash "$0")" != "$bootstrap" ]; then
     [ "$mode" = upgrade ] || fail '请先将匹配清单的安装脚本保存到本地，再执行。'
     case "$manifest" in */*) next=${manifest%/*}/install-local.sh;; *) next=install-local.sh;; esac
+    step '正在获取目标版本的安装脚本...'
     get "$next" "$scratch/next.sh"
     [ "$(hash "$scratch/next.sh")" = "$bootstrap" ] || fail '候选安装器校验失败。'
     set -- /bin/sh "$scratch/next.sh" --upgrade --manifest "$manifest" --manifest-sha256 "$pin" --program-home "$program" --instance "$instance"
     if [ -n "$package" ]; then set -- "$@" --package "$package"; fi
+    if [ "$no_browser" -eq 1 ]; then set -- "$@" --no-browser; fi
     "$@"
     exit $?
 fi
@@ -78,7 +89,12 @@ digest=$(entry "$name") || fail '清单缺少该平台的唯一安装包摘要�
 if [ -z "$package" ]; then
     case "$manifest" in */*) package=${manifest%/*}/$name;; *) package=$name;; esac
 fi
-get "$package" "$scratch/package"
+case "$package" in
+    https://*) step "正在下载安装包 $name（文件较大，请稍候）...";;
+    *) step "正在读取本地安装包 $name...";;
+esac
+get "$package" "$scratch/package" progress
+step '正在校验安装包 SHA-256 与归档结构...'
 [ "$(hash "$scratch/package")" = "$digest" ] || fail '安装包校验失败。'
 # Release builders emit only regular files and directories with relative safe paths.
 tar -tzf "$scratch/package" > "$scratch/names"
@@ -88,7 +104,7 @@ awk 'substr($0,1,1)!="-" && substr($0,1,1)!="d" {exit 1}' "$scratch/types" || fa
 # Resolve both physical destinations before changing directories supplied by the user.
 # The checker and standalone CLI come directly from the already authenticated archive.
 mkdir "$scratch/preflight"
-tar -xzf "$scratch/package" -C "$scratch/preflight" runtime/bin/php app/portable/preflight.php app/portable/publish.php app/portable/src/Platform.php app/portable/src/Instance.php
+tar -xzf "$scratch/package" -C "$scratch/preflight" runtime/bin/php app/portable/preflight.php app/portable/publish.php app/portable/src/Platform.php app/portable/src/Instance.php PACKAGE-FILES.sha256
 "$scratch/preflight/runtime/bin/php" -n "$scratch/preflight/app/portable/preflight.php" "$program" "$instance" > "$scratch/paths"
 { IFS= read -r program; IFS= read -r instance; } < "$scratch/paths"
 [ ! -L "$program" ] && [ ! -L "$program/releases" ] || fail '程序目录不能为符号链接。'
@@ -100,6 +116,7 @@ mkdir -p "$program/releases"
 program=$(cd "$program" && pwd -P)
 release=$program/releases/$digest
 if [ ! -d "$release" ]; then
+    step '正在解压并部署程序文件...'
     stage=$(mktemp -d "$program/releases/.incoming.XXXXXXXX")
     tar -xzf "$scratch/package" -C "$stage"
     [ -x "$stage/runtime/bin/php" ] && [ -x "$stage/runtime/bin/frankenphp" ] && [ -f "$stage/app/portable/yanji.php" ] || fail '安装包布局无效。'
@@ -110,16 +127,23 @@ if [ ! -d "$release" ]; then
 fi
 [ ! -L "$release" ] && [ "$(cat "$release/.archive-sha256")" = "$digest" ] || fail '程序版本校验失败。'
 # Always verify cached bytes with the inventory from the authenticated archive, never its cached copy.
-tar -xOzf "$scratch/package" PACKAGE-FILES.sha256 > "$scratch/files.sha256"
-cmp -s "$scratch/files.sha256" "$release/PACKAGE-FILES.sha256" || fail '程序文件清单已更改。'
+[ -f "$scratch/preflight/PACKAGE-FILES.sha256" ] && [ ! -L "$scratch/preflight/PACKAGE-FILES.sha256" ] || fail '安装包缺少程序文件清单。'
+cmp -s "$scratch/preflight/PACKAGE-FILES.sha256" "$release/PACKAGE-FILES.sha256" || fail '程序文件清单已更改。'
 [ -z "$(find "$release" ! -type d ! -type f -print -quit)" ] || fail '程序目录包含未认证的链接或设备。'
-(cd "$release" && check_files "$scratch/files.sha256") || fail '程序字节与发行清单不同，请选择新的程序目录。'
-expected=$(wc -l < "$scratch/files.sha256")
+step '正在核验程序文件完整性...'
+(cd "$release" && check_files "$scratch/preflight/PACKAGE-FILES.sha256") || fail '程序字节与发行清单不同，请选择新的程序目录。'
+expected=$(wc -l < "$scratch/preflight/PACKAGE-FILES.sha256")
 actual=$(find "$release" -type f | wc -l)
 [ "$actual" -eq "$((expected + 2))" ] || fail '程序目录存在额外文件，请选择新的程序目录。'
+if [ "$mode" = upgrade ]; then
+    step '正在执行实例升级...'
+else
+    step '正在初始化言及实例...'
+fi
 set -- "$release/runtime/bin/php" -n "$release/app/portable/yanji.php" "__$mode" --instance "$instance" --release "$release"
 if [ -n "$port" ]; then set -- "$@" --port "$port"; fi
 if [ -n "$email" ]; then set -- "$@" --email "$email"; fi
 if [ -n "$python" ]; then set -- "$@" --python-bin "$python"; fi
 if [ -n "$passfile" ]; then set -- "$@" --password-file "$passfile"; fi
+if [ "$no_browser" -eq 1 ]; then set -- "$@" --no-browser; fi
 "$@"

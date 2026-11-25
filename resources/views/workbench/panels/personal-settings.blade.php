@@ -1,5 +1,9 @@
 <section class="workspace-view panel geo-account-panel" data-workspace-view="personal-settings" hidden>
-                <form id="personalProfileForm"><label for="personalName">昵称</label><input id="personalName" required maxlength="80"><label for="personalEmail">登录邮箱</label><input id="personalEmail" type="email" required maxlength="254"><label for="profileCurrentPassword">当前密码（修改邮箱时必填）</label><input id="profileCurrentPassword" type="password" autocomplete="current-password" maxlength="128"><button class="button primary" id="savePersonalProfile">保存资料</button><p id="personalProfileMessage" role="status"></p></form>
+                @if(\App\Support\PortableDesktopAccess::enabled())
+                    <p class="hint">这是你的本机工作区，无需设置登录邮箱或密码。</p>
+                @else
+                    <form id="personalProfileForm"><label for="personalName">昵称</label><input id="personalName" required maxlength="80"><label for="personalEmail">登录邮箱</label><input id="personalEmail" type="email" required maxlength="254"><label for="profileCurrentPassword">当前密码（修改邮箱时必填）</label><input id="profileCurrentPassword" type="password" autocomplete="current-password" maxlength="128"><button class="button primary" id="savePersonalProfile">保存资料</button><p id="personalProfileMessage" role="status"></p></form>
+                @endif
                 {{--
                     工作区名称：后端 PATCH /api/v1/workspace 早就在（can:team:manage），
                     工作台一直没有入口 —— 客户只能让运维改库。这里按权限放出，

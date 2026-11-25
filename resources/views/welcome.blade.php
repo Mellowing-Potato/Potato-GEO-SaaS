@@ -1,5 +1,6 @@
 @php
     $geoEntryConfig = [
+        'desktopMode' => \App\Support\PortableDesktopAccess::enabled(),
         'sessionLoginEndpoint' => '/api/v1/auth/session-login',
         'tenantDomain' => config('app.tenant_domain'),
         'tenantSubdomainsEnabled' => (bool) config('app.tenant_subdomains_enabled', false),
@@ -133,7 +134,9 @@
                     12 处 / 6 个视图，.panel 25 处）。本批只让项目管理页脱离，
                     其余视图各自那轮再迁。 --}}
             @include('workbench.panels.personal-settings')
-            @include('workbench.panels.account-security')
+            @unless(\App\Support\PortableDesktopAccess::enabled())
+                @include('workbench.panels.account-security')
+            @endunless
             @include('workbench.panels.project-workspace')
 
                 {{-- 2026-09-04 走查：这里原来有一个面板头，写的是「分析诊断 / 诊断与路线」——

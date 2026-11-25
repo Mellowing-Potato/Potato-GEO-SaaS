@@ -52,6 +52,7 @@ BASE_URL='{base_url}'
 MANIFEST_SHA256='{sums_sha}'
 INSTALLER_SHA256='{entries["install-local.sh"]}'
 fail() {{ printf '%s\\n' "$1" >&2; exit 1; }}
+step() {{ printf '%s\\n' "$1" >&2; }}
 if command -v sha256sum >/dev/null 2>&1; then
     hash() {{ sha256sum < "$1" | awk '{{print $1}}'; }}
 elif command -v shasum >/dev/null 2>&1; then
@@ -63,9 +64,10 @@ tmp=$(mktemp -d)
 cleanup() {{ rm -rf "$tmp"; }}
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
-curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --output "$tmp/install-local.sh" "$BASE_URL/install-local.sh"
+step '正在获取并校验言及安装脚本...'
+curl --fail --silent --show-error --location --connect-timeout 30 --proto '=https' --proto-redir '=https' --output "$tmp/install-local.sh" "$BASE_URL/install-local.sh"
 [ "$(hash "$tmp/install-local.sh")" = "$INSTALLER_SHA256" ] || fail '安装脚本校验失败。'
-if [ ! -t 0 ] && [ -r /dev/tty ]; then
+if [ ! -t 0 ] && (exec </dev/tty) 2>/dev/null; then
     /bin/sh "$tmp/install-local.sh" --manifest "$BASE_URL/SHA256SUMS" --manifest-sha256 "$MANIFEST_SHA256" "$@" </dev/tty
 else
     /bin/sh "$tmp/install-local.sh" --manifest "$BASE_URL/SHA256SUMS" --manifest-sha256 "$MANIFEST_SHA256" "$@"
@@ -87,6 +89,7 @@ fi
     $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("yanji-get-" + [Guid]::NewGuid().ToString("N").Substring(0, 12))
     New-Item -ItemType Directory -Force -Path $tmp | Out-Null
     try {{
+        [Console]::Error.WriteLine('正在获取并校验言及安装脚本...')
         $installer = Join-Path $tmp 'install-local.ps1'
         $current = "$BaseUrl/install-local.ps1"
         $downloaded = $false
@@ -94,6 +97,8 @@ fi
             if ($current -notmatch '^https://') {{ throw '远端安装脚本与重定向仅接受 HTTPS。' }}
             $req = [System.Net.HttpWebRequest]::Create($current)
             $req.AllowAutoRedirect = $false
+            $req.Timeout = 30000
+            $req.ReadWriteTimeout = 60000
             $req.UserAgent = 'Yanji-Bootstrap/1.0'
             $resp = $null
             try {{

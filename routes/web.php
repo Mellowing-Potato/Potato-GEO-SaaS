@@ -4,8 +4,23 @@ use App\Http\Controllers\Web\ThemePreviewController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/login', function () {
+    if (\App\Support\PortableDesktopAccess::enabled()) {
+        return redirect('/local-start');
+    }
+
     return view('login', ['registrationEnabled' => \Illuminate\Support\Facades\Schema::hasTable('instance_settings')
         && \App\Services\Auth\LocalAccounts::registrationEnabled()]);
+});
+Route::get('/local-start', function () {
+    abort_unless(\App\Support\PortableDesktopAccess::enabled(), 404);
+
+    return response()->view('local-start')->withHeaders([
+        'Cache-Control' => 'no-store, max-age=0',
+        'Referrer-Policy' => 'no-referrer',
+        'X-Frame-Options' => 'DENY',
+        'X-Robots-Tag' => 'noindex, nofollow',
+        'Content-Security-Policy' => "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; font-src 'self'; img-src 'self' data:",
+    ]);
 });
 Route::redirect('/account', '/#personal-settings');
 

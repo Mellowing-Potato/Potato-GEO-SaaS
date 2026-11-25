@@ -1627,6 +1627,7 @@
   }
 
   async function loadPersonalAccount() {
+    if (config.desktopMode) return;
     const body = await api("/api/v1/account/profile");
     const user = body.user;
     $("personalName").value = user.name || "";
@@ -4508,7 +4509,7 @@
     }
   }
 
-  $("personalProfileForm").addEventListener("submit", async event => {
+  $("personalProfileForm")?.addEventListener("submit", async event => {
     event.preventDefault();
     await withBusyButton($("savePersonalProfile"), "保存中", async () => {
       try {
@@ -4534,7 +4535,7 @@
     button.addEventListener("click", () => setAccountPasswordVisibility(button, $(button.dataset.passwordToggle).type === "password"));
   });
 
-  $("geoPasswordForm").addEventListener("submit", async event => {
+  $("geoPasswordForm")?.addEventListener("submit", async event => {
     event.preventDefault();
     if (accountPasswordBusy) return;
     if ($("geoNewPassword").value !== $("geoConfirmPassword").value) {
@@ -4571,10 +4572,10 @@
       renderAccountPassword(accountPasswordMode);
     }
   });
-  $("toggleGeoPasswordReset").addEventListener("click", () => {
+  $("toggleGeoPasswordReset")?.addEventListener("click", () => {
     window.location.assign('/login');
   });
-  $("revokeGeoSessions").addEventListener("click", async () => {
+  $("revokeGeoSessions")?.addEventListener("click", async () => {
     await withBusyButton($("revokeGeoSessions"), "处理中", async () => {
       try { await api("/api/v1/account/sessions/revoke", { method: "POST" }); await loadPersonalAccount(); $("geoSecurityMessage").textContent = "已退出其他登录，当前登录保持有效。"; }
       catch (error) { $("geoSecurityMessage").textContent = validationMessage(error); }

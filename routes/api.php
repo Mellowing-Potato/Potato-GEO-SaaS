@@ -45,6 +45,7 @@ use Illuminate\Support\Facades\Route;
 Route::post('v1/account/login', [AuthController::class, 'productLogin'])->middleware('throttle:10,1');
 Route::post('v1/account/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
 Route::post('v1/auth/session-login', [AuthController::class, 'sessionLogin'])->middleware('throttle:60,1');
+Route::post('v1/auth/local-start', [AuthController::class, 'localStart'])->middleware('throttle:10,1');
 Route::post('v1/account/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
 Route::post('v1/account/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
 Route::get('v1/auth/me', [AuthController::class, 'me'])->middleware('auth:sanctum');

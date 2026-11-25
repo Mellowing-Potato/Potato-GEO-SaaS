@@ -142,7 +142,10 @@ final class Supervisor
                 }
             }
         }
-        $deadline = microtime(true) + 85;
+        $started = microtime(true);
+        $lastProgress = $started;
+        fwrite(STDERR, "正在启动服务（Web、队列、调度器），首次等待调度器心跳最多约 60 秒...\n");
+        $deadline = $started + 85;
         do {
             $status = $this->request('status');
             if ($status !== null && $status['ready']) {
@@ -156,12 +159,31 @@ final class Supervisor
                     throw new RuntimeException('后台服务启动失败，本次子进程已收回。请运行 yanji doctor。');
                 }
             }
+            $now = microtime(true);
+            if ($now - $lastProgress >= 15) {
+                fwrite(STDERR, self::formatWaitProgress((int) round($now - $started), $status)."\n");
+                $lastProgress = $now;
+            }
             usleep(Platform::isWindows() ? 1000000 : 200000);
         } while (microtime(true) < $deadline);
         if ($existing === null) {
             $this->stop();
         }
         throw new RuntimeException('等待 Web 或后台心跳超时，请运行 yanji doctor。');
+    }
+
+    public static function formatWaitProgress(int $elapsedSeconds, ?array $status): string
+    {
+        $pending = [];
+        if (is_array($status['services'] ?? null)) {
+            foreach (['web' => 'Web', 'worker' => '队列', 'scheduler' => '调度器'] as $role => $label) {
+                if (!($status['services'][$role]['healthy'] ?? false)) {
+                    $pending[] = $label;
+                }
+            }
+        }
+        $detail = $pending ? '，等待：'.implode('、', $pending) : '';
+        return "仍在等待服务就绪（已等待 {$elapsedSeconds} 秒{$detail}）...";
     }
 
     public function stop(): void
