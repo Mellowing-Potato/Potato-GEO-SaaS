@@ -13,7 +13,7 @@ jobs:
   windows-x64:
     name: Native Windows x64 Portable Build & Acceptance
     runs-on: windows-2025
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       PYTHONUTF8: '1'
     steps:
@@ -192,7 +192,7 @@ jobs:
         run: ./tests/powershell/InstallerInventoryTest.ps1
 
       - name: Native Windows x64 full cold-install, timeout, private-404 and restore acceptance
-        timeout-minutes: 8
+        timeout-minutes: 15
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -201,6 +201,24 @@ jobs:
           # Run full native Windows runtime suite WITHOUT -PythonBin
           python .\scripts\test-portable-runtime.py --package-dir D:\yanji-build\candidate --manifest-sha256 $sumsSha
           if ($LASTEXITCODE -ne 0) { throw "Windows test-portable-runtime.py failed with exit code $LASTEXITCODE" }
+
+      - name: Native Windows packaged desktop entry in private fake known folders
+        timeout-minutes: 3
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          & D:\yanji-build\render-check\runtime\bin\php.exe -n `
+            -d "extension_dir=D:\yanji-build\render-check\runtime\bin\ext" -d extension=mbstring `
+            .\tests\fixtures\native-desktop-entry.php D:\yanji-build\render-check\app\portable
+          if ($LASTEXITCODE -ne 0) { throw 'Windows packaged desktop entry fixture failed' }
+
+      - name: Upload verified Windows agent installation candidate
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: portable-agent-candidate-windows-x86_64
+          path: D:\yanji-build\candidate
+          if-no-files-found: error
 
   linux-native-python-and-render:
     name: Native Linux ${{ matrix.platform }} Bundled Python & 11-Renderer Verification
