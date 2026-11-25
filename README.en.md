@@ -77,10 +77,12 @@ The script creates the initial admin interactively and starts `web`, `worker`, `
 
 ### Option 3: Install via an AI Coding Agent
 
+Use the shared [Agent Installation and Handoff Protocol (ZH)](docs/INSTALL-AGENT.md). Its new structured handoff and double-click entry points are an unreleased candidate, with GUI acceptance still untested; existing release evidence above is unchanged. Agents use the same official installer and local entry point, then confirm the workbench in the system default browser. Opening a bare URL or observing healthy services alone does not complete the handoff.
+
 Copy and send this prompt to your AI coding assistant:
 
 ```text
-Please install Yanji following PORTABLE.md (no-Docker) or INSTALL.md (Docker). Repository: https://github.com/Mellowing-Potato/Potato-GEO-SaaS
+Read docs/INSTALL-AGENT.md first, then install Yanji following PORTABLE.md (no-Docker) or INSTALL.md (Docker). Use the local entry point and confirm the workbench in the system default browser; report pending human acceptance if you cannot confirm it. Repository: https://github.com/Mellowing-Potato/Potato-GEO-SaaS
 ```
 
 ---

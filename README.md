@@ -77,10 +77,12 @@ bash scripts/install.sh
 
 ### 方式三：交给 AI 编程助手自动安装
 
+统一安装与交付要求见 [通用智能体安装协议](docs/INSTALL-AGENT.md)。其中新增的结构化交付与双击入口属于未发布候选，GUI 未测，不改变上面的正式版验收记录。智能体应使用同一官方安装和本机入口，在系统默认浏览器确认工作台；仅打开裸地址或看到服务就绪不能宣称交付完成。
+
 可以直接复制下面这句话发给你的 AI 编程助手（支持按需选择免 Docker 便携版或 Docker 版）：
 
 ```text
-帮我按 PORTABLE.md（免 Docker）或 INSTALL.md（Docker）安装言及。仓库地址是 https://github.com/Mellowing-Potato/Potato-GEO-SaaS
+请先读 docs/INSTALL-AGENT.md，再按 PORTABLE.md（免 Docker）或 INSTALL.md（Docker）安装言及。通过本机入口在系统默认浏览器确认工作台；无法确认时说明待人工验收。仓库地址是 https://github.com/Mellowing-Potato/Potato-GEO-SaaS
 ```
 
 ---
