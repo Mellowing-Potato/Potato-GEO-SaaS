@@ -57,15 +57,21 @@ final class DesktopEntryTest extends TestCase
             'arguments' => $variables['YANJI_ENTRY_ARGUMENTS'] ?? '',
             'directory' => $variables['YANJI_ENTRY_WORKING_DIRECTORY'] ?? $variables['YANJI_ENTRY_DIRECTORY'],
             'marker' => $variables['YANJI_ENTRY_MARKER']];
+        // Native WSH exposed only the first 1023 argument characters; the property store returns the full string.
+        $readArguments = static fn (string $value): string => str_contains($script, "ExtendedProperty('System.Link.Arguments')")
+            ? $value : substr($value, 0, 1023);
         if ($variables['YANJI_ENTRY_INSPECT'] === '1') {
             $stored = @json_decode((string) @file_get_contents($path), true);
+            if (is_array($stored) && is_string($stored['arguments'] ?? null)) {
+                $stored['arguments'] = $readArguments($stored['arguments']);
+            }
             $legacy = ['target' => $variables['YANJI_ENTRY_FILE'], 'arguments' => '',
                 'directory' => $variables['YANJI_ENTRY_DIRECTORY'], 'marker' => $variables['YANJI_ENTRY_MARKER']];
             return ['code' => $stored === $record || $stored === $legacy ? 0 : 3, 'stdout' => ''];
         }
         self::assertFileDoesNotExist($path);
         file_put_contents($path, json_encode($record, JSON_THROW_ON_ERROR));
-        return ['code' => 0, 'stdout' => ''];
+        return ['code' => $readArguments($record['arguments']) === $record['arguments'] ? 0 : 3, 'stdout' => ''];
     }
 
     private function install(Instance $instance, string $platform, bool $shortcuts = true): array
@@ -196,6 +202,13 @@ final class DesktopEntryTest extends TestCase
         foreach ($this->powerShellCalls as [$script, $variables]) {
             self::assertStringContainsString('$link.TargetPath = $env:YANJI_ENTRY_TARGET', $script);
             self::assertStringNotContainsString('$link.TargetPath = $env:YANJI_ENTRY_FILE', $script);
+            self::assertGreaterThan(1023, strlen($variables['YANJI_ENTRY_ARGUMENTS']));
+            self::assertStringContainsString("ExtendedProperty('System.Link.Arguments')", $script);
+            self::assertStringContainsString('$arguments -isnot [string]', $script);
+            self::assertStringContainsString('$null -eq $folder', $script);
+            self::assertStringContainsString('$null -eq $item', $script);
+            self::assertStringContainsString('$fullArguments -cne $env:YANJI_ENTRY_ARGUMENTS', $script);
+            self::assertStringNotContainsString('$link.Arguments -c', $script);
             self::assertMatchesRegularExpression('/\A[A-Za-z]:\\\\.+\\\\System32\\\\WindowsPowerShell\\\\v1\.0\\\\powershell\.exe\z/', $variables['YANJI_ENTRY_TARGET']);
             self::assertSame(substr($variables['YANJI_ENTRY_TARGET'], 0, -strlen('\\powershell.exe')), $variables['YANJI_ENTRY_WORKING_DIRECTORY']);
             self::assertMatchesRegularExpression('/\A-NoProfile -NonInteractive -EncodedCommand [A-Za-z0-9+\/=]+\z/', $variables['YANJI_ENTRY_ARGUMENTS']);

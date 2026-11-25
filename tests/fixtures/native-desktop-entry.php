@@ -96,6 +96,7 @@ $phase = 'com_shell'
 $before = $null
 $after = $null
 $reloaded = $null
+$extended = $null
 function Read-Link($value) {
     $actualArguments = [string]$value.Arguments
     return @{target_matches=($value.TargetPath -ceq $env:YANJI_ENTRY_TARGET);target_case_insensitive_match=($value.TargetPath -ieq $env:YANJI_ENTRY_TARGET);target_exists=[IO.File]::Exists([string]$value.TargetPath);arguments_match=($actualArguments -ceq $env:YANJI_ENTRY_ARGUMENTS);description_matches=($value.Description -ceq $env:YANJI_ENTRY_MARKER);working_directory_matches=($value.WorkingDirectory -ceq $env:YANJI_ENTRY_WORKING_DIRECTORY);working_directory_case_insensitive_match=($value.WorkingDirectory -ieq $env:YANJI_ENTRY_WORKING_DIRECTORY);expected_arguments_length=([string]$env:YANJI_ENTRY_ARGUMENTS).Length;actual_arguments_length=$actualArguments.Length}
@@ -120,11 +121,17 @@ try {
     $after = Read-Link $link
     $phase = 'readback_reloaded'
     $reloaded = Read-Link ($shell.CreateShortcut($env:YANJI_ENTRY_SHORTCUT))
-    [Console]::Write((@{code='saved';phase='complete';before=$before;after=$after;reloaded=$reloaded} | ConvertTo-Json -Compress -Depth 5))
+    $phase = 'extended_arguments'
+    $application = New-Object -ComObject Shell.Application
+    $folder = $application.NameSpace([IO.Path]::GetDirectoryName($env:YANJI_ENTRY_SHORTCUT))
+    $item = $folder.ParseName([IO.Path]::GetFileName($env:YANJI_ENTRY_SHORTCUT))
+    $value = $item.ExtendedProperty('System.Link.Arguments')
+    $extended = @{available=($null -ne $value);value_is_string=($value -is [string]);arguments_match=($value -is [string] -and $value -ceq $env:YANJI_ENTRY_ARGUMENTS);expected_arguments_length=([string]$env:YANJI_ENTRY_ARGUMENTS).Length;actual_arguments_length=([string]$value).Length}
+    [Console]::Write((@{code='saved';phase='complete';before=$before;after=$after;reloaded=$reloaded;extended_arguments=$extended} | ConvertTo-Json -Compress -Depth 5))
     exit 0
 } catch {
     $hresult = [int]$_.Exception.HResult
-    [Console]::Write((@{code='exception';phase=$phase;hresult=$hresult;before=$before;after=$after;reloaded=$reloaded} | ConvertTo-Json -Compress -Depth 5))
+    [Console]::Write((@{code='exception';phase=$phase;hresult=$hresult;before=$before;after=$after;reloaded=$reloaded;extended_arguments=$extended} | ConvertTo-Json -Compress -Depth 5))
     exit 1
 }
 PS;
@@ -148,7 +155,7 @@ PS;
             }
             if (in_array($detail['phase'] ?? null, ['com_shell', 'shortcut_create', 'shortcut_target', 'shortcut_arguments',
                 'shortcut_description', 'shortcut_working_directory', 'readback_before_save', 'shortcut_save',
-                'readback_after_save', 'readback_reloaded', 'complete'], true)) {
+                'readback_after_save', 'readback_reloaded', 'extended_arguments', 'complete'], true)) {
                 $safe['phase'] = $detail['phase'];
             }
             if (is_int($detail['hresult'] ?? null)) {
@@ -168,6 +175,19 @@ PS;
                     $value = $detail[$when][$key] ?? null;
                     if (is_int($value) && $value >= 0 && $value <= 32768) {
                         $safe[$when][$key] = $value;
+                    }
+                }
+            }
+            if (is_array($detail['extended_arguments'] ?? null)) {
+                foreach (['available', 'value_is_string', 'arguments_match'] as $key) {
+                    if (is_bool($detail['extended_arguments'][$key] ?? null)) {
+                        $safe['extended_arguments'][$key] = $detail['extended_arguments'][$key];
+                    }
+                }
+                foreach (['expected_arguments_length', 'actual_arguments_length'] as $key) {
+                    $value = $detail['extended_arguments'][$key] ?? null;
+                    if (is_int($value) && $value >= 0 && $value <= 32768) {
+                        $safe['extended_arguments'][$key] = $value;
                     }
                 }
             }
@@ -277,20 +297,33 @@ try {
             'windows_chinese_failure_not_visible');
     }
     $shortcutCases = 0;
+    $shortcutArgumentLengths = [];
     if ($windows) {
         $other = new Instance($temporary.'/other-instance');
         Instance::privateDir($other->root);
         Instance::atomicFile($other->root.'/yanji.cmd', $fake);
+        $builder = (new ReflectionMethod(DesktopEntry::class, 'windowsShortcutLaunch'))->invoke(null, $entry['file']);
+        entryRequire($builder[0] === Platform::windowsPowerShell() && $builder[2] === dirname(Platform::windowsPowerShell()),
+            'registered_shortcut_builder_target_mismatch');
+        $expectedMarker = (new ReflectionClass(DesktopEntry::class))->getConstant('FORMAT').':'.hash('sha256', $instance->root);
+        $metadataCapture = $temporary.'/registered-link-metadata.json';
         $shortcutScript = <<<'PS'
 $ErrorActionPreference = 'Stop'
 try {
     $shell = New-Object -ComObject WScript.Shell
     $link = $shell.CreateShortcut($env:YANJI_ENTRY_REGISTERED_LINK)
-    if ($link.TargetPath -ine $env:YANJI_ENTRY_EXPECTED_TARGET -or $link.WorkingDirectory -ine $env:YANJI_ENTRY_EXPECTED_DIRECTORY) { exit 41 }
-    if (-not ($link.Arguments -cmatch '\A-NoProfile -NonInteractive -EncodedCommand ([A-Za-z0-9+/=]+)\z')) { exit 42 }
+    if ($link.TargetPath -cne $env:YANJI_ENTRY_EXPECTED_TARGET -or $link.WorkingDirectory -cne $env:YANJI_ENTRY_EXPECTED_DIRECTORY -or $link.Description -cne $env:YANJI_ENTRY_EXPECTED_MARKER) { exit 41 }
+    $application = New-Object -ComObject Shell.Application
+    $folder = $application.NameSpace([IO.Path]::GetDirectoryName($env:YANJI_ENTRY_REGISTERED_LINK))
+    $item = $folder.ParseName([IO.Path]::GetFileName($env:YANJI_ENTRY_REGISTERED_LINK))
+    $arguments = $item.ExtendedProperty('System.Link.Arguments')
+    if ($arguments -isnot [string] -or $arguments -cne $env:YANJI_ENTRY_EXPECTED_ARGUMENTS) { exit 42 }
+    if (-not ($arguments -cmatch '\A-NoProfile -NonInteractive -EncodedCommand ([A-Za-z0-9+/=]+)\z')) { exit 45 }
     $decoded = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($Matches[1]))
     if (-not $decoded.Contains($env:YANJI_ENTRY_EXPECTED_CANONICAL_BASE64) -or $decoded -match 'ticket=|APP_KEY|Bearer\s') { exit 43 }
-    $process = Start-Process -FilePath $link.TargetPath -ArgumentList $link.Arguments -WorkingDirectory $link.WorkingDirectory -NoNewWindow -PassThru -Wait
+    $metadata = @{expected_arguments_length=([string]$env:YANJI_ENTRY_EXPECTED_ARGUMENTS).Length;extended_arguments_length=$arguments.Length;wsh_arguments_length=([string]$link.Arguments).Length;full_arguments_match=$true}
+    [IO.File]::WriteAllText($env:YANJI_ENTRY_METADATA_CAPTURE, ($metadata | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))
+    $process = Start-Process -FilePath $link.TargetPath -ArgumentList $arguments -WorkingDirectory $link.WorkingDirectory -NoNewWindow -PassThru -Wait
     exit $process.ExitCode
 } catch { exit 44 }
 PS;
@@ -301,6 +334,8 @@ PS;
                 'YANJI_ENTRY_REGISTERED_LINK' => Platform::nativePath($shortcut['path']),
                 'YANJI_ENTRY_EXPECTED_TARGET' => Platform::windowsPowerShell(),
                 'YANJI_ENTRY_EXPECTED_DIRECTORY' => dirname(Platform::windowsPowerShell()),
+                'YANJI_ENTRY_EXPECTED_ARGUMENTS' => $builder[1], 'YANJI_ENTRY_EXPECTED_MARKER' => $expectedMarker,
+                'YANJI_ENTRY_METADATA_CAPTURE' => Platform::nativePath($metadataCapture),
                 'YANJI_ENTRY_EXPECTED_CANONICAL_BASE64' => base64_encode(Platform::nativePath($entry['file']))];
             foreach ([false, true] as $fail) {
                 if ($fail) {
@@ -308,12 +343,21 @@ PS;
                 } else {
                     unlink($instance->root.'/fail');
                 }
+                @unlink($metadataCapture);
                 $stage = 'registered_'.$shortcut['kind'].($fail ? '_failure' : '_success');
                 $executed = entryExecute($shortcutCommand, $temporary, $shortcutEnvironment);
                 $executionTimes[$stage] = $executed['elapsed_ms'];
                 $diagnostic['last_execution'] = ['exit_code' => $executed['code'], 'elapsed_ms' => $executed['elapsed_ms'],
                     'stdout_bytes' => strlen($executed['stdout']), 'stderr_bytes' => strlen($executed['stderr'])];
                 entryRequire($executed['code'] === ($fail ? 1 : 0), 'registered_shortcut_exit_code_mismatch');
+                $metadata = json_decode((string) @file_get_contents($metadataCapture), true);
+                entryRequire(is_array($metadata) && ($metadata['full_arguments_match'] ?? null) === true
+                    && ($metadata['expected_arguments_length'] ?? null) === strlen($builder[1])
+                    && ($metadata['extended_arguments_length'] ?? null) === strlen($builder[1])
+                    && is_int($metadata['wsh_arguments_length'] ?? null)
+                    && $metadata['wsh_arguments_length'] >= 0 && $metadata['wsh_arguments_length'] <= 32768,
+                    'registered_shortcut_full_arguments_not_verified');
+                $shortcutArgumentLengths[$shortcut['kind']] = $metadata;
                 if ($fail) {
                     entryRequire(str_contains($executed['stdout'].$executed['stderr'], 'Please run yanji doctor.'),
                         'registered_shortcut_english_failure_not_visible');
@@ -336,6 +380,7 @@ PS;
         'canonical_failure_exit_code' => $failure['code'], 'windows_error_visible' => $windows ? true : null,
         'registered_shortcut_execution_cases' => $shortcutCases,
         'registered_shortcuts_bound_to_current_instance' => $windows ? true : null,
+        'registered_shortcut_argument_lengths' => $shortcutArgumentLengths,
         'execution_ms' => $executionTimes,
         'browser_or_services_invoked' => false, 'real_user_desktop_touched' => false], JSON_THROW_ON_ERROR)."\n";
 } catch (Throwable $error) {
