@@ -8,6 +8,7 @@ use App\Services\Account\AccountDeletionService;
 use App\Services\Auth\LocalAccounts;
 use App\Support\InstanceConfiguration;
 use App\Support\LocalSession;
+use App\Support\PortableDesktopAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +34,7 @@ class AuthController extends Controller
 
     public function productLogin(Request $request): JsonResponse
     {
+        abort_if(PortableDesktopAccess::enabled(), 404);
         $this->assertOrigin($request);
         $this->email($request);
         $data = $request->validate([
@@ -57,6 +59,7 @@ class AuthController extends Controller
 
     public function register(Request $request, LocalAccounts $accounts): JsonResponse
     {
+        abort_if(PortableDesktopAccess::enabled(), 404);
         $this->assertOrigin($request);
         $this->email($request);
         return DB::transaction(function () use ($request, $accounts) {
@@ -83,6 +86,11 @@ class AuthController extends Controller
         });
     }
 
+    public function localStart(Request $request): JsonResponse
+    {
+        return PortableDesktopAccess::exchange($request);
+    }
+
     public function logout(Request $request): JsonResponse
     {
         LocalSession::revoke($request->user(), LocalSession::fingerprintFromRequest($request));
@@ -94,6 +102,7 @@ class AuthController extends Controller
     {
         $user = $request->user();
         if ($request->isMethod('PATCH')) {
+            abort_if(PortableDesktopAccess::enabled(), 404);
             $this->email($request);
             $data = $request->validate(['name' => ['required', 'string', 'max:80'],
                 'email' => ['required', 'email', 'max:254', \Illuminate\Validation\Rule::unique('users')->ignore($user->id)],
@@ -118,6 +127,7 @@ class AuthController extends Controller
 
     public function password(Request $request): JsonResponse
     {
+        abort_if(PortableDesktopAccess::enabled(), 404);
         $data = $request->validate([
             'current_password' => ['required', 'string'],
             'password' => ['required', 'string', 'min:8', 'max:128', 'confirmed'],
@@ -162,6 +172,7 @@ class AuthController extends Controller
 
     public function forgotPassword(Request $request): JsonResponse
     {
+        abort_if(PortableDesktopAccess::enabled(), 404);
         $this->assertOrigin($request);
         abort_unless(self::mailResetAvailable(), 503, '本实例未配置邮件服务，请联系管理员重置密码。');
         $this->email($request);
@@ -172,6 +183,7 @@ class AuthController extends Controller
 
     public function resetPassword(Request $request): JsonResponse
     {
+        abort_if(PortableDesktopAccess::enabled(), 404);
         $this->assertOrigin($request);
         $this->email($request);
         $data = $request->validate(['email' => ['required', 'email'], 'token' => ['required', 'string'],
@@ -220,6 +232,7 @@ class AuthController extends Controller
      */
     public function requestDeletion(Request $request): JsonResponse
     {
+        abort_if(PortableDesktopAccess::enabled(), 404);
         $data = $request->validate([
             'confirm_text' => ['required', 'in:注销账户'],
             'password' => ['nullable', 'string'],

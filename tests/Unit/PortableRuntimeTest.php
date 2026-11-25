@@ -7,6 +7,7 @@ use Illuminate\Filesystem\Filesystem;
 use Yanji\Portable\Instance;
 use Yanji\Portable\Installation;
 use Yanji\Portable\Supervisor;
+use Symfony\Component\Process\Process;
 
 require_once __DIR__.'/../../portable/src/Instance.php';
 require_once __DIR__.'/../../portable/src/Installation.php';
@@ -101,6 +102,155 @@ class PortableRuntimeTest extends TestCase
         self::assertSame($release, $instance->release());
         $env = \Dotenv\Dotenv::parse(file_get_contents($instance->root.'/.env'));
         self::assertSame($instance->root.'/database/database.sqlite', $env['DB_DATABASE']);
+    }
+
+    public function test_fresh_default_install_uses_desktop_initialization_with_closed_stdin(): void
+    {
+        $root = $this->directory.'/desktop instance';
+        $release = $this->program('desktop-release');
+        mkdir($release.'/runtime/ca');
+        mkdir($release.'/app/portable');
+        touch($release.'/runtime/ca/cacert.pem');
+        file_put_contents($release.'/app/portable/yanji', "#!/bin/sh\n");
+        file_put_contents($release.'/app/portable/instance.env.example', "APP_URL=http://127.0.0.1:8000\nAPP_KEY=\nDB_DATABASE=\nSESSION_COOKIE=\n");
+        $fakePhp = <<<'PHP'
+<?php
+$root = getenv('YANJI_ENV_PATH');
+file_put_contents($root.'/run/commands', json_encode(array_slice($argv, 1))."\n", FILE_APPEND);
+if (in_array('yanji:install', $argv, true)) {
+    file_put_contents($root.'/run/installed', 'verified');
+    exit(0);
+}
+if (in_array('yanji:ready', $argv, true)) {
+    exit(is_file($root.'/run/installed') ? 0 : 1);
+}
+exit(2);
+PHP;
+        file_put_contents($release.'/runtime/bin/php', '#!'.PHP_BINARY."\n".$fakePhp);
+        chmod($release.'/runtime/bin/php', 0700);
+        $python = $this->directory.'/desktop-python';
+        file_put_contents($python, "#!/bin/sh\nprintf '%s' '{\"basic\":true}'\n");
+        chmod($python, 0700);
+        $driver = <<<'PHP'
+require 'vendor/autoload.php';
+require 'portable/src/Installation.php';
+require 'portable/src/Instance.php';
+$instance = new Yanji\Portable\Instance($argv[1]);
+(new Yanji\Portable\Installation($instance))->install($argv[2], 8132, null, null, $argv[3]);
+PHP;
+        $process = new Process([PHP_BINARY, '-r', $driver, $root, $release, $python], dirname(__DIR__, 2), null, '', 30);
+        $process->run();
+        self::assertSame(0, $process->getExitCode(), 'Fresh default installation must not require a terminal or credentials.');
+        $env = \Dotenv\Dotenv::parse(file_get_contents($root.'/.env'));
+        self::assertSame('true', $env['YANJI_DESKTOP_MODE']);
+        $calls = array_map(static fn (string $line): array => json_decode($line, true, flags: JSON_THROW_ON_ERROR), file($root.'/run/commands', FILE_IGNORE_NEW_LINES));
+        $install = array_values(array_filter($calls, static fn (array $args): bool => in_array('yanji:install', $args, true)));
+        self::assertCount(1, $install);
+        self::assertContains('--portable', $install[0]);
+        self::assertContains('--desktop', $install[0]);
+        self::assertContains('--no-interaction', $install[0]);
+        self::assertFalse((bool) array_filter($install[0], static fn (string $arg): bool => str_starts_with($arg, '--email') || str_starts_with($arg, '--password')));
+        self::assertFileExists($root.'/.portable-initialized');
+    }
+
+    public function test_no_browser_flag_is_accepted_by_the_native_cli_without_changing_the_stopped_state(): void
+    {
+        $instance = new Instance($this->directory.'/headless instance');
+        $instance->prepare();
+        $process = new Process([PHP_BINARY, dirname(__DIR__, 2).'/portable/yanji.php', 'status',
+            '--instance', $instance->root, '--no-browser']);
+        $process->mustRun();
+        $status = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+        self::assertFalse($status['ready']);
+        self::assertSame('stopped', $status['state']);
+        self::assertFileDoesNotExist($instance->root.'/.env');
+    }
+
+    public function test_no_browser_flag_survives_the_upgrade_installer_handoff(): void
+    {
+        $instance = new Instance($this->directory.'/headless upgrade');
+        $instance->prepare();
+        $release = $this->program('handoff-release');
+        mkdir($release.'/app/scripts', 0700, true);
+        $record = $this->directory.'/forwarded-arguments';
+        if (PHP_OS_FAMILY === 'Windows') {
+            file_put_contents($release.'/app/scripts/install-local.ps1', <<<'PS'
+param([switch]$Upgrade,[string]$ProgramHome,[string]$Instance,[string]$Manifest,[string]$ManifestSha256,[switch]$NoBrowser)
+[IO.File]::WriteAllText($env:YANJI_TEST_FORWARD, (@{no_browser=$NoBrowser.IsPresent;upgrade=$Upgrade.IsPresent;instance=$Instance} | ConvertTo-Json -Compress))
+PS);
+        } else {
+            file_put_contents($release.'/app/scripts/install-local.sh', <<<'SH'
+#!/bin/sh
+printf '%s\n' "$@" > "$YANJI_TEST_FORWARD"
+SH);
+        }
+        $instance->activate($release);
+        $process = new Process([PHP_BINARY, dirname(__DIR__, 2).'/portable/yanji.php', 'upgrade',
+            '--instance', $instance->root, '--manifest', $this->directory.'/fixture-sums',
+            '--manifest-sha256', str_repeat('a', 64), '--no-browser'], null, ['YANJI_TEST_FORWARD' => $record]);
+        $process->mustRun();
+        if (PHP_OS_FAMILY === 'Windows') {
+            $forwarded = json_decode(file_get_contents($record), true, flags: JSON_THROW_ON_ERROR);
+            self::assertTrue($forwarded['no_browser']);
+            self::assertTrue($forwarded['upgrade']);
+            self::assertSame($instance->root, str_replace('\\', '/', $forwarded['instance']));
+        } else {
+            $forwarded = file($record, FILE_IGNORE_NEW_LINES);
+            self::assertContains('--no-browser', $forwarded);
+            self::assertContains('--upgrade', $forwarded);
+            self::assertSame($instance->root, $forwarded[array_search('--instance', $forwarded, true) + 1]);
+        }
+    }
+
+    public function test_verified_restore_rebuilds_portable_markers_without_changing_restored_data(): void
+    {
+        $instance = new Instance($this->directory.'/restored desktop');
+        $instance->prepare();
+        $release = $this->program('restored-release');
+        file_put_contents($release.'/runtime/bin/php', '#!'.PHP_BINARY."\n". <<<'PHP'
+<?php
+file_put_contents(getenv('YANJI_ENV_PATH').'/run/readiness-arguments', json_encode($argv));
+exit(in_array('yanji:ready', $argv, true) && in_array('--portable', $argv, true) ? 0 : 2);
+PHP);
+        chmod($release.'/runtime/bin/php', 0700);
+        $instance->activate($release);
+        Instance::atomicFile($instance->root.'/instance.json', '{"port":8133}');
+        $environment = "YANJI_DESKTOP_MODE=true\nAPP_KEY=sk-test-restored-fixture\n";
+        Instance::atomicFile($instance->root.'/.env', $environment);
+        Instance::atomicFile($instance->root.'/database/database.sqlite', 'restored database fixture');
+        self::assertFileDoesNotExist($instance->root.'/.portable-layout');
+
+        (new Installation($instance))->finishRestore();
+
+        self::assertFileExists($instance->root.'/.portable-layout', 'A verified restore must regain the marker required by local browser authorization.');
+        self::assertFileExists($instance->root.'/.portable-initialized');
+        self::assertSame("yanji-portable-v1\n", file_get_contents($instance->root.'/.portable-layout'));
+        self::assertSame("verified\n", file_get_contents($instance->root.'/.portable-initialized'));
+        self::assertTrue(Installation::desktopMode($instance));
+        self::assertSame($environment, file_get_contents($instance->root.'/.env'));
+        self::assertSame('restored database fixture', file_get_contents($instance->root.'/database/database.sqlite'));
+        self::assertFileExists($instance->root.'/run/readiness-arguments');
+    }
+
+    public function test_failed_restore_readiness_never_enables_a_portable_desktop_instance(): void
+    {
+        $instance = new Instance($this->directory.'/invalid restored desktop');
+        $instance->prepare();
+        $release = $this->program('invalid-restored-release');
+        file_put_contents($release.'/runtime/bin/php', "#!/bin/sh\nexit 7\n");
+        $instance->activate($release);
+        Instance::atomicFile($instance->root.'/instance.json', '{"port":8134}');
+        $environment = "YANJI_DESKTOP_MODE=true\nAPP_KEY=sk-test-restored-fixture\n";
+        Instance::atomicFile($instance->root.'/.env', $environment);
+        try {
+            (new Installation($instance))->finishRestore();
+            self::fail('An unverified restored instance must not acquire portable markers.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('就绪检查', $error->getMessage());
+        }
+        self::assertFileDoesNotExist($instance->root.'/.portable-layout');
+        self::assertFileDoesNotExist($instance->root.'/.portable-initialized');
+        self::assertSame($environment, file_get_contents($instance->root.'/.env'));
     }
 
     public function test_public_conflict_keeps_the_served_version_and_all_managed_links(): void

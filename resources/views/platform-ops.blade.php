@@ -20,11 +20,11 @@
         };
     </script>
     {{-- 设计令牌：必须排在页面自身样式表【前面】，页面里的覆盖才压得住。 --}}
-    <link rel="stylesheet" href="/geo-tokens.css?v={{ file_exists(public_path('geo-tokens.css')) ? filemtime(public_path('geo-tokens.css')) : time() }}">
-    <link rel="stylesheet" href="/geo-fonts.css?v={{ filemtime(public_path('geo-fonts.css')) }}">
-    <link rel="stylesheet" href="/geo-brand-pages.css?v={{ filemtime(public_path('geo-brand-pages.css')) }}">
+    <link rel="stylesheet" href="/geo-tokens.css?v={{ file_exists(public_path('geo-tokens.css')) ? \App\Support\PublicAssetVersion::for('geo-tokens.css') : time() }}">
+    <link rel="stylesheet" href="/geo-fonts.css?v={{ \App\Support\PublicAssetVersion::for('geo-fonts.css') }}">
+    <link rel="stylesheet" href="/geo-brand-pages.css?v={{ \App\Support\PublicAssetVersion::for('geo-brand-pages.css') }}">
     <link rel="stylesheet" href="/geo-platform-ops.css?v={{ $cssVersion }}">
-    <link rel="stylesheet" href="/geo-typography.css?v={{ filemtime(public_path('geo-typography.css')) }}">
+    <link rel="stylesheet" href="/geo-typography.css?v={{ \App\Support\PublicAssetVersion::for('geo-typography.css') }}">
 </head>
 <body class="geo-platform-ops geo-app">
 

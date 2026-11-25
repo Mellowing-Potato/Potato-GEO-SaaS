@@ -11,6 +11,7 @@ param(
     [string]$PasswordFile = '',
     [string]$PythonBin = '',
     [switch]$Upgrade,
+    [switch]$NoBrowser,
     [switch]$Diagnosis,
     [switch]$Help
 )
@@ -25,7 +26,7 @@ try { [Console]::OutputEncoding = $utf8NoBom } catch {}
 try { [Console]::InputEncoding = $utf8NoBom } catch {}
 
 if ($Help) {
-    Write-Output 'install-local.ps1 -Manifest SHA256SUMS -ManifestSha256 SHA [-Package ZIP] [-ProgramHome DIR] [-Instance DIR] [-Port PORT] [-Email EMAIL] [-PasswordFile FILE] [-PythonBin PYTHON] [-Upgrade] [-Diagnosis]'
+    Write-Output 'install-local.ps1 -Manifest SHA256SUMS -ManifestSha256 SHA [-Package ZIP] [-ProgramHome DIR] [-Instance DIR] [-Port PORT] [-Email EMAIL] [-PasswordFile FILE] [-PythonBin PYTHON] [-Upgrade] [-NoBrowser] [-Diagnosis]'
     exit 0
 }
 
@@ -50,6 +51,10 @@ if ($Diagnosis) {
 function Fail([string]$Message) {
     Write-Error $Message
     exit 1
+}
+
+function Step([string]$Message) {
+    [Console]::Error.WriteLine($Message)
 }
 
 if ($arch -ne 'AMD64') {
@@ -81,7 +86,7 @@ function Get-Sha256([string]$Path) {
     }
 }
 
-function Download-Https([string]$Url, [string]$Dest) {
+function Download-Https([string]$Url, [string]$Dest, [switch]$ShowProgress) {
     $current = $Url
     for ($hops = 0; $hops -lt 10; $hops++) {
         if ($current -notmatch '^https://') {
@@ -89,6 +94,8 @@ function Download-Https([string]$Url, [string]$Dest) {
         }
         $req = [System.Net.HttpWebRequest]::Create($current)
         $req.AllowAutoRedirect = $false
+        $req.Timeout = 30000
+        $req.ReadWriteTimeout = 60000
         $req.UserAgent = 'Yanji-Installer/1.0'
         $resp = $null
         try {
@@ -113,7 +120,43 @@ function Download-Https([string]$Url, [string]$Dest) {
             }
             $inStream = $resp.GetResponseStream()
             $outStream = [System.IO.File]::Create($Dest)
-            try { $inStream.CopyTo($outStream) } finally { $outStream.Dispose(); $inStream.Dispose() }
+            $interactiveErr = $false
+            if ($ShowProgress) {
+                try { $interactiveErr = -not [Console]::IsErrorRedirected } catch { $interactiveErr = $false }
+            }
+            $total = $resp.ContentLength
+            $downloaded = [int64]0
+            $buffer = New-Object byte[] 262144
+            $timer = [System.Diagnostics.Stopwatch]::StartNew()
+            $lastReportMs = [int64]-1000
+            $wroteProgress = $false
+            try {
+                while (($read = $inStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                    $outStream.Write($buffer, 0, $read)
+                    $downloaded += $read
+                    if ($interactiveErr -and ($timer.ElapsedMilliseconds - $lastReportMs) -ge 1000) {
+                        $dlMb = [Math]::Round($downloaded / 1MB, 1)
+                        if ($total -gt 0) {
+                            $totalMb = [Math]::Round($total / 1MB, 1)
+                            $pct = [Math]::Min(100, [int][Math]::Floor(($downloaded * 100.0) / $total))
+                            [Console]::Error.Write("`r下载进度：$pct% ($dlMb / $totalMb MB)   ")
+                        } else {
+                            [Console]::Error.Write("`r已下载：$dlMb MB   ")
+                        }
+                        $lastReportMs = $timer.ElapsedMilliseconds
+                        $wroteProgress = $true
+                    }
+                }
+                if ($wroteProgress) {
+                    $dlMb = [Math]::Round($downloaded / 1MB, 1)
+                    if ($total -gt 0) {
+                        $totalMb = [Math]::Round($total / 1MB, 1)
+                        [Console]::Error.WriteLine("`r下载进度：100% ($dlMb / $totalMb MB)   ")
+                    } else {
+                        [Console]::Error.WriteLine("`r已下载：$dlMb MB   ")
+                    }
+                }
+            } finally { $outStream.Dispose(); $inStream.Dispose() }
             return
         } finally {
             $resp.Dispose()
@@ -122,9 +165,9 @@ function Download-Https([string]$Url, [string]$Dest) {
     Fail '远端下载重定向次数过多。'
 }
 
-function Fetch-Material([string]$Source, [string]$Dest) {
+function Fetch-Material([string]$Source, [string]$Dest, [switch]$ShowProgress) {
     if ($Source -match '^https://') {
-        Download-Https $Source $Dest
+        Download-Https $Source $Dest -ShowProgress:$ShowProgress
     } elseif ($Source -match '^[A-Za-z][A-Za-z0-9+.-]*://') {
         Fail '远端安装材料仅接受 HTTPS。'
     } else {
@@ -168,6 +211,7 @@ New-Item -ItemType Directory -Force -Path $scratch | Out-Null
 $stage = $null
 
 try {
+    Step '正在获取并校验发行清单...'
     $sumsFile = Join-Path $scratch 'SHA256SUMS'
     Fetch-Material $Manifest $sumsFile
     if ((Get-Sha256 $sumsFile) -ne $ManifestSha256) {
@@ -180,6 +224,7 @@ try {
         if (-not $Upgrade) {
             Fail '请先将匹配清单的 install-local.ps1 保存到本地后再执行。'
         }
+        Step '正在获取目标版本的安装脚本...'
         $nextScript = Join-Path $scratch 'next-install-local.ps1'
         Fetch-Material (Resolve-Sibling $Manifest 'install-local.ps1') $nextScript
         if ((Get-Sha256 $nextScript) -ne $bootstrapSha) {
@@ -189,6 +234,7 @@ try {
             '-Upgrade', '-Manifest', $Manifest, '-ManifestSha256', $ManifestSha256,
             '-ProgramHome', $ProgramHome, '-Instance', $Instance)
         if ($Package) { $fwd += @('-Package', $Package) }
+        if ($NoBrowser) { $fwd += '-NoBrowser' }
         $psHost = if ($PSVersionTable.PSEdition -eq 'Core') { 'pwsh' } else { 'powershell.exe' }
         & $psHost @fwd
         exit $LASTEXITCODE
@@ -198,7 +244,13 @@ try {
     $pkgSha = Get-ManifestEntry $sumsFile $pkgName
     $pkgSrc = if ($Package) { $Package } else { Resolve-Sibling $Manifest $pkgName }
     $pkgZip = Join-Path $scratch $pkgName
-    Fetch-Material $pkgSrc $pkgZip
+    if ($pkgSrc -match '^https://') {
+        Step "正在下载安装包 $pkgName（文件较大，请稍候）..."
+    } else {
+        Step "正在读取本地安装包 $pkgName..."
+    }
+    Fetch-Material $pkgSrc $pkgZip -ShowProgress
+    Step '正在校验安装包 SHA-256 与归档结构...'
     if ((Get-Sha256 $pkgZip) -ne $pkgSha) {
         Fail '安装包 SHA-256 校验失败。'
     }
@@ -265,6 +317,7 @@ try {
     $release = Join-Path $releasesDir $pkgSha
 
     if (-not (Test-Path -LiteralPath $release)) {
+        Step '正在解压并部署程序文件...'
         $stage = Join-Path $releasesDir (".incoming." + [Guid]::NewGuid().ToString("N").Substring(0, 12))
         New-Item -ItemType Directory -Force -Path $stage | Out-Null
         [System.IO.Compression.ZipFile]::ExtractToDirectory($pkgZip, $stage)
@@ -302,6 +355,7 @@ try {
     }
 
     # Verify every file in the cached release against the authenticated PACKAGE-FILES.sha256
+    Step '正在核验程序文件完整性...'
     $expectedLines = @($manifestFilesContent -split "`r?`n" | Where-Object { $_.Trim() -ne '' })
     $expectedMap = @{}
     foreach ($line in $expectedLines) {
@@ -318,6 +372,11 @@ try {
     }
 
     $mode = if ($Upgrade) { '__upgrade' } else { '__install' }
+    if ($Upgrade) {
+        Step '正在执行实例升级...'
+    } else {
+        Step '正在初始化言及实例...'
+    }
     $relPhp = Join-Path $release 'runtime\bin\php.exe'
     $relCli = Join-Path $release 'app\portable\yanji.php'
     $relForIni = $release
@@ -349,6 +408,7 @@ try {
     if ($Email) { $cmdArgs += @('--email', $Email) }
     if ($PythonBin) { $cmdArgs += @('--python-bin', $PythonBin) }
     if ($PasswordFile) { $cmdArgs += @('--password-file', $PasswordFile) }
+    if ($NoBrowser) { $cmdArgs += '--no-browser' }
     & $relPhp @cmdArgs
     exit $LASTEXITCODE
 } finally {

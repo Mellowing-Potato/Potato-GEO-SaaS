@@ -16,10 +16,10 @@
     <meta property="og:image" content="{{ $seo['og_image'] }}">
     @endif
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="/geo-tokens.css?v={{ file_exists(public_path('geo-tokens.css')) ? filemtime(public_path('geo-tokens.css')) : time() }}">
-    <link rel="stylesheet" href="/geo-fonts.css?v={{ filemtime(public_path('geo-fonts.css')) }}">
-    <link rel="stylesheet" href="/geo-reading.css?v={{ file_exists(public_path('geo-reading.css')) ? filemtime(public_path('geo-reading.css')) : time() }}">
-    <link rel="stylesheet" href="/geo-typography.css?v={{ filemtime(public_path('geo-typography.css')) }}">
+    <link rel="stylesheet" href="/geo-tokens.css?v={{ file_exists(public_path('geo-tokens.css')) ? \App\Support\PublicAssetVersion::for('geo-tokens.css') : time() }}">
+    <link rel="stylesheet" href="/geo-fonts.css?v={{ \App\Support\PublicAssetVersion::for('geo-fonts.css') }}">
+    <link rel="stylesheet" href="/geo-reading.css?v={{ file_exists(public_path('geo-reading.css')) ? \App\Support\PublicAssetVersion::for('geo-reading.css') : time() }}">
+    <link rel="stylesheet" href="/geo-typography.css?v={{ \App\Support\PublicAssetVersion::for('geo-typography.css') }}">
 </head>
 <body class="geo-reading geo-app">
     <div class="wrap">

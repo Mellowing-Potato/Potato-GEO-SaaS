@@ -1,5 +1,6 @@
 @php
     $workspaceTopbarSpa = ($mode ?? 'spa') === 'spa';
+    $workspaceDesktopMode = \App\Support\PortableDesktopAccess::enabled();
     $workspaceHelpUrl = trim((string) config('brand.help_url', ''));
     $workspaceWebsiteUrl = (string) config('instance.website_url', '');
     $workspaceSearchIndex = [];
@@ -7,6 +8,7 @@
         foreach ($groups as $group) {
             foreach ($group['items'] as $item) {
                 if ($item['hidden'] || ($item['flag'] && !config('geo.'.$item['flag'], false))) continue;
+                if ($workspaceDesktopMode && $item['view'] === 'account-security') continue;
                 $workspaceSearchIndex[] = [
                     'label' => $item['label'], 'view' => $item['view'], 'page' => $item['page'],
                     'group' => ($menu === 'settings' ? '设置 · ' : '').($group['label'] ?: '项目'),
@@ -55,11 +57,11 @@
             <span id="userLabel">—</span><svg class="topbar-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
         </summary>
         <div class="topbar-user-panel">
-            <p class="topbar-user-caption">当前登录</p><p id="accountMenuIdentity"></p>
+            <p class="topbar-user-caption">{{ $workspaceDesktopMode ? '本机工作区' : '当前登录' }}</p><p id="accountMenuIdentity"></p>
             <p class="topbar-user-help" id="accountMenuWorkspace"></p>
-            <p class="topbar-user-help" id="accountMenuPhone"></p>
+            @unless($workspaceDesktopMode)<p class="topbar-user-help" id="accountMenuPhone"></p>@endunless
             <a id="accountLink" href="{{ $workspaceTopbarSpa ? '#personal-settings' : '/#personal-settings' }}" data-shell-view="personal-settings">个人设置</a>
-            <a id="accountSecurityLink" href="{{ $workspaceTopbarSpa ? '#account-security' : '/#account-security' }}" data-shell-view="account-security">账号安全</a>
+            @unless($workspaceDesktopMode)<a id="accountSecurityLink" href="{{ $workspaceTopbarSpa ? '#account-security' : '/#account-security' }}" data-shell-view="account-security">账号安全</a>@endunless
             @if($workspaceTopbarSpa)
                 <button type="button" data-shell-view="usage">用量明细</button>
                 <button type="button" data-shell-view="personal-settings">全部设置</button>
@@ -71,7 +73,7 @@
                 <a href="{{ $workspaceHelpUrl }}">帮助文档</a>
             @endif
             @if($workspaceWebsiteUrl)<a href="{{ $workspaceWebsiteUrl }}">返回官网</a>@endif
-            <button class="button secondary small" id="accountLogoutButton" type="button">退出登录</button>
+            @unless($workspaceDesktopMode)<button class="button secondary small" id="accountLogoutButton" type="button">退出登录</button>@endunless
         </div>
     </details>
 </header>

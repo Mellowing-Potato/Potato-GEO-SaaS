@@ -9,8 +9,8 @@
         'accountLoginUrl' => url('/login'),
         'accountUrl' => url('/#personal-settings'),
     ];
-    $cssVersion = file_exists(public_path('geo-analytics.css')) ? filemtime(public_path('geo-analytics.css')) : time();
-    $jsVersion  = file_exists(public_path('geo-analytics.js'))  ? filemtime(public_path('geo-analytics.js'))  : time();
+    $cssVersion = file_exists(public_path('geo-analytics.css')) ? \App\Support\PublicAssetVersion::for('geo-analytics.css') : time();
+    $jsVersion  = file_exists(public_path('geo-analytics.js'))  ? \App\Support\PublicAssetVersion::for('geo-analytics.js')  : time();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -25,14 +25,14 @@
         window.GEO_ANALYTICS_CONFIG = @json($geoAnalyticsConfig);
     </script>
     {{-- 设计令牌：必须排在页面自身样式表【前面】，页面里的覆盖才压得住。 --}}
-    <link rel="stylesheet" href="/geo-tokens.css?v={{ file_exists(public_path('geo-tokens.css')) ? filemtime(public_path('geo-tokens.css')) : time() }}">
-    <link rel="stylesheet" href="/geo-shell.css?v={{ filemtime(public_path('geo-shell.css')) }}">
-    <link rel="stylesheet" href="/geo-components.css?v={{ filemtime(public_path('geo-components.css')) }}">
-    <link rel="stylesheet" href="/geo-fonts.css?v={{ filemtime(public_path('geo-fonts.css')) }}">
-    <link rel="stylesheet" href="/geo-brand-pages.css?v={{ filemtime(public_path('geo-brand-pages.css')) }}">
+    <link rel="stylesheet" href="/geo-tokens.css?v={{ file_exists(public_path('geo-tokens.css')) ? \App\Support\PublicAssetVersion::for('geo-tokens.css') : time() }}">
+    <link rel="stylesheet" href="/geo-shell.css?v={{ \App\Support\PublicAssetVersion::for('geo-shell.css') }}">
+    <link rel="stylesheet" href="/geo-components.css?v={{ \App\Support\PublicAssetVersion::for('geo-components.css') }}">
+    <link rel="stylesheet" href="/geo-fonts.css?v={{ \App\Support\PublicAssetVersion::for('geo-fonts.css') }}">
+    <link rel="stylesheet" href="/geo-brand-pages.css?v={{ \App\Support\PublicAssetVersion::for('geo-brand-pages.css') }}">
     <link rel="stylesheet" href="/geo-analytics.css?v={{ $cssVersion }}">
-    <link rel="stylesheet" href="/geo-typography.css?v={{ filemtime(public_path('geo-typography.css')) }}">
-    <link rel="stylesheet" href="/geo-page-navigation.css?v={{ filemtime(public_path('geo-page-navigation.css')) }}">
+    <link rel="stylesheet" href="/geo-typography.css?v={{ \App\Support\PublicAssetVersion::for('geo-typography.css') }}">
+    <link rel="stylesheet" href="/geo-page-navigation.css?v={{ \App\Support\PublicAssetVersion::for('geo-page-navigation.css') }}">
 </head>
 <body class="geo-analytics geo-app geo-standalone">
 
@@ -171,7 +171,7 @@
     </div>
 </div>
 
-<script src="/geo-page-navigation.js?v={{ filemtime(public_path('geo-page-navigation.js')) }}" defer></script>
+<script src="/geo-page-navigation.js?v={{ \App\Support\PublicAssetVersion::for('geo-page-navigation.js') }}" defer></script>
 <script src="/geo-analytics.js?v={{ $jsVersion }}" defer></script>
 </body>
 </html>

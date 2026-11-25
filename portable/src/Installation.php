@@ -74,11 +74,15 @@ final class Installation
             }
         }
         $fresh = !is_file($i->root.'/.env');
+        $desktop = $fresh ? $email === null && $passwordFile === null : self::desktopMode($i);
+        if ($desktop && ($email !== null || $passwordFile !== null)) {
+            throw new RuntimeException('本机单人模式无需提供邮箱或密码文件。');
+        }
         $template = $fresh ? @file_get_contents($release.'/app/portable/instance.env.example') : null;
         if ($fresh && (!is_string($template) || !str_contains($template, 'DB_DATABASE='))) {
             throw new RuntimeException('程序缺少实例环境模板。');
         }
-        $password = ($fresh || $passwordFile !== null) ? self::passwordInput([], $passwordFile) : null;
+        $password = ! $desktop && ($fresh || $passwordFile !== null) ? self::passwordInput([], $passwordFile) : null;
         if ($fresh && $passwordFile !== null && $email === null) {
             throw new RuntimeException('非交互初始化需要 --email 指定管理员邮箱。');
         }
@@ -97,6 +101,7 @@ final class Installation
             $env = preg_replace_callback('/^DB_DATABASE=.*$/m', static fn () => 'DB_DATABASE='.$quoted, $template);
             $env = preg_replace('/^SESSION_COOKIE=.*$/m', 'SESSION_COOKIE=yanji_'.substr(hash('sha256', $i->root), 0, 24), $env);
             $env = preg_replace('/^APP_URL=.*$/m', 'APP_URL=http://127.0.0.1:'.$port, $env);
+            $env .= "\nYANJI_DESKTOP_MODE=".($desktop ? 'true' : 'false')."\n";
             Instance::atomicFile($i->root.'/.env', $env);
         }
         // Newer readiness probes inspect the schema before migrate can create an empty SQLite file.
@@ -113,15 +118,36 @@ final class Installation
             return;
         }
         $args = ['yanji:install', '--portable'];
+        if ($desktop) {
+            array_push($args, '--desktop', '--no-interaction');
+        }
         if ($email !== null) {
             $args[] = '--email='.$email;
         }
-        [$passwordArgs, $input] = $password ?? self::passwordInput([], $passwordFile);
+        [$passwordArgs, $input] = $desktop ? [[], null] : ($password ?? self::passwordInput([], $passwordFile));
         $args = [...$args, ...$passwordArgs];
         if ($i->artisan($args, $input) !== 0 || $i->artisan(['yanji:ready', '--portable'], quiet: true) !== 0) {
             throw new RuntimeException('初始化未完成。请使用原实例目录重试或运行 yanji doctor。');
         }
         Instance::atomicFile($initialized, "verified\n");
+    }
+
+    public static function desktopMode(Instance $instance): bool
+    {
+        $path = $instance->root.'/.env';
+        if (!is_file($path) || is_link($path)) {
+            return false;
+        }
+        return preg_match('/^YANJI_DESKTOP_MODE=true\s*$/m', (string) file_get_contents($path)) === 1;
+    }
+
+    public function finishRestore(): void
+    {
+        if ($this->instance->artisan(['yanji:ready', '--portable'], quiet: true) !== 0) {
+            throw new RuntimeException('恢复的实例密钥与数据库未通过就绪检查。');
+        }
+        Instance::atomicFile($this->instance->root.'/.portable-layout', "yanji-portable-v1\n");
+        Instance::atomicFile($this->instance->root.'/.portable-initialized', "verified\n");
     }
 
     public function protectInstancePaths(): void

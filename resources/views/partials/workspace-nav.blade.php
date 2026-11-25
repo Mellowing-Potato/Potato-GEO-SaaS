@@ -1,6 +1,7 @@
 @php
     $mode = $mode ?? 'spa';
     $menus = \App\Support\WorkspaceNavigation::menus();
+    $workspaceDesktopMode = \App\Support\PortableDesktopAccess::enabled();
 @endphp
 @foreach ($menus as $menu => $groups)
     @continue($mode === 'page' && $menu === 'settings')
@@ -16,6 +17,7 @@
                 @endif
                 <ul class="workspace-menu-items" id="shell-{{ $menu }}-{{ $group['key'] }}">
                     @foreach ($group['items'] as $item)
+                        @continue($workspaceDesktopMode && $item['view'] === 'account-security')
                         @continue($item['flag'] && !config('geo.'.$item['flag'], false))
                         @php
                             $route = $item['view'];

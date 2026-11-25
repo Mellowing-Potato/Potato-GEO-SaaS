@@ -2,6 +2,8 @@
 
 [简体中文](README.md) | **English** · Latest Release: [v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0) · License: [Apache-2.0](LICENSE) · [No-Docker Portable Guide (ZH)](PORTABLE.md) · [Docker Guide (ZH)](INSTALL.md) · [FAQ](#frequently-asked-questions-faq)
 
+> **Target `v0.1.1` is being prepared and has not been released.** See [CHANGELOG.md](CHANGELOG.md) for local passwordless startup, browser-based Magpie connection, and acceptance limits. The one-line installers below still download released `v0.1.0` assets.
+
 **Yanji GEO-SaaS (言及)** is an open-source, self-hosted **GEO (Generative Engine Optimization / AI Search Optimization) project management and content delivery workbench** built for GEO agencies, solo consultants, and brand marketing teams. Run it locally with **zero Docker on macOS Apple Silicon, Windows x64, and Linux**—or self-host via **Docker**—with **Bring Your Own Key (BYOK)**, strict per-account workspace isolation, a 1024-dimensional RAG knowledge base, 11 rendered GEO skills, a browser draft assistant, and **Doubao (Volcengine Ark) AI search visibility monitoring**.
 
 > **Contents**: [Core Capabilities & 6-Stage GEO Workflow](#core-capabilities--6-stage-geo-workflow) · [Quick Install (v0.1.0)](#quick-install-v010) · [3-Minute Getting Started](#3-minute-getting-started) · [Screenshots](#screenshots) · [Capabilities & Boundaries](#capabilities--boundaries) · [Yanji vs. GEOFlow](#yanji-vs-geoflow) · [Channel Support](#channel-support) · [FAQ](#frequently-asked-questions-faq) · [Verified vs. Unverified](#verified-vs-unverified) · [License & Attribution](#license-attribution--branding)
@@ -57,13 +59,17 @@ curl -fsSL https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download
 irm https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.0/get-yanji.ps1 | iex
 ```
 
-> See [PORTABLE.md](PORTABLE.md) for offline/two-step auditable installs, macOS manual browser-download quarantine removal (`xattr -dr com.apple.quarantine`), and operations commands. **Intel Mac (`macos-x64`)** is not included in portable builds—please use Docker below.
+> First-time installation downloads and verifies a ~170–220 MB self-contained runtime archive (typically 1–3 minutes depending on GitHub download speed) before prompting for the initial admin email and password. Note that the published `v0.1.0` release scripts stay quiet until the prompt appears (progress output has been added on `main` for future releases). See [PORTABLE.md](PORTABLE.md) for offline/two-step auditable installs, macOS manual browser-download quarantine removal (`xattr -dr com.apple.quarantine`), and operations commands. **Intel Mac (`macos-x64`)** is not included in portable builds—please use Docker below.
+
+> **Portable flow targeted for `v0.1.1` (release preparation, not released):** Fresh portable instances need no email or password; the local launcher authorizes the browser and opens the workbench, and `yanji open` opens it again. Existing account-based instances and explicit account credentials retain their sign-in flow. The maintainer has confirmed candidate installation, update, passwordless workbench access, and local Magpie service detection and model listing on Apple Silicon Mac. Magpie activation and real inference have not been tested in this new flow; see [PORTABLE.md](PORTABLE.md). Published `v0.1.0` assets still require an email and password.
 
 ### Option 2: Docker Self-Hosting
 
-Best for server deployments, PostgreSQL + `pgvector`, or Intel Mac. Download and extract the repository, ensure Docker is running, then execute:
+Best for server deployments, PostgreSQL + `pgvector`, or Intel Mac. Ensure Docker is running, then clone the repository and run the installer inside the project directory:
 
 ```bash
+git clone https://github.com/Mellowing-Potato/Potato-GEO-SaaS.git yanji
+cd yanji
 bash scripts/install.sh
 ```
 
@@ -178,6 +184,7 @@ Traditional SEO tools target classic keyword rankings and backlinks. Yanji targe
 
 ## Verified vs. Unverified
 
+- **v0.1.1 Release Preparation (Not Released)**: The maintainer has confirmed candidate installation, update, passwordless workbench access, and browser-based local Magpie service detection and model listing on Apple Silicon Mac. The screenshot still shows direct provider access as the active source, so it does not establish Magpie activation or successful inference. The `v0.1.1` release CI, this release's acceptance on other platforms, and real inference after the new browser connection have not been run. The `v0.1.0` platform results below are historical evidence.
 - **Automated Suites & v0.1.0 Release Pipeline**: SQLite, PostgreSQL, frontend, font, and skill-snapshot test suites are included (see [CONTRIBUTING.md](CONTRIBUTING.md)). Release workflow [#45369285542](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45369285542) passed all 8 jobs and published [GitHub Release v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0) (17 assets) plus dual-arch Docker images. Passing CI does not substitute for live external-account acceptance.
 - **Verified UI Flows**: Fresh install, login/logout, text/embedding/monitoring provider connections, knowledge ingestion & retrieval, Doubao monitoring, title optimization & DOCX download, usage tracking, no-retry on unknown outcomes, narrow-screen model config forms, and local Magpie loopback text/vision verification.
 - **Verified No-Docker Portable Builds (`v0.1.0`)**:

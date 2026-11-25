@@ -11,9 +11,9 @@
         'skillExecuteEndpoint' => '/api/v1/skills/execute',
         'skillExecuteAsyncEndpoint' => '/api/v1/skills/execute-async',
     ];
-    $geoWorkbenchCssVersion    = file_exists(public_path('geo-workbench.css'))        ? filemtime(public_path('geo-workbench.css'))        : time();
-    $geoWorkbenchJsVersion     = file_exists(public_path('geo-workbench.js'))         ? filemtime(public_path('geo-workbench.js'))         : time();
-    $geoWorkbenchViewsVersion  = file_exists(public_path('geo-workbench-views.js'))   ? filemtime(public_path('geo-workbench-views.js'))   : time();
+    $geoWorkbenchCssVersion    = file_exists(public_path('geo-workbench.css'))        ? \App\Support\PublicAssetVersion::for('geo-workbench.css')        : time();
+    $geoWorkbenchJsVersion     = file_exists(public_path('geo-workbench.js'))         ? \App\Support\PublicAssetVersion::for('geo-workbench.js')         : time();
+    $geoWorkbenchViewsVersion  = file_exists(public_path('geo-workbench-views.js'))   ? \App\Support\PublicAssetVersion::for('geo-workbench-views.js')   : time();
 @endphp
 
 <!DOCTYPE html>
@@ -25,11 +25,11 @@
     <title>工作台 · 言及</title>
     <link rel="icon" href="/brand/yanji/v1/favicon.svg" type="image/svg+xml">
     {{-- 设计令牌：必须排在页面自身样式表【前面】，页面里的覆盖才压得住。 --}}
-    <link rel="stylesheet" href="/geo-tokens.css?v={{ file_exists(public_path('geo-tokens.css')) ? filemtime(public_path('geo-tokens.css')) : time() }}">
-    <link rel="stylesheet" href="/geo-fonts.css?v={{ filemtime(public_path('geo-fonts.css')) }}">
-    <link rel="stylesheet" href="/geo-brand-pages.css?v={{ filemtime(public_path('geo-brand-pages.css')) }}">
+    <link rel="stylesheet" href="/geo-tokens.css?v={{ file_exists(public_path('geo-tokens.css')) ? \App\Support\PublicAssetVersion::for('geo-tokens.css') : time() }}">
+    <link rel="stylesheet" href="/geo-fonts.css?v={{ \App\Support\PublicAssetVersion::for('geo-fonts.css') }}">
+    <link rel="stylesheet" href="/geo-brand-pages.css?v={{ \App\Support\PublicAssetVersion::for('geo-brand-pages.css') }}">
     <link rel="stylesheet" href="/geo-workbench.css?v={{ $geoWorkbenchCssVersion }}">
-    <link rel="stylesheet" href="/geo-typography.css?v={{ filemtime(public_path('geo-typography.css')) }}">
+    <link rel="stylesheet" href="/geo-typography.css?v={{ \App\Support\PublicAssetVersion::for('geo-typography.css') }}">
 </head>
 <body class="geo-workbench geo-app">
 

@@ -1,5 +1,6 @@
 @php
     $geoEntryConfig = [
+        'desktopMode' => \App\Support\PortableDesktopAccess::enabled(),
         'sessionLoginEndpoint' => '/api/v1/auth/session-login',
         'tenantDomain' => config('app.tenant_domain'),
         'tenantSubdomainsEnabled' => (bool) config('app.tenant_subdomains_enabled', false),
@@ -10,9 +11,9 @@
         'skillExecuteEndpoint' => '/api/v1/skills/execute',
         'skillExecuteAsyncEndpoint' => '/api/v1/skills/execute-async',
     ];
-    $geoEntryCssVersion = file_exists(public_path('geo-entry.css')) ? filemtime(public_path('geo-entry.css')) : time();
-    $geoBaseCssVersion = file_exists(public_path('geo-base.css')) ? filemtime(public_path('geo-base.css')) : time();
-    $geoEntryAssetVersion = file_exists(public_path('geo-entry.js')) ? filemtime(public_path('geo-entry.js')) : time();
+    $geoEntryCssVersion = file_exists(public_path('geo-entry.css')) ? \App\Support\PublicAssetVersion::for('geo-entry.css') : time();
+    $geoBaseCssVersion = file_exists(public_path('geo-base.css')) ? \App\Support\PublicAssetVersion::for('geo-base.css') : time();
+    $geoEntryAssetVersion = file_exists(public_path('geo-entry.js')) ? \App\Support\PublicAssetVersion::for('geo-entry.js') : time();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-brand-name="{{ config('brand.name') }}">
@@ -25,10 +26,10 @@
     <link rel="alternate icon" href="/brand/yanji/v1/favicon.ico">
     <link rel="apple-touch-icon" href="/brand/yanji/v1/apple-touch-icon.png">
     {{-- 设计令牌：必须排在页面自身样式表【前面】，页面里的覆盖才压得住。 --}}
-    <link rel="stylesheet" href="/geo-tokens.css?v={{ file_exists(public_path('geo-tokens.css')) ? filemtime(public_path('geo-tokens.css')) : time() }}">
-    <link rel="stylesheet" href="/geo-shell.css?v={{ filemtime(public_path('geo-shell.css')) }}">
-    <link rel="stylesheet" href="/geo-components.css?v={{ filemtime(public_path('geo-components.css')) }}">
-    <link rel="stylesheet" href="/geo-fonts.css?v={{ filemtime(public_path('geo-fonts.css')) }}">
+    <link rel="stylesheet" href="/geo-tokens.css?v={{ file_exists(public_path('geo-tokens.css')) ? \App\Support\PublicAssetVersion::for('geo-tokens.css') : time() }}">
+    <link rel="stylesheet" href="/geo-shell.css?v={{ \App\Support\PublicAssetVersion::for('geo-shell.css') }}">
+    <link rel="stylesheet" href="/geo-components.css?v={{ \App\Support\PublicAssetVersion::for('geo-components.css') }}">
+    <link rel="stylesheet" href="/geo-fonts.css?v={{ \App\Support\PublicAssetVersion::for('geo-fonts.css') }}">
     {{-- 共用零件层。2026-09-03 内容库迁零件层时才第一次挂上来 —— 在此之前
          geo-base.css 全站只有 theme-package.blade.php 一个消费者，本页够不着。
          挂上是安全的：geo-base.css 里 136 条规则**全部**写在 .md-app 之下
@@ -36,10 +37,10 @@
          视图一条都吃不到。顺序必须夹在令牌与本页样式之间。 --}}
     <link rel="stylesheet" href="/geo-base.css?v={{ $geoBaseCssVersion }}">
     <link rel="stylesheet" href="/geo-entry.css?v={{ $geoEntryCssVersion }}">
-    <link rel="stylesheet" href="/geo-workspace-ui.css?v={{ filemtime(public_path('geo-workspace-ui.css')) }}">
-    <link rel="stylesheet" href="/geo-report-reader.css?v={{ filemtime(public_path('geo-report-reader.css')) }}">
-    <link rel="stylesheet" href="/geo-project-home.css?v={{ filemtime(public_path('geo-project-home.css')) }}">
-    <link rel="stylesheet" href="/geo-typography.css?v={{ filemtime(public_path('geo-typography.css')) }}">
+    <link rel="stylesheet" href="/geo-workspace-ui.css?v={{ \App\Support\PublicAssetVersion::for('geo-workspace-ui.css') }}">
+    <link rel="stylesheet" href="/geo-report-reader.css?v={{ \App\Support\PublicAssetVersion::for('geo-report-reader.css') }}">
+    <link rel="stylesheet" href="/geo-project-home.css?v={{ \App\Support\PublicAssetVersion::for('geo-project-home.css') }}">
+    <link rel="stylesheet" href="/geo-typography.css?v={{ \App\Support\PublicAssetVersion::for('geo-typography.css') }}">
 </head>
 <body class="geo-app">
     <main class="geo-app" data-state="connecting">
@@ -133,7 +134,9 @@
                     12 处 / 6 个视图，.panel 25 处）。本批只让项目管理页脱离，
                     其余视图各自那轮再迁。 --}}
             @include('workbench.panels.personal-settings')
-            @include('workbench.panels.account-security')
+            @unless(\App\Support\PortableDesktopAccess::enabled())
+                @include('workbench.panels.account-security')
+            @endunless
             @include('workbench.panels.project-workspace')
 
                 {{-- 2026-09-04 走查：这里原来有一个面板头，写的是「分析诊断 / 诊断与路线」——
@@ -298,10 +301,10 @@
     <script nonce="{{ $cspNonce }}">
         window.GEO_ENTRY_CONFIG = @json($geoEntryConfig);
     </script>
-    <script src="/geo-report-reader.js?v={{ filemtime(public_path('geo-report-reader.js')) }}" defer></script>
-    <script src="/geo-page-navigation.js?v={{ filemtime(public_path('geo-page-navigation.js')) }}" defer></script>
+    <script src="/geo-report-reader.js?v={{ \App\Support\PublicAssetVersion::for('geo-report-reader.js') }}" defer></script>
+    <script src="/geo-page-navigation.js?v={{ \App\Support\PublicAssetVersion::for('geo-page-navigation.js') }}" defer></script>
     <script src="/geo-entry.js?v={{ $geoEntryAssetVersion }}" defer></script>
-    <script src="/geo-report-editor.js?v={{ filemtime(public_path('geo-report-editor.js')) }}" defer></script>
+    <script src="/geo-report-editor.js?v={{ \App\Support\PublicAssetVersion::for('geo-report-editor.js') }}" defer></script>
     {{-- 计划 §7：geo-entry.js 拆出来的各块。
          ⚠️ 顺序两件事（2026-09-21 第九刀补）：
          1. 全部必须排在 geo-entry.js 之后 —— 它们读 window.GEO。都是 defer，按顺序执行完，
@@ -313,25 +316,25 @@
             openContentTools / openExistingArticles 挂回 GEO，而 geo-entry-content-library.js
             在**自己加载时**解构这三个名字（解构发生在加载期，不是调用期）。
             以后再有"A 块加载时解构 B 块提供的名字"的依赖，就把提供方排到前面来。 --}}
-    <script src="/geo-entry-projects.js?v={{ filemtime(public_path('geo-entry-projects.js')) }}" defer></script>
-    <script src="/geo-entry-project-home.js?v={{ filemtime(public_path('geo-entry-project-home.js')) }}" defer></script>
-    <script src="/geo-entry-reports.js?v={{ filemtime(public_path('geo-entry-reports.js')) }}" defer></script>
-    <script src="/geo-entry-skills.js?v={{ filemtime(public_path('geo-entry-skills.js')) }}" defer></script>
-    <script src="/geo-entry-management.js?v={{ filemtime(public_path('geo-entry-management.js')) }}" defer></script>
-    <script src="/geo-entry-magpie.js?v={{ filemtime(public_path('geo-entry-magpie.js')) }}" defer></script>
-    <script src="/geo-entry-usage.js?v={{ filemtime(public_path('geo-entry-usage.js')) }}" defer></script>
-    <script src="/geo-entry-enterprise-knowledge.js?v={{ filemtime(public_path('geo-entry-enterprise-knowledge.js')) }}" defer></script>
-    <script src="/geo-entry-knowledge-base.js?v={{ filemtime(public_path('geo-entry-knowledge-base.js')) }}" defer></script>
-    <script src="/geo-entry-content-library.js?v={{ filemtime(public_path('geo-entry-content-library.js')) }}" defer></script>
-    <script src="/geo-entry-publishing.js?v={{ filemtime(public_path('geo-entry-publishing.js')) }}" defer></script>
-    <script src="/geo-entry-leads.js?v={{ filemtime(public_path('geo-entry-leads.js')) }}" defer></script>
-    <script src="/geo-entry-lead-export.js?v={{ filemtime(public_path('geo-entry-lead-export.js')) }}" defer></script>
-<script src="/geo-entry-platform.js?v={{ filemtime(public_path('geo-entry-platform.js')) }}" defer></script>
+    <script src="/geo-entry-projects.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-projects.js') }}" defer></script>
+    <script src="/geo-entry-project-home.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-project-home.js') }}" defer></script>
+    <script src="/geo-entry-reports.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-reports.js') }}" defer></script>
+    <script src="/geo-entry-skills.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-skills.js') }}" defer></script>
+    <script src="/geo-entry-management.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-management.js') }}" defer></script>
+    <script src="/geo-entry-magpie.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-magpie.js') }}" defer></script>
+    <script src="/geo-entry-usage.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-usage.js') }}" defer></script>
+    <script src="/geo-entry-enterprise-knowledge.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-enterprise-knowledge.js') }}" defer></script>
+    <script src="/geo-entry-knowledge-base.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-knowledge-base.js') }}" defer></script>
+    <script src="/geo-entry-content-library.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-content-library.js') }}" defer></script>
+    <script src="/geo-entry-publishing.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-publishing.js') }}" defer></script>
+    <script src="/geo-entry-leads.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-leads.js') }}" defer></script>
+    <script src="/geo-entry-lead-export.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-lead-export.js') }}" defer></script>
+<script src="/geo-entry-platform.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-platform.js') }}" defer></script>
 {{-- 计划 §9.5：账户注销申请（申请 + 15 天冷静期 + 期内登录即恢复）。 --}}
-<script src="/geo-entry-account.js?v={{ filemtime(public_path('geo-entry-account.js')) }}" defer></script>
+<script src="/geo-entry-account.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-account.js') }}" defer></script>
 {{-- 2026-09-22 前后端对齐：工作区改名 + 我的权限（PATCH /api/v1/workspace、GET /api/v1/me/permissions）。 --}}
-<script src="/geo-entry-workspace-settings.js?v={{ filemtime(public_path('geo-entry-workspace-settings.js')) }}" defer></script><script src="/geo-entry-mobile-menu.js?v={{ filemtime(public_path('geo-entry-mobile-menu.js')) }}" defer></script>
+<script src="/geo-entry-workspace-settings.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-workspace-settings.js') }}" defer></script><script src="/geo-entry-mobile-menu.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-mobile-menu.js') }}" defer></script>
 {{-- 2026-09-22 前后端对齐：URL 导入单条详情（GET /api/v1/url-imports/{id}）。 --}}
-<script src="/geo-entry-url-import-detail.js?v={{ filemtime(public_path('geo-entry-url-import-detail.js')) }}" defer></script>
+<script src="/geo-entry-url-import-detail.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-url-import-detail.js') }}" defer></script>
 </body>
 </html>

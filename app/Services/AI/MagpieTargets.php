@@ -3,6 +3,8 @@
 namespace App\Services\AI;
 
 use App\Support\TenantContext;
+use App\Support\LocalMagpieAuthorization;
+use Throwable;
 
 final class MagpieTargets
 {
@@ -91,6 +93,14 @@ final class MagpieTargets
 
     private function configured(): array
     {
+        if (config('instance.portable') === true && config('instance.desktop_mode') === true) {
+            try {
+                return LocalMagpieAuthorization::currentDesktopTargets();
+            } catch (Throwable) {
+                // A missing, replaced or malformed declaration must never fall back to stale permissions.
+                throw new MagpieException('target_unauthorized');
+            }
+        }
         $targets = config('geo.magpie_targets', []);
 
         return is_array($targets) ? array_filter($targets, 'is_array') : [];

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Yanji\Portable\Backup;
+use Yanji\Portable\DesktopLauncher;
 use Yanji\Portable\Installation;
 use Yanji\Portable\Instance;
 use Yanji\Portable\Platform;
@@ -10,7 +11,7 @@ use Yanji\Portable\Supervisor;
 use Yanji\Portable\Upgrade;
 
 umask(0077);
-foreach (['Platform', 'Instance', 'Supervisor', 'Installation', 'Upgrade', 'JobClock'] as $class) {
+foreach (['Platform', 'Instance', 'Supervisor', 'Installation', 'DesktopLauncher', 'Upgrade', 'JobClock'] as $class) {
     require __DIR__.'/src/'.$class.'.php';
 }
 if (is_file(__DIR__.'/src/Backup.php')) {
@@ -21,11 +22,11 @@ function runPortable(array $args): int
 {
     $command = array_shift($args) ?: 'help';
     if (in_array($command, ['--help', '-h', 'help'], true) || ($command === '--instance-default' && count($args) <= 1)) {
-        echo "yanji start | stop | restart | status | logs | doctor | backup --output FILE | restore --from FILE --instance DIR --port N | upgrade --manifest FILE --manifest-sha256 SHA | reset-password --email EMAIL | magpie --tenant=ID\n";
+        echo "yanji start | stop | restart | open | status | logs | doctor | backup --output FILE | restore --from FILE --instance DIR --port N | upgrade --manifest FILE --manifest-sha256 SHA | reset-password --email EMAIL | magpie --tenant=ID\n--no-browser skips opening a desktop browser; authentication stays enabled.\n";
         return 0;
     }
     $options = [];
-    $booleans = ['probe','authorize'];
+    $booleans = ['probe','authorize','no-browser'];
     $allowed = ['instance', 'instance-default', 'release', 'port', 'email', 'password-file', 'output',
         'from', 'manifest', 'manifest-sha256', 'package', 'tenant', 'python-bin', ...$booleans];
     while ($args) {
@@ -36,7 +37,7 @@ function runPortable(array $args): int
         }
         if (in_array($key, $booleans, true)) {
             if ($value !== null) {
-                throw new RuntimeException('授权开关仅接受不带值的形式。');
+                throw new RuntimeException('开关仅接受不带值的形式。');
             }
             $options[$key] = true;
         } else {
@@ -60,12 +61,12 @@ function runPortable(array $args): int
         $setup->configure($release, $port);
         $setup->protectInstancePaths();
         $setup->savePython($python);
-        if ($i->artisan(['yanji:ready','--portable'], quiet:true) !== 0) {
-            throw new RuntimeException('恢复的实例密钥与数据库未通过就绪检查。');
-        }
-        Instance::atomicFile($i->root.'/.portable-initialized', "verified\n");
+        $setup->finishRestore();
         $services->start();
         echo "恢复完成 http://127.0.0.1:".$i->port()."\n";
+        if (!DesktopLauncher::open($i, automatic: true, noBrowser: isset($options['no-browser']))) {
+            echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+        }
         return 0;
     }
     if ($command === '__supervise') {
@@ -84,6 +85,7 @@ function runPortable(array $args): int
                     array_push($forward, $flag, $options[$key]);
                 }
             }
+            if (isset($options['no-browser'])) { $forward[] = '-NoBrowser'; }
             $procEnv = Platform::windowsPowerShellEnv(getenv());
         } else {
             $script = $installed.'/app/scripts/install-local.sh';
@@ -93,6 +95,7 @@ function runPortable(array $args): int
                     array_push($forward, '--'.$key, $options[$key]);
                 }
             }
+            if (isset($options['no-browser'])) { $forward[] = '--no-browser'; }
             $procEnv = null;
         }
         $p = proc_open($forward, [STDIN, STDOUT, STDERR], $pipes, null, $procEnv, ['bypass_shell' => true]);
@@ -144,7 +147,7 @@ function runPortable(array $args): int
         if ($command !== '__upgrade' && is_file($i->root.'/run/upgrade-hold') && $command !== 'stop') {
             throw new RuntimeException('升级维护门仍在，请重新执行原升级命令恢复，或向新目录恢复备份。');
         }
-        if (in_array($command, ['__install','__upgrade','start','restart','reset-password','magpie'], true)) {
+        if (in_array($command, ['__install','__upgrade','start','restart','open','reset-password','magpie'], true)) {
             $i->discardConfigurationCache();
         }
         switch ($command) {
@@ -163,16 +166,26 @@ function runPortable(array $args): int
                 $setup->install($release, $port, $options['email'] ?? null, $options['password-file'] ?? null, $options['python-bin'] ?? null);
                 $services->start();
                 echo "已就绪 http://127.0.0.1:".$port."  管理命令 ".Platform::nativePath($i->root.'/'.Platform::launcherName())."\n";
+                if (!DesktopLauncher::open($i, automatic: true, noBrowser: isset($options['no-browser']))) {
+                    echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+                }
                 break;
             case '__upgrade':
                 if ($release !== Platform::normalize((string) ($options['release'] ?? ''))) {
                     throw new RuntimeException('升级版本路径不匹配。');
                 }
                 Upgrade::run($i, $release, $services);
+                if (!DesktopLauncher::open($i, automatic: true, noBrowser: isset($options['no-browser']))) {
+                    echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+                }
                 break;
             case 'start':
+            case 'open':
                 $services->start();
                 echo "已就绪 http://127.0.0.1:".$i->port()."\n";
+                if (!DesktopLauncher::open($i, automatic: $command !== 'open', noBrowser: isset($options['no-browser']))) {
+                    echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+                }
                 break;
             case 'stop':
                 $services->stop();
@@ -180,6 +193,9 @@ function runPortable(array $args): int
             case 'restart':
                 $services->stop();
                 $services->start();
+                if (!DesktopLauncher::open($i, automatic: true, noBrowser: isset($options['no-browser']))) {
+                    echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+                }
                 break;
             case 'backup':
                 $output = $options['output'] ?? throw new RuntimeException('请使用 --output 指定新的备份文件。');
