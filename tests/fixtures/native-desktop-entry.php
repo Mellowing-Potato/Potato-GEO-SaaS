@@ -64,71 +64,70 @@ function entryExecute(array|string $command, string $directory, array $environme
         'elapsed_ms' => (int) round((microtime(true) - $started) * 1000)];
 }
 
-/** A failed primary registration stays failed; this separate probe reports only bounded native diagnostics. */
+/** Keep the primary gate unchanged; diagnose the current builder and its actual helper in private files. */
 function entryWindowsProbe(Instance $instance, ?string $file, string $directory): array
 {
     if ($file === null || !is_file($file)) {
         return ['code' => 'canonical_unavailable'];
     }
-    $script = <<<'PS'
+    $started = microtime(true);
+    $result = [];
+    try {
+        $captured = null;
+        $helperPath = $directory.'/production-helper-probe.lnk';
+        $capture = static function (string $script, array $variables) use (&$captured): array {
+            $captured = [$script, $variables];
+            return ['code' => 74, 'stdout' => ''];
+        };
+        (new ReflectionMethod(DesktopEntry::class, 'windowsShortcut'))->invoke(null, $instance, $file, $helperPath, false, $capture);
+        entryRequire(is_array($captured) && count($captured) === 2, 'current_builder_capture_unavailable');
+        [$productionScript, $variables] = $captured;
+        $helperStarted = microtime(true);
+        $helper = (new ReflectionMethod(DesktopEntry::class, 'powerShell'))->invoke(null, $productionScript, $variables, null);
+        clearstatcache(true, $helperPath);
+        $stat = @lstat($helperPath);
+        $regular = $stat !== false && ($stat['mode'] & 0170000) === 0100000;
+        $result = ['production_helper' => ['code' => $helper['code'], 'stdout_bytes' => strlen($helper['stdout']),
+            'elapsed_ms' => (int) round((microtime(true) - $helperStarted) * 1000),
+            'shortcut_regular' => $regular, 'publish_hardlink_ok' => $regular && @link($helperPath, $helperPath.'.published.lnk')]];
+        $script = <<<'PS'
 $ErrorActionPreference = 'Stop'
 $phase = 'com_shell'
+$before = $null
+$after = $null
+$reloaded = $null
+function Read-Link($value) {
+    $actualArguments = [string]$value.Arguments
+    return @{target_matches=($value.TargetPath -ceq $env:YANJI_ENTRY_TARGET);target_case_insensitive_match=($value.TargetPath -ieq $env:YANJI_ENTRY_TARGET);target_exists=[IO.File]::Exists([string]$value.TargetPath);arguments_match=($actualArguments -ceq $env:YANJI_ENTRY_ARGUMENTS);description_matches=($value.Description -ceq $env:YANJI_ENTRY_MARKER);working_directory_matches=($value.WorkingDirectory -ceq $env:YANJI_ENTRY_WORKING_DIRECTORY);working_directory_case_insensitive_match=($value.WorkingDirectory -ieq $env:YANJI_ENTRY_WORKING_DIRECTORY);expected_arguments_length=([string]$env:YANJI_ENTRY_ARGUMENTS).Length;actual_arguments_length=$actualArguments.Length}
+}
 try {
     $shell = New-Object -ComObject WScript.Shell
     $phase = 'shortcut_create'
     $link = $shell.CreateShortcut($env:YANJI_ENTRY_SHORTCUT)
     $phase = 'shortcut_target'
-    $link.TargetPath = $env:YANJI_ENTRY_FILE
+    $link.TargetPath = $env:YANJI_ENTRY_TARGET
     $phase = 'shortcut_arguments'
-    $link.Arguments = ''
+    $link.Arguments = $env:YANJI_ENTRY_ARGUMENTS
     $phase = 'shortcut_description'
     $link.Description = $env:YANJI_ENTRY_MARKER
     $phase = 'shortcut_working_directory'
-    $link.WorkingDirectory = $env:YANJI_ENTRY_DIRECTORY
+    $link.WorkingDirectory = $env:YANJI_ENTRY_WORKING_DIRECTORY
+    $phase = 'readback_before_save'
+    $before = Read-Link $link
     $phase = 'shortcut_save'
     $link.Save()
-    [Console]::Write((@{code='saved';phase='complete';target_matches=($link.TargetPath -ceq $env:YANJI_ENTRY_FILE);arguments_empty=($link.Arguments -eq '');working_directory_matches=($link.WorkingDirectory -ceq $env:YANJI_ENTRY_DIRECTORY);marker_matches=($link.Description -ceq $env:YANJI_ENTRY_MARKER)} | ConvertTo-Json -Compress))
+    $phase = 'readback_after_save'
+    $after = Read-Link $link
+    $phase = 'readback_reloaded'
+    $reloaded = Read-Link ($shell.CreateShortcut($env:YANJI_ENTRY_SHORTCUT))
+    [Console]::Write((@{code='saved';phase='complete';before=$before;after=$after;reloaded=$reloaded} | ConvertTo-Json -Compress -Depth 5))
     exit 0
 } catch {
-    $failureHresult = [int]$_.Exception.HResult
-    $target = [string]$env:YANJI_ENTRY_FILE
-    $sha = [Security.Cryptography.SHA256]::Create()
-    $digest = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($target)) | ForEach-Object { $_.ToString('x2') })
-    $sha.Dispose()
-    $result = @{code='exception';phase=$phase;hresult=$failureHresult;inputs=@{
-        target_null=($null -eq $env:YANJI_ENTRY_FILE);target_empty=($target.Length -eq 0);target_length=$target.Length
-        target_exists=[IO.File]::Exists($target);target_has_quote=$target.Contains([string][char]34)
-        target_has_control=[regex]::IsMatch($target,'[\x00-\x1f]');target_env_matches_php=($digest -ceq $env:YANJI_ENTRY_EXPECTED_SHA)
-        ascii_control_exists=[IO.File]::Exists($env:YANJI_ENTRY_CONTROL_FILE)
-    };controls=@{}}
-    $cases = @(@{label='ascii';target=$env:YANJI_ENTRY_CONTROL_FILE}, @{label='quoted';target=('"' + $target + '"')})
-    try {
-        $fso = New-Object -ComObject Scripting.FileSystemObject
-        $short = $fso.GetFile($target).ShortPath
-        $cases += @{label='short';target=$short}
-    } catch { $result.controls.short = @{available=$false;hresult=[int]$_.Exception.HResult} }
-    foreach ($case in $cases) {
-        $control = @{available=$true;accepted=$false;saved_exists=$false}
-        try {
-            $controlPath = [IO.Path]::Combine($env:YANJI_ENTRY_PROBE_DIRECTORY, ('control-' + $case.label + '.lnk'))
-            $controlLink = $shell.CreateShortcut($controlPath)
-            $controlLink.TargetPath = $case.target
-            $control.accepted = $true
-            $control.getter_matches_raw = ($controlLink.TargetPath -ceq $target)
-            if ($case.label -eq 'short') {
-                $control.short_target_same_file = ($fso.GetFile($controlLink.TargetPath).ShortPath -ieq $fso.GetFile($target).ShortPath)
-            }
-            $controlLink.Save()
-            $control.saved_exists = [IO.File]::Exists($controlPath)
-        } catch { $control.hresult = [int]$_.Exception.HResult }
-        $result.controls[$case.label] = $control
-    }
-    [Console]::Write(($result | ConvertTo-Json -Compress -Depth 5))
+    $hresult = [int]$_.Exception.HResult
+    [Console]::Write((@{code='exception';phase=$phase;hresult=$hresult;before=$before;after=$after;reloaded=$reloaded} | ConvertTo-Json -Compress -Depth 5))
     exit 1
 }
 PS;
-    $started = microtime(true);
-    try {
         $keep = array_flip(['SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'LOCALAPPDATA', 'APPDATA', 'USERPROFILE', 'PATH']);
         $environment = [];
         foreach (getenv() as $key => $value) {
@@ -136,17 +135,9 @@ PS;
                 $environment[$key] = $value;
             }
         }
-        $path = $directory.'/言及诊断快捷方式.lnk';
-        $controlFile = $directory.'/ascii-control.cmd';
-        Instance::atomicFile($controlFile, "@exit /b 0\r\n");
-        $environment = [...Platform::windowsPowerShellEnv($environment),
-            'YANJI_ENTRY_FILE' => Platform::nativePath($file),
-            'YANJI_ENTRY_SHORTCUT' => Platform::nativePath($path),
-            'YANJI_ENTRY_DIRECTORY' => Platform::nativePath($instance->root),
-            'YANJI_ENTRY_MARKER' => 'yanji-native-entry-probe',
-            'YANJI_ENTRY_EXPECTED_SHA' => hash('sha256', Platform::nativePath($file)),
-            'YANJI_ENTRY_CONTROL_FILE' => Platform::nativePath($controlFile),
-            'YANJI_ENTRY_PROBE_DIRECTORY' => Platform::nativePath($directory)];
+        $controlPath = $directory.'/current-builder-control.lnk';
+        $variables['YANJI_ENTRY_SHORTCUT'] = Platform::nativePath($controlPath);
+        $environment = [...Platform::windowsPowerShellEnv($environment), ...$variables];
         $record = entryExecute([Platform::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-EncodedCommand',
             Platform::encodePowerShellCommand($script)], $directory, $environment);
         $detail = json_decode($record['stdout'], true);
@@ -156,50 +147,41 @@ PS;
                 $safe['code'] = $detail['code'];
             }
             if (in_array($detail['phase'] ?? null, ['com_shell', 'shortcut_create', 'shortcut_target', 'shortcut_arguments',
-                'shortcut_description', 'shortcut_working_directory', 'shortcut_save', 'complete'], true)) {
+                'shortcut_description', 'shortcut_working_directory', 'readback_before_save', 'shortcut_save',
+                'readback_after_save', 'readback_reloaded', 'complete'], true)) {
                 $safe['phase'] = $detail['phase'];
             }
             if (is_int($detail['hresult'] ?? null)) {
                 $safe['hresult'] = $detail['hresult'];
             }
-            foreach (['target_matches', 'arguments_empty', 'working_directory_matches', 'marker_matches'] as $key) {
-                if (is_bool($detail[$key] ?? null)) {
-                    $safe[$key] = $detail[$key];
-                }
-            }
-            if (is_array($detail['inputs'] ?? null)) {
-                foreach (['target_null', 'target_empty', 'target_exists', 'target_has_quote', 'target_has_control',
-                    'target_env_matches_php', 'ascii_control_exists'] as $key) {
-                    if (is_bool($detail['inputs'][$key] ?? null)) {
-                        $safe['inputs'][$key] = $detail['inputs'][$key];
-                    }
-                }
-                if (is_int($detail['inputs']['target_length'] ?? null) && $detail['inputs']['target_length'] >= 0
-                    && $detail['inputs']['target_length'] <= 32768) {
-                    $safe['inputs']['target_length'] = $detail['inputs']['target_length'];
-                }
-            }
-            foreach (['ascii', 'quoted', 'short'] as $label) {
-                if (!is_array($detail['controls'][$label] ?? null)) {
+            foreach (['before', 'after', 'reloaded'] as $when) {
+                if (!is_array($detail[$when] ?? null)) {
                     continue;
                 }
-                foreach (['available', 'accepted', 'saved_exists', 'getter_matches_raw', 'short_target_same_file'] as $key) {
-                    if (is_bool($detail['controls'][$label][$key] ?? null)) {
-                        $safe['controls'][$label][$key] = $detail['controls'][$label][$key];
+                foreach (['target_matches', 'target_case_insensitive_match', 'target_exists', 'arguments_match',
+                    'description_matches', 'working_directory_matches', 'working_directory_case_insensitive_match'] as $key) {
+                    if (is_bool($detail[$when][$key] ?? null)) {
+                        $safe[$when][$key] = $detail[$when][$key];
                     }
                 }
-                if (is_int($detail['controls'][$label]['hresult'] ?? null)) {
-                    $safe['controls'][$label]['hresult'] = $detail['controls'][$label]['hresult'];
+                foreach (['expected_arguments_length', 'actual_arguments_length'] as $key) {
+                    $value = $detail[$when][$key] ?? null;
+                    if (is_int($value) && $value >= 0 && $value <= 32768) {
+                        $safe[$when][$key] = $value;
+                    }
                 }
             }
         }
-        $exists = is_file($path) && !is_link($path);
-        return ['exit_code' => $record['code'], 'stdout_bytes' => strlen($record['stdout']),
-            'stderr_bytes' => strlen($record['stderr']), 'elapsed_ms' => (int) round((microtime(true) - $started) * 1000),
-            'temporary_lnk_exists' => $exists, 'publish_hardlink_ok' => $exists && @link($path, $path.'.published.lnk'),
+        clearstatcache(true, $controlPath);
+        $stat = @lstat($controlPath);
+        $regular = $stat !== false && ($stat['mode'] & 0170000) === 0100000;
+        $result['current_com_control'] = ['code' => $record['code'], 'stdout_bytes' => strlen($record['stdout']),
+            'stderr_bytes' => strlen($record['stderr']), 'elapsed_ms' => $record['elapsed_ms'],
+            'shortcut_regular' => $regular, 'publish_hardlink_ok' => $regular && @link($controlPath, $controlPath.'.published.lnk'),
             'detail' => $safe];
+        return $result;
     } catch (Throwable) {
-        return ['code' => 'probe_unavailable', 'elapsed_ms' => (int) round((microtime(true) - $started) * 1000)];
+        return [...$result, 'code' => 'probe_unavailable', 'elapsed_ms' => (int) round((microtime(true) - $started) * 1000)];
     }
 }
 
@@ -244,7 +226,7 @@ try {
         'Windows' => ['desktop', 'start_menu'], 'Darwin' => ['desktop'], default => ['applications'],
     };
     if ($windows && $entry['warnings'] !== []) {
-        $diagnostic['independent_windows_probe'] = entryWindowsProbe($instance, $entry['file'], $temporary);
+        $diagnostic['current_windows_probe'] = entryWindowsProbe($instance, $entry['file'], $temporary);
     }
     entryRequire($entry['warnings'] === [], 'native_shortcut_registration_failed');
     entryRequire(is_string($entry['file']) && is_file($entry['file']), 'canonical_entry_missing');
