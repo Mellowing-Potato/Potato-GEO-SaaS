@@ -2,15 +2,15 @@
 
 免 Docker 便携包使用与 Docker 部署相同的 Laravel 应用、生产 Composer 依赖、已构建网页与锁定技能资产，并随包内置独立 **Python 3.12.16** 与开源报告字体（DejaVu Sans、Noto Serif CJK），普通用户无需预先安装 Docker、PHP 或 Python。程序与实例数据分离存放；浏览器打开本地地址即可使用工作台，支持第三方模型直连与可选本机 [Magpie](https://github.com/yetone/magpie)。
 
-> `v0.1.0` 已正式发布，统一 `SHA256SUMS`（`5cc6eda319766dbc050869ac4c84b50f590947ca8fe66b390297d803b3efc570`）、四平台便携安装包、对应源码/重链接材料及固定摘要引导脚本均可在 [GitHub Release v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0) 获取。
+> `v0.1.1` 已正式发布，统一 `SHA256SUMS`（`543a9e4227b9a0ecb7534ec50568e15e7f066e6dfa9f2e3a73131118431f23a3`）、平台便携安装包、对应源码/重链接材料及固定摘要引导脚本见 [GitHub Release v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1)。
 
-> **目标 `v0.1.1`（发行准备，未发布）**：全新便携实例默认使用本机单人模式，不要求填写邮箱、设置密码或手动登录，启动器通过本机一次性授权打开工作台；可用 `yanji open` 再次打开。内部用户、独立工作区、会话鉴权和仅本机回环访问仍保留。已有账号实例或显式传入邮箱/密码文件时保留原账号登录流程，不覆盖账号和数据。维护者已在 Apple Silicon Mac 候选包上确认安装、更新及免登录打开工作台；`v0.1.1` 正式发行 CI 与其他平台本轮发行验收尚未完成。下方 `v0.1.0` 发布命令仍会要求设置邮箱与密码。
+> **v0.1.1 本机单人模式**：全新便携实例无需邮箱、密码或手动登录，由本机启动器授权打开工作台；`yanji open` 可再次打开。保留独立工作区、正常会话鉴权和仅本机回环访问。已有账号实例或显式账号模式保留原登录方式，不覆盖账号与数据。维护者已确认 Apple Silicon Mac 候选安装、更新和免登录体验；其他平台的本轮发行证据：8 个任务全部通过：双架构完整测试与审计、四平台组包和原生验收、双架构镜像及 17 项发行资产上传（[发行流 #45572085735](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45572085735)）。
 
-> **目标 `v0.1.1` 的模型接入**：在「设置 → 模型配置」填写自己的模型 Key；本机单人模式也提供「连接本机 Magpie」入口，点击后检测已启动的本机服务、连接当前工作区并读取当前用途的模型目录，无需查工作区 ID 或执行授权命令。维护者已确认 Mac 候选包的服务检测与目录读取；检测和读目录不发送生成请求，模型仍由使用者选择、保存并明确启用。当前来源截图仍为第三方直连，Magpie 模型激活与真实推理未跑。该入口未随 `v0.1.0` 发布。
+> **v0.1.1 模型接入**：在「设置 → 模型配置」填写自己的模型 Key，或在本机单人模式点击「连接本机 Magpie」，检测已启动的服务并读取当前用途的模型目录。无需查工作区 ID 或执行授权命令。维护者已确认 Mac 候选服务检测和目录读取；当前来源截图仍为第三方直连，模型激活与真实推理未跑。使用者仍须选择、保存并明确启用模型。
 
 ## 支持平台与当前验证状态
 
-下表为 `v0.1.0` 运行时和平台的历史验收范围，不能替代目标 `v0.1.1` 的发行验收。新版本的 Mac 候选体验及未跑项见上方说明。
+下表保留 `v0.1.0` 运行时和平台的历史验收；本轮 `v0.1.1` 正式发行 CI 另见：8 个任务全部通过：双架构完整测试与审计、四平台组包和原生验收、双架构镜像及 17 项发行资产上传（[发行流 #45572085735](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45572085735)）。四平台正式包的完整 GUI 人工验收尚未完成；已确认的 Mac 候选流程见上方，Windows 桌面浏览器和 Linux amd64 Docker 完整手工流程仍待验收。
 
 | 平台 | 运行时与随包资产 | 当前验证状态 |
 | --- | --- | --- |
@@ -26,21 +26,21 @@
 
 ### 方式一：正式发布的一行安装（推荐）
 
-以下命令继续安装已发布的 `v0.1.0`；目标 `v0.1.1` 尚未发布，正式资产及摘要就绪后再更新命令。`v0.1.0` 安装时仍要求设置邮箱和密码。
+以下命令安装已发布的 `v0.1.1`。全新便携实例默认免邮箱密码，已有账号实例继续使用原登录方式。
 
 **macOS（Apple Silicon）与 Linux：**
 
 ```sh
-curl -fsSL "https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.0/get-yanji.sh" | sh
+curl -fsSL "https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.1/get-yanji.sh" | sh
 ```
 
 **Windows 10 / 11 x64（PowerShell 5.1 或 PowerShell 7）：**
 
 ```powershell
-irm "https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.0/get-yanji.ps1" | iex
+irm "https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.1/get-yanji.ps1" | iex
 ```
 
-引导脚本固定了对应发布版本的 `SHA256SUMS` 与安装脚本摘要，仅允许 HTTPS（含重定向），并在安装前逐文件核验包内 `PACKAGE-FILES.sha256`。首次安装需要下载约 170–220 MB 的完整便携包并校验归档内全部文件，视到 GitHub Releases 的网络速度可能需要 1–3 分钟；已知 `v0.1.0` 已发布资产在下载和校验阶段不会输出进度，出现管理员邮箱提示前请勿误判为卡死（源码分支已为后续版本补充各阶段提示、下载进度条及服务启动等待提示）。
+引导脚本固定对应发布版本的 `SHA256SUMS` 与安装入口摘要，仅允许 HTTPS（含重定向），并逐文件核验包内 `PACKAGE-FILES.sha256`。安装依次显示下载、校验、初始化和服务启动进度；首次服务就绪可能等待约一分钟。
 
 ### 方式二：离线或可审计两行安装（维护者候选包 / 线下分发）
 
@@ -61,8 +61,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install-local.ps1 `
 
 - 随包已内置 Python 3.12.16 与开源字体，**默认无需传 `--python-bin` / `-PythonBin`**；仅在需要覆写为自定义解释器时才传该参数。
 - 离线安装包位于其他目录时，可附加 `--package /path/to/package.tar.gz`（Windows 为 `-Package C:\path\to\yanji-windows-x86_64.zip`）。
-- 目标 `v0.1.1` 候选包全新安装默认不询问账号；已有账号实例及显式账号模式保留管理员登录。显式账号模式可传 `--email admin@example.com --password-file "$PRIVATE_PASSWORD_FILE"`（Windows 为 `-Email` 与 `-PasswordFile`），密码文件须为当前用户私有的单行普通文件。已发布的 `v0.1.0` 仍按交互流程询问管理员邮箱与密码。
-- 目标 `v0.1.1` 的自动化安装可附加 `--no-browser`（PowerShell 安装器为 `-NoBrowser`），只跳过打开浏览器，安装、服务启动和访问保护照常执行；交互安装默认自动打开工作台。
+- `v0.1.1` 全新便携实例默认不询问账号；已有账号实例及显式账号模式保留管理员登录。显式账号模式可传 `--email admin@example.com --password-file "$PRIVATE_PASSWORD_FILE"`（Windows 为 `-Email` 与 `-PasswordFile`），密码文件须为当前用户私有的单行普通文件。
+- `v0.1.1` 的自动化安装可附加 `--no-browser`（PowerShell 安装器为 `-NoBrowser`），只跳过打开浏览器，安装、服务启动和访问保护照常执行；交互安装默认自动打开工作台。
 - 首次启动会等待 Web、worker 与调度器心跳全部就绪（调度器心跳按分钟边界触发，最多等待约 60 秒）。完成后终端会打印本机访问地址（`http://127.0.0.1:<端口>`）与该实例的管理命令路径。
 
 默认安装目录：
@@ -92,31 +92,31 @@ xattr -dr com.apple.quarantine /path/to/yanji-dir
 
 ```sh
 "$YANJI" start
-"$YANJI" open  # 目标 v0.1.1 新增，发行准备中：在浏览器打开工作台
+"$YANJI" open  # v0.1.1 起可用：在浏览器打开工作台
 "$YANJI" status
 "$YANJI" logs
 "$YANJI" doctor
 "$YANJI" stop
 "$YANJI" restart
-"$YANJI" reset-password --email admin@example.com
+"$YANJI" reset-password --email admin@example.com  # 仅传统账号模式；本机单人模式使用 open
 ```
 
 **Windows（PowerShell）：**
 
 ```powershell
 & "$YANJI" start
-& "$YANJI" open  # 目标 v0.1.1 新增，发行准备中：在浏览器打开工作台
+& "$YANJI" open  # v0.1.1 起可用：在浏览器打开工作台
 & "$YANJI" status
 & "$YANJI" logs
 & "$YANJI" doctor
 & "$YANJI" stop
 & "$YANJI" restart
-& "$YANJI" reset-password --email admin@example.com
+& "$YANJI" reset-password --email admin@example.com  # 仅传统账号模式；本机单人模式使用 open
 ```
 
-目标 `v0.1.1` 的 `yanji open` 通过当前系统用户私有的本地启动文件向浏览器交接短时授权；系统浏览器打开命令只接收本地文件地址，授权票据不写入安装日志或进程参数。无人值守运行可使用 `"$YANJI" start --no-browser`（Windows 管理命令为 `& "$YANJI" start --no-browser`），访问鉴权仍然保留。
+`v0.1.1` 的 `yanji open` 通过当前系统用户私有的本地启动文件向浏览器交接短时授权；系统浏览器打开命令只接收本地文件地址，授权票据不写入安装日志或进程参数。无人值守运行可使用 `"$YANJI" start --no-browser`（Windows 管理命令为 `& "$YANJI" start --no-browser`），访问鉴权仍然保留。
 
-目标 `v0.1.1` 同时按公共 JS/CSS 的文件内容摘要更新浏览器缓存版本，修复便携包保留相同文件时间或替换同大小文件后仍加载旧界面的问题。上述变更仍处于发行准备阶段；私有启动与缓存回归自动化通过不代替各平台原生浏览器验收。
+`v0.1.1` 同时按公共 JS/CSS 的文件内容摘要更新浏览器缓存版本，修复便携包保留相同文件时间或替换同大小文件后仍加载旧界面的问题。私有启动与缓存回归自动化通过不代替各平台原生浏览器验收。
 
 `logs` 显示近期服务生命周期记录。实例目录包含 `.env`、加密模型凭据、SQLite 数据库与私有报告，按当前用户私有权限保护。正常停止会等待在途短作业自然结束（最长 570 秒）；遇到作业硬超时，管理器先终止超时进程树并确认退出，再在事务内核对数据库保留记录、落账失败并拉起继任 worker。已发出但结果未知的模型请求不会自动重发，请按工作台状态核对。
 
@@ -132,7 +132,7 @@ xattr -dr com.apple.quarantine /path/to/yanji-dir
 
 - 备份目标须为实例目录外的新文件；恢复目标须为空目录或尚不存在的路径，恢复后保留原管理员、加密密钥、持久化数据与私有报告。
 - 升级先核验清单与候选包，随后加维护门暂停写入、备份原实例、切换并执行迁移；维护门期间仅放行健康检查与真实后台心跳，失败时保留恢复备份并在未开放写入前自动回滚。
-- 目标 `v0.1.1` 的本机单人模式可在网页点击「连接本机 Magpie」；`magpie --tenant=ID` 保留用于传统账号模式或部署者授权。安装、启停与 `doctor` 不会主动探测 Magpie 或调用推理。
+- `v0.1.1` 的本机单人模式可在网页点击「连接本机 Magpie」；`magpie --tenant=ID` 保留用于传统账号模式或部署者授权。安装、启停与 `doctor` 不会主动探测 Magpie 或调用推理。
 
 ## 从源码构建候选包与合并发布目录
 

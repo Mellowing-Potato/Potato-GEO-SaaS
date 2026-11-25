@@ -1,12 +1,12 @@
 # 言及 Yanji GEO-SaaS — 开源自部署 GEO（生成式引擎优化）项目工作台
 
-**简体中文** | [English](README.en.md) · 最新正式版：[v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0) · 许可：[Apache-2.0](LICENSE) · [免 Docker 便携版](PORTABLE.md) · [Docker 部署](INSTALL.md) · [常见问题 FAQ](#常见问题-faq)
+**简体中文** | [English](README.en.md) · 最新正式版：[v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1) · 许可：[Apache-2.0](LICENSE) · [免 Docker 便携版](PORTABLE.md) · [Docker 部署](INSTALL.md) · [常见问题 FAQ](#常见问题-faq)
 
-> **目标版本 `v0.1.1` 正在准备发行，尚未发布。** 本机免登录与网页连接 Magpie 的变更及本轮验收边界见 [更新日志](CHANGELOG.md)。下方一行安装命令目前仍指向已发布的 `v0.1.0`。
+> **v0.1.1 已正式发布。** 新建本机便携实例无需填写邮箱和密码，可在网页连接本机 Magpie。变更和验证范围见 [更新日志](CHANGELOG.md)。
 
 **言及（Yanji GEO-SaaS）** 是一款可自部署的开源 **GEO（Generative Engine Optimization，生成式引擎优化 / AI 搜索优化）项目管理与内容交付工作台**，面向 GEO 代运营个人、小团队与品牌市场人员。支持 **macOS Apple Silicon / Windows x64 / Linux 免 Docker 一键运行** 与 **Docker 自部署**，自带模型 Key（BYOK）、无订阅抽成，在独立隔离工作区中串联客户资料、1024 维向量知识库、11 项 GEO 技能报告与内容生成、中文平台草稿助手以及豆包 AI 搜索可见性监测。
 
-> **目录**：[核心能力与六阶段工作流](#核心能力与六阶段工作流) · [快速安装（v0.1.0）](#快速安装v010) · [三分钟上手流程](#三分钟上手流程) · [界面预览](#界面预览) · [能力与边界](#能力与边界) · [言及与 GEOFlow 的区别](#言及与-geoflow-的区别) · [渠道支持](#渠道支持) · [常见问题 FAQ](#常见问题-faq) · [已验证与待验证](#已验证与待验证) · [许可与来源](#许可来源与品牌)
+> **目录**：[核心能力与六阶段工作流](#核心能力与六阶段工作流) · [快速安装（v0.1.1）](#快速安装v011) · [三分钟上手流程](#三分钟上手流程) · [界面预览](#界面预览) · [能力与边界](#能力与边界) · [言及与 GEOFlow 的区别](#言及与-geoflow-的区别) · [渠道支持](#渠道支持) · [常见问题 FAQ](#常见问题-faq) · [已验证与待验证](#已验证与待验证) · [许可与来源](#许可来源与品牌)
 
 ---
 
@@ -39,29 +39,29 @@
 
 ---
 
-## 快速安装（v0.1.0）
+## 快速安装（v0.1.1）
 
-**v0.1.0 已正式发布**：查看全部平台安装包、校验清单、对应源码与多架构 Docker 镜像请访问 [GitHub Release v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0)，版本变更见 [更新日志](CHANGELOG.md)。
+**v0.1.1 已正式发布**：全部平台安装包、校验清单、对应源码及 Docker 镜像说明见 [GitHub Release v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1)，版本变更见 [更新日志](CHANGELOG.md)。
 
 ### 方式一：免 Docker 一键便携安装（推荐，开箱即用）
 
-无需提前安装 Docker、PHP 或 Python。引导脚本仅允许 HTTPS，自动校验固定摘要的 `SHA256SUMS`（`5cc6eda319766dbc050869ac4c84b50f590947ca8fe66b390297d803b3efc570`）及包内全部文件哈希，并提供 `yanji` / `yanji.cmd` 管理命令（启动、停止、状态、体检 `doctor`、备份、恢复、升级）。
+无需提前安装 Docker、PHP 或 Python。引导脚本仅允许 HTTPS，自动校验固定摘要的 `SHA256SUMS`（`543a9e4227b9a0ecb7534ec50568e15e7f066e6dfa9f2e3a73131118431f23a3`）及包内全部文件哈希，并提供 `yanji` / `yanji.cmd` 管理命令（启动、停止、状态、体检 `doctor`、备份、恢复、升级）。
 
 **macOS（Apple Silicon M1–M4）与 Linux（x86_64 / ARM64）：**
 
 ```sh
-curl -fsSL https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.0/get-yanji.sh | sh
+curl -fsSL https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.1/get-yanji.sh | sh
 ```
 
 **Windows 10 / 11（64 位 PowerShell 5.1+）：**
 
 ```powershell
-irm https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.0/get-yanji.ps1 | iex
+irm https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.1/get-yanji.ps1 | iex
 ```
 
-> 首次安装需下载约 170–220 MB 便携运行时并进行完整校验，视网络速度可能需要 1–3 分钟后才会提示输入管理员邮箱与密码；已知 `v0.1.0` 发布资产在下载与校验阶段不会输出进度，请耐心等待（后续版本源码已补充实时进度提示）。离线安装、可审计两步安装、macOS 手动浏览器下载解除隔离属性及日常运维命令详见 [PORTABLE.md](PORTABLE.md)。Intel Mac（`macos-x64`）不含在便携包内，请使用下方 Docker 方式。
+> 首次安装会依次显示下载、校验、初始化和服务启动进度；服务首次就绪可能等待约一分钟。全新便携实例无需邮箱和密码，完成后自动打开工作台；也可使用 `yanji open` 再次打开。离线安装和日常命令见 [PORTABLE.md](PORTABLE.md)。Intel Mac（`macos-x64`）请使用 Docker。
 
-> **目标 `v0.1.1` 的便携流程（发行准备，未发布）**：全新便携实例默认无需填写邮箱和密码，由本机启动器授权打开工作台；`yanji open` 可再次打开。已有账号实例或显式账号模式保留原登录方式。维护者已确认 Mac 候选包的安装、更新、免登录工作台和本机 Magpie 服务检测与目录读取；Magpie 模型激活与真实推理未跑，详见 [PORTABLE.md](PORTABLE.md)。本文 `v0.1.0` 发布资产仍使用邮箱密码。
+> **便携版使用方式：** 新建实例由本机启动器授权打开工作台；已有账号实例或显式账号模式保留原登录方式。维护者已确认 Mac 候选包的安装、更新、免登录工作台和本机 Magpie 服务检测与目录读取。Magpie 模型激活与真实推理未跑；检测到服务和目录不等于已切换模型来源。
 
 ### 方式二：Docker 自部署
 
@@ -73,7 +73,7 @@ cd yanji
 bash scripts/install.sh
 ```
 
-脚本会交互创建首个管理员并启动 `web`、`worker`、`scheduler` 与 `postgres` 四个容器服务。多架构镜像（`linux/amd64` + `linux/arm64`）与备份、恢复、升级、代理 DNS 排障详见 [INSTALL.md](INSTALL.md) 与 [v0.1.0 Release](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0)。
+脚本会交互创建首个管理员并启动 `web`、`worker`、`scheduler` 与 `postgres` 四个容器服务。镜像与备份恢复、升级和代理 DNS 排障见 [INSTALL.md](INSTALL.md) 与 [v0.1.1 Release](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1)。
 
 ### 方式三：交给 AI 编程助手自动安装
 
@@ -87,9 +87,9 @@ bash scripts/install.sh
 
 ## 三分钟上手流程
 
-安装完成后打开终端打印的本机地址（Docker 默认 `http://localhost:8000`，便携版为 `http://127.0.0.1:<端口>`），用初始化时设置的管理员邮箱和密码登录：
+便携版安装完成后会自动打开工作台，以后可用 `yanji open` 再次进入；Docker（默认 `http://localhost:8000`）或传统账号模式仍使用初始化时设置的管理员账号登录。进入后按顺序配置：
 
-1. **配置文本模型（必填）**：进入「模型配置」，选择直连并填写兼容供应商的模型名、Base URL 与 API Key，点击「测试连接」通过后保存；也可选择同机开源工具 [Magpie](https://github.com/yetone/magpie)（支持文本与视觉分别配置，原直连配置会保留随时可切回，详见 [Magpie 工作区授权说明](INSTALL.md#可选的-magpie-工作区授权)）。
+1. **配置文本模型（必填）**：进入「模型配置」，填写供应商模型名、Base URL 和 API Key，测试后保存；也可先启动同机 [Magpie](https://github.com/yetone/magpie)，在本机单人版点击「连接本机 Magpie」，从目录选择模型、保存，再点击「设为文本模型」。视觉模型单独选择支持图片输入的模型；第三方直连配置会保留。
 2. **按需配置向量、视觉与监测模型**：
    - 使用知识库检索时，另配支持 **1024 维**的向量模型；
    - 需要识别图片或扫描件时，配置可选视觉模型；
@@ -213,7 +213,7 @@ bash scripts/install.sh
 
 ## 已验证与待验证
 
-- **v0.1.1 发行准备（尚未发布）：** 维护者已在 Apple Silicon Mac 候选包上确认安装、更新、免登录进入工作台，以及网页检测本机 Magpie 服务和读取模型目录。当前来源截图仍为第三方直连，不能据此认定 Magpie 已激活或实际推理通过。`v0.1.1` 正式发行 CI、其他平台本轮发行验收和新增网页连接后的真实推理未跑；以下 `v0.1.0` 平台结果为历史验证。
+- **v0.1.1 本轮验证：** 本机全量 PHP 共运行 1740 项，1739 项通过、1 项因平台条件跳过，共 13032 项断言；默认 `npm run test:js` 通过。维护者已确认 Apple Silicon Mac 候选安装、更新、免登录工作台及本机 Magpie 服务检测与目录读取。正式四平台发行 CI 另见：8 个任务全部通过：双架构完整测试与审计、四平台组包和原生验收、双架构镜像及 17 项发行资产上传（[发行流 #45572085735](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45572085735)）。当前来源截图仍为第三方直连，Magpie 激活与真实推理未跑；四平台正式包的完整 GUI 人工验收尚未完成，Windows 桌面与 Linux amd64 Docker 完整手工流程仍待验收。以下 `v0.1.0` 结果为历史验证。
 - **自动化测试与 v0.1.0 发布流水线：** SQLite、PostgreSQL、前端、字体与技能快照均具备自动化测试（本地运行见 [贡献指南](CONTRIBUTING.md)）。`v0.1.0` 正式发布流（[#45369285542](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45369285542)）全部 8 项任务通过，已公开 [GitHub Release v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0)（17 项资产）与双架构 Docker 镜像。自动化测试通过不等于全部真实第三方平台账号均已验收。
 - **界面实测：** 新安装、登录与退出、三种真实模型连接、材料入库和检索、豆包监测、标题内容生成、报告下载、用量、未知结果不自动重发、窄屏模型表单。
 - **Magpie 实测：** 原生回环接入已实测文本请求、队列生成结构化标题报告和合成扫描件识别。
@@ -228,7 +228,7 @@ bash scripts/install.sh
 
 ## 许可、来源与品牌
 
-言及项目代码采用 [Apache-2.0](LICENSE)。第三方代码、依赖、字体和技能保留各自许可；见 [NOTICE](NOTICE) 与 [第三方声明](THIRD_PARTY_NOTICES.md)。便携版各平台 CLI / Web 运行时的对应源码与重链接材料均随 [GitHub Release](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0) 一同公开分发。
+言及项目代码采用 [Apache-2.0](LICENSE)。第三方代码、依赖、字体和技能保留各自许可，见 [NOTICE](NOTICE) 与 [第三方声明](THIRD_PARTY_NOTICES.md)。各平台便携运行时的对应源码和重链接材料随 [GitHub Release v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1) 公开分发。
 
 GEOFlow 移植来源包括早期提交 `7a8f6ff2643222cadbfb9b2bbb4252284df6ea72` 和 v2.3.0（`97119662325b1d6d88ff6a3f390567bcfa91eedd`），这些历史版本为 Apache-2.0。技能资产锁定 `136eb92c90946ea56ec63f912d5025bcbc884f39`，使用 MIT。未来引入上游更新时必须重新核对其许可。
 

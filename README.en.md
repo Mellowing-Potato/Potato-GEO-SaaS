@@ -1,12 +1,12 @@
 # Yanji GEO-SaaS (言及) — Open-Source Self-Hosted GEO (Generative Engine Optimization) Project Workbench
 
-[简体中文](README.md) | **English** · Latest Release: [v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0) · License: [Apache-2.0](LICENSE) · [No-Docker Portable Guide (ZH)](PORTABLE.md) · [Docker Guide (ZH)](INSTALL.md) · [FAQ](#frequently-asked-questions-faq)
+[简体中文](README.md) | **English** · Latest Release: [v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1) · License: [Apache-2.0](LICENSE) · [No-Docker Portable Guide (ZH)](PORTABLE.md) · [Docker Guide (ZH)](INSTALL.md) · [FAQ](#frequently-asked-questions-faq)
 
-> **Target `v0.1.1` is being prepared and has not been released.** See [CHANGELOG.md](CHANGELOG.md) for local passwordless startup, browser-based Magpie connection, and acceptance limits. The one-line installers below still download released `v0.1.0` assets.
+> **v0.1.1 is released.** Fresh portable instances need no email or password and can connect local Magpie from Model Settings. See [CHANGELOG.md](CHANGELOG.md) for changes and acceptance limits.
 
 **Yanji GEO-SaaS (言及)** is an open-source, self-hosted **GEO (Generative Engine Optimization / AI Search Optimization) project management and content delivery workbench** built for GEO agencies, solo consultants, and brand marketing teams. Run it locally with **zero Docker on macOS Apple Silicon, Windows x64, and Linux**—or self-host via **Docker**—with **Bring Your Own Key (BYOK)**, strict per-account workspace isolation, a 1024-dimensional RAG knowledge base, 11 rendered GEO skills, a browser draft assistant, and **Doubao (Volcengine Ark) AI search visibility monitoring**.
 
-> **Contents**: [Core Capabilities & 6-Stage GEO Workflow](#core-capabilities--6-stage-geo-workflow) · [Quick Install (v0.1.0)](#quick-install-v010) · [3-Minute Getting Started](#3-minute-getting-started) · [Screenshots](#screenshots) · [Capabilities & Boundaries](#capabilities--boundaries) · [Yanji vs. GEOFlow](#yanji-vs-geoflow) · [Channel Support](#channel-support) · [FAQ](#frequently-asked-questions-faq) · [Verified vs. Unverified](#verified-vs-unverified) · [License & Attribution](#license-attribution--branding)
+> **Contents**: [Core Capabilities & 6-Stage GEO Workflow](#core-capabilities--6-stage-geo-workflow) · [Quick Install (v0.1.1)](#quick-install-v011) · [3-Minute Getting Started](#3-minute-getting-started) · [Screenshots](#screenshots) · [Capabilities & Boundaries](#capabilities--boundaries) · [Yanji vs. GEOFlow](#yanji-vs-geoflow) · [Channel Support](#channel-support) · [FAQ](#frequently-asked-questions-faq) · [Verified vs. Unverified](#verified-vs-unverified) · [License & Attribution](#license-attribution--branding)
 
 ---
 
@@ -39,29 +39,29 @@ While classic SEO tools optimize for keyword rankings in traditional search engi
 
 ---
 
-## Quick Install (v0.1.0)
+## Quick Install (v0.1.1)
 
-**v0.1.0 is now released.** Browse all four platform portable archives, `SHA256SUMS`, corresponding source/relink kits, and multi-arch Docker image details on [GitHub Release v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0). See [CHANGELOG.md](CHANGELOG.md) for release notes.
+**v0.1.1 is released.** Browse platform packages, checksums, corresponding source/relink kits and Docker image details on [GitHub Release v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1). See [CHANGELOG.md](CHANGELOG.md).
 
 ### Option 1: One-Line No-Docker Portable Install (Recommended)
 
-Requires no pre-installed Docker, PHP, or Python. The bootstrapper enforces HTTPS (including redirects), verifies the pinned `SHA256SUMS` digest (`5cc6eda319766dbc050869ac4c84b50f590947ca8fe66b390297d803b3efc570`) and every file inside the archive, and provides a local `yanji` / `yanji.cmd` CLI (`start`, `stop`, `status`, `doctor`, `backup`, `restore`, `upgrade`).
+Requires no pre-installed Docker, PHP, or Python. The bootstrapper enforces HTTPS (including redirects), verifies the pinned `SHA256SUMS` digest (`543a9e4227b9a0ecb7534ec50568e15e7f066e6dfa9f2e3a73131118431f23a3`) and every file inside the archive, and provides a local `yanji` / `yanji.cmd` CLI (`start`, `stop`, `status`, `doctor`, `backup`, `restore`, `upgrade`).
 
 **macOS (Apple Silicon M1–M4) & Linux (x86_64 / ARM64):**
 
 ```sh
-curl -fsSL https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.0/get-yanji.sh | sh
+curl -fsSL https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.1/get-yanji.sh | sh
 ```
 
 **Windows 10 / 11 (64-bit PowerShell 5.1+):**
 
 ```powershell
-irm https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.0/get-yanji.ps1 | iex
+irm https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.1/get-yanji.ps1 | iex
 ```
 
-> First-time installation downloads and verifies a ~170–220 MB self-contained runtime archive (typically 1–3 minutes depending on GitHub download speed) before prompting for the initial admin email and password. Note that the published `v0.1.0` release scripts stay quiet until the prompt appears (progress output has been added on `main` for future releases). See [PORTABLE.md](PORTABLE.md) for offline/two-step auditable installs, macOS manual browser-download quarantine removal (`xattr -dr com.apple.quarantine`), and operations commands. **Intel Mac (`macos-x64`)** is not included in portable builds—please use Docker below.
+> Installation displays download, integrity-check, initialization and service-start progress. Initial readiness may take about a minute. Fresh portable instances need no email or password; the launcher opens the workbench, and `yanji open` opens it again. See [PORTABLE.md](PORTABLE.md) for offline installs and operations. Intel Mac (`macos-x64`) requires Docker.
 
-> **Portable flow targeted for `v0.1.1` (release preparation, not released):** Fresh portable instances need no email or password; the local launcher authorizes the browser and opens the workbench, and `yanji open` opens it again. Existing account-based instances and explicit account credentials retain their sign-in flow. The maintainer has confirmed candidate installation, update, passwordless workbench access, and local Magpie service detection and model listing on Apple Silicon Mac. Magpie activation and real inference have not been tested in this new flow; see [PORTABLE.md](PORTABLE.md). Published `v0.1.0` assets still require an email and password.
+> **Portable access:** The local launcher authorizes fresh single-user instances. Existing account-based instances and explicit account credentials keep their original sign-in flow. The maintainer confirmed candidate installation, update, passwordless access, local Magpie service detection and model listing on Apple Silicon Mac. Magpie activation and real inference in this new flow remain untested.
 
 ### Option 2: Docker Self-Hosting
 
@@ -73,7 +73,7 @@ cd yanji
 bash scripts/install.sh
 ```
 
-The script creates the initial admin interactively and launches `web`, `worker`, `scheduler`, and `postgres` containers (database-backed queue and cache; no Redis required). Multi-arch Docker image details (`linux/amd64` + `linux/arm64`), backup/restore, and proxy DNS guidance are documented in [INSTALL.md](INSTALL.md) and [v0.1.0 Release](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0).
+The script creates the initial admin interactively and starts `web`, `worker`, `scheduler` and `postgres` containers. See [INSTALL.md](INSTALL.md) and [v0.1.1 Release](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1) for image, backup/restore, upgrade and proxy DNS guidance.
 
 ### Option 3: Install via an AI Coding Agent
 
@@ -87,9 +87,9 @@ Please install Yanji following PORTABLE.md (no-Docker) or INSTALL.md (Docker). R
 
 ## 3-Minute Getting Started
 
-Open the local URL printed by the installer (`http://localhost:8000` for Docker, or `http://127.0.0.1:<port>` for portable mode) and sign in with your initial admin email and password:
+Portable installation opens the workbench automatically; use `yanji open` to enter again. Docker (default `http://localhost:8000`) and account-based instances still require the initial admin sign-in. Then configure:
 
-1. **Configure a Text Model (Required)**: Go to Model Settings, enter your provider's model name, Base URL, and API Key, test the connection, and save. Alternatively, connect a local [Magpie](https://github.com/yetone/magpie) instance for text and/or vision while keeping direct provider settings intact (see [INSTALL.md](INSTALL.md#可选的-magpie-工作区授权)).
+1. **Configure a Text Model (Required)**: Enter your provider model name, Base URL and API Key, test and save. Alternatively, start local [Magpie](https://github.com/yetone/magpie), click “Connect local Magpie” in the single-user portable instance, choose a catalog model, save, and explicitly select it for text. Vision is configured separately and requires an image-capable model; direct provider settings are preserved.
 2. **Configure Optional Models as Needed**:
    - **Knowledge Base (RAG)**: Configure a **1024-dimensional** embedding model.
    - **Image / Scanned PDF Recognition**: Configure an optional vision model.
@@ -184,7 +184,7 @@ Traditional SEO tools target classic keyword rankings and backlinks. Yanji targe
 
 ## Verified vs. Unverified
 
-- **v0.1.1 Release Preparation (Not Released)**: The maintainer has confirmed candidate installation, update, passwordless workbench access, and browser-based local Magpie service detection and model listing on Apple Silicon Mac. The screenshot still shows direct provider access as the active source, so it does not establish Magpie activation or successful inference. The `v0.1.1` release CI, this release's acceptance on other platforms, and real inference after the new browser connection have not been run. The `v0.1.0` platform results below are historical evidence.
+- **v0.1.1 Acceptance Evidence**: The full local PHP suite ran 1,740 tests: 1,739 passed and one platform-specific test was skipped, with 13,032 assertions. The default `npm run test:js` suite passed. The maintainer confirmed Apple Silicon Mac candidate installation, update, passwordless access, local Magpie service detection and model listing. Formal four-platform release CI is separate evidence: All 8 jobs passed: dual-architecture suites and audits, four native portable builds and acceptance runs, dual-architecture images, and publication of all 17 release assets ([release workflow #45572085735](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45572085735)). The screenshot still selects direct provider access; Magpie activation and real inference in this flow remain untested. Complete manual GUI acceptance of the four release packages is still unfinished; Windows desktop browser acceptance and the full Linux amd64 Docker manual workflow remain pending. The `v0.1.0` results below are historical evidence.
 - **Automated Suites & v0.1.0 Release Pipeline**: SQLite, PostgreSQL, frontend, font, and skill-snapshot test suites are included (see [CONTRIBUTING.md](CONTRIBUTING.md)). Release workflow [#45369285542](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45369285542) passed all 8 jobs and published [GitHub Release v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0) (17 assets) plus dual-arch Docker images. Passing CI does not substitute for live external-account acceptance.
 - **Verified UI Flows**: Fresh install, login/logout, text/embedding/monitoring provider connections, knowledge ingestion & retrieval, Doubao monitoring, title optimization & DOCX download, usage tracking, no-retry on unknown outcomes, narrow-screen model config forms, and local Magpie loopback text/vision verification.
 - **Verified No-Docker Portable Builds (`v0.1.0`)**:
@@ -192,13 +192,13 @@ Traditional SEO tools target classic keyword rankings and backlinks. Yanji targe
   - **`windows-x86_64`**: Passed full native `windows-2025` build and acceptance (AGPL-free FrankenPHP + Brotli 1.2.1 + PHP 8.5.13 ZTS + bundled Python 3.12.16 + fonts, 11-skill render matrix, Unicode/space path cold install via `install-local.ps1`, `yanji.cmd` help & `doctor`, static 404, 501-job rotation, 2s timeout handoff, graceful stop, backup/restore, reinstall/shared cache, and tamper rejection).
   - **`linux-x86_64` & `linux-aarch64`**: Passed native `ubuntu-24.04` and `ubuntu-24.04-arm` 11-skill render matrix and full cold-install/404/timeout/rotation/drain/backup-restore/tamper acceptance in `v0.1.0`; `linux-aarch64` also verified in a native ARM64 VM.
 - **Docker**: Apple Silicon Mac / Linux arm64 containers and cold-install regressions verified; Linux amd64 & arm64 CI test suites and multi-arch image builds passed. Manual end-to-end business walkthrough on Linux amd64 Docker remains unverified.
-- **Unverified / Not Included in v0.1.0**: Intel Mac (`macos-x64`) portable package, Apple Developer ID notarization, Windows EV code signing, manual desktop browser clicks on Windows, Magpie container Gateway Key real inference, additional vision models, and the unverified external publishing channels noted above.
+- **Unverified / Not Included**: Intel Mac (`macos-x64`) portable package, Apple Developer ID notarization, Windows EV code signing, manual desktop browser clicks on Windows, Magpie container Gateway Key real inference, additional vision models, and the unverified external publishing channels noted above.
 
 ---
 
 ## License, Attribution & Branding
 
-Yanji source code is licensed under [Apache-2.0](LICENSE). Third-party components, dependencies, fonts, and skills retain their own licenses—see [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Corresponding source and relink kits for all four portable runtime platforms are distributed alongside [GitHub Release v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0).
+Yanji source code is licensed under [Apache-2.0](LICENSE). Third-party code, dependencies, fonts and skills retain their licenses; see [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Corresponding source and relink kits for portable runtimes are distributed with [GitHub Release v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1).
 
 Ported GEOFlow code originates from Apache-2.0 historical commits `7a8f6ff2643222cadbfb9b2bbb4252284df6ea72` and v2.3.0 (`97119662325b1d6d88ff6a3f390567bcfa91eedd`). Pinned `yao-geo-skills` assets come from commit `136eb92c90946ea56ec63f912d5025bcbc884f39` (MIT).
 

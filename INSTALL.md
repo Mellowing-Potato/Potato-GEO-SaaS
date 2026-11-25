@@ -4,9 +4,9 @@
 
 Docker 自部署由使用者在自己的设备或服务器上管理，维护者不提供托管或收费服务；登录账号用于保护使用者自己的实例。
 
-目标 `v0.1.1` 正在准备发行，尚未发布。免邮箱密码的本机单人流程用于便携版；本页 Docker 安装继续使用本地管理员账号登录。
+`v0.1.1` 已正式发布。免邮箱密码的本机单人流程用于便携版；本页 Docker 安装继续使用本地管理员账号登录。
 
-免 Docker 的本机便携版（支持 macOS Apple Silicon、Windows x64 与 Linux x86_64 / ARM64，随包内置 Python 3.12.16 与开源字体，无需预先安装 Docker）见 [PORTABLE.md](PORTABLE.md)，`v0.1.0` 便携安装包与多架构镜像详情见 [GitHub Release v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0)；本页下面的 Docker 安装、备份恢复与开发流程继续完整适用。
+免 Docker 的本机便携版支持 macOS Apple Silicon、Windows x64 与 Linux x86_64 / ARM64，随包内置 Python 与开源字体，见 [PORTABLE.md](PORTABLE.md) 和 [GitHub Release v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1)；本页 Docker 安装、备份恢复与开发流程继续适用。
 
 ## 1. 准备
 
@@ -71,7 +71,7 @@ docker compose logs --tail=50 worker scheduler
 
 [Magpie 项目与安装说明](https://github.com/yetone/magpie)。文本和视觉可以分别选择 Magpie 或第三方直连，向量和豆包监测仍独立配置。没有 Magpie 也可完整使用第三方直连。
 
-目标 `v0.1.1` 的本机单人便携模式提供网页「连接本机 Magpie」入口，位于「设置 → 模型配置」；检测已启动服务、连接工作区并读取当前用途的模型目录，无需手填工作区 ID 或重启。维护者已确认 Mac 候选包的服务检测与目录读取；当前来源仍为第三方直连，本轮 Magpie 模型激活和真实推理未跑。该版本尚未正式发布。以下命令保留用于已发布版本或显式账号模式；服务器部署仍由部署者管理可信目标。
+`v0.1.1` 本机单人便携模式在「设置 → 模型配置」提供「连接本机 Magpie」：检测已启动的服务，连接当前工作区并读取当前用途的模型目录，无需手填工作区 ID 或重启。维护者已确认 Mac 候选的服务检测与目录读取；当前来源仍为第三方直连，本轮模型激活和真实推理未跑。以下命令用于传统账号模式或部署者授权；服务器实例的可信目标由部署者管理。
 
 本机便携实例可以用下面的管理入口。将 `YANJI` 设为安装器显示的管理程序路径，将 `YANJI_WORKSPACE_ID` 设为该实例实际工作区 ID（当前登录接口响应的 `tenant.id`）；不要假定工作区 ID 为 1。
 
