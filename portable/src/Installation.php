@@ -74,7 +74,10 @@ final class Installation
             }
         }
         $fresh = !is_file($i->root.'/.env');
-        $desktop = $fresh ? $email === null && $passwordFile === null : self::desktopMode($i);
+        $interrupted = ! $fresh && $email === null && $passwordFile === null
+            ? self::interruptedDesktopEnvironment($i) : null;
+        $desktop = $fresh || $interrupted !== null
+            ? $email === null && $passwordFile === null : self::desktopMode($i);
         if ($desktop && ($email !== null || $passwordFile !== null)) {
             throw new RuntimeException('本机单人模式无需提供邮箱或密码文件。');
         }
@@ -103,6 +106,16 @@ final class Installation
             $env = preg_replace('/^APP_URL=.*$/m', 'APP_URL=http://127.0.0.1:'.$port, $env);
             $env .= "\nYANJI_DESKTOP_MODE=".($desktop ? 'true' : 'false')."\n";
             Instance::atomicFile($i->root.'/.env', $env);
+        } elseif ($interrupted !== null) {
+            if (self::interruptedDesktopEnvironment($i) !== $interrupted) {
+                throw new RuntimeException('未完成初始化的实例状态已改变，请检查原实例后重试。');
+            }
+            // Older installers wrote this empty environment before asking for an account.
+            // Keep every original setting; only select the new default for a provably unused instance.
+            $newline = str_contains($interrupted, "\r\n") ? "\r\n" : "\n";
+            $env = $interrupted.(str_ends_with($interrupted, "\n") ? '' : $newline)
+                .'YANJI_DESKTOP_MODE=true'.$newline;
+            Instance::atomicFile($i->root.'/.env', $env);
         }
         // Newer readiness probes inspect the schema before migrate can create an empty SQLite file.
         if (!file_exists($db)) {
@@ -130,6 +143,56 @@ final class Installation
             throw new RuntimeException('初始化未完成。请使用原实例目录重试或运行 yanji doctor。');
         }
         Instance::atomicFile($initialized, "verified\n");
+    }
+
+    private static function interruptedDesktopEnvironment(Instance $instance): ?string
+    {
+        $root = $instance->root;
+        if (file_exists($root.'/.portable-initialized') || is_link($root.'/.portable-initialized')) {
+            return null;
+        }
+        foreach (['database.sqlite', 'database.sqlite-wal', 'database.sqlite-shm', 'database.sqlite-journal'] as $name) {
+            $path = $root.'/database/'.$name;
+            clearstatcache(true, $path);
+            if (is_link($path) || (file_exists($path) && (!is_file($path) || filesize($path) !== 0))) {
+                return null;
+            }
+        }
+        $path = $root.'/.env';
+        $contents = is_file($path) && !is_link($path) ? @file_get_contents($path) : false;
+        if (!is_string($contents) || preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f]/', $contents)) {
+            return null;
+        }
+        $lines = str_replace("\r\n", "\n", $contents);
+        if (str_contains($lines, "\r")) {
+            return null;
+        }
+        $values = [];
+        foreach (explode("\n", $lines) as $line) {
+            if (trim($line) === '' || preg_match('/^[ \t]*#/', $line)) {
+                continue;
+            }
+            if (!preg_match('/^([A-Z_][A-Z0-9_]*)=(.*)$/D', $line, $match)
+                || array_key_exists($match[1], $values) || strpbrk($match[2], '\\$`') !== false
+                || !preg_match('/^(?:[^\s\'"#]*|"[^"]*"|\'[^\']*\')$/uD', $match[2])) {
+                return null;
+            }
+            $values[$match[1]] = $match[2];
+        }
+        if (($values['APP_KEY'] ?? null) !== '' || array_key_exists('YANJI_DESKTOP_MODE', $values)
+            || array_key_exists('YANJI_INSTANCE_ID', $values) || array_key_exists('YANJI_INSTALL_PENDING', $values)) {
+            return null;
+        }
+        $unquote = static function (?string $value): ?string {
+            return $value !== null && strlen($value) >= 2 && ($value[0] === '"' || $value[0] === "'")
+                ? substr($value, 1, -1) : $value;
+        };
+        if ($unquote($values['DB_CONNECTION'] ?? null) !== 'sqlite'
+            || $unquote($values['DB_DATABASE'] ?? null) !== $root.'/database/database.sqlite'
+            || $unquote($values['DB_URL'] ?? '') !== '') {
+            return null;
+        }
+        return $contents;
     }
 
     public static function desktopMode(Instance $instance): bool
