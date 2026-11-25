@@ -349,7 +349,16 @@
       { id: 502, name: '亲子线路内容整理', skill_id: 'yao-geo-explainer-builder', status: 'paused', cadence: 'daily', auto_publish: false, auto_distribute: false },
     ] });
     if (path === '/api/v1/tasks/runs') return response({ data: [{ id: 601, task_id: 501, status: 'completed', article_title: contentArticles[0].title, metadata: { token_usage: 1200 }, started_at: '2026-09-09T01:00:00Z', finished_at: '2026-09-09T01:02:00Z' }] });
-    if (path === '/api/v1/ai-keys') return response({ data: [{ id: 801, provider: 'openai', label: '示例模型配置', key_preview: '•••• 本地示例', is_active: true }] });
+    if (path === '/api/v1/ai-keys') return response({
+      data: [{ id: 801, slot: 'text', provider: 'openai', model: 'example-model', base_url: 'https://api.example.com/v1', label: '示例模型配置', key_preview: '•••• 本地示例', is_active: true }],
+      presets: { openai: { name: 'OpenAI', base_url: 'https://api.example.com/v1', json_mode: true } },
+    });
+    if (path === '/api/v1/ai-keys/magpie') return response({
+      targets: [],
+      profiles: [],
+      bindings: { text: { source_type: 'legacy', profile_id: null }, vision: { source_type: 'legacy', profile_id: null } },
+      local_connect_available: false,
+    });
     if (path === '/api/v1/knowledge-bases') return response({ data: previewKnowledgeBases.filter(kb => kb.project_id === knowledgeProjectId) });
     if (path === '/api/v1/knowledge-bases/stats') return response({ knowledge_bases_count: previewKnowledgeBases.filter(kb => kb.project_id === knowledgeProjectId).length, total_documents: 0, ready_documents: 0, processing_documents: 0 });
     // 知识库详情的文档列表要有样例：空列表走的是空态分支，渲染不到状态徽标 / 时间 / 失败原因
