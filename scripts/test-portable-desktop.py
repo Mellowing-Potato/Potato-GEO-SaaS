@@ -44,6 +44,10 @@ def free_port():
         return listener.getsockname()[1]
 
 
+def write_acceptance_marker(path):
+    path.write_bytes(b'desktop-fixture\n')
+
+
 def manage(launcher, *arguments, check=True):
     command = [str(launcher), *arguments]
     if IS_WIN:
@@ -245,7 +249,7 @@ def scenario(args, work, program=None):
             raise AssertionError('Fresh native desktop installation failed without email, password or terminal input')
         if b'ticket=' in installed.stdout or b'ticket=' in installed.stderr:
             raise AssertionError('Desktop installation disclosed its launch nonce in console output')
-        (instance / '.portable-acceptance').write_text('desktop-fixture\n', encoding='utf-8')
+        write_acceptance_marker(instance / '.portable-acceptance')
         if not IS_WIN:
             (instance / '.portable-acceptance').chmod(0o600)
         first_identity = authorize_and_check(instance, port)
@@ -262,7 +266,7 @@ def scenario(args, work, program=None):
         if args.python_bin:
             restore.extend(['--python-bin', str(args.python_bin)])
         manage(launcher, *restore)
-        (restored / '.portable-acceptance').write_text('desktop-fixture\n', encoding='utf-8')
+        write_acceptance_marker(restored / '.portable-acceptance')
         if not IS_WIN:
             (restored / '.portable-acceptance').chmod(0o600)
         if authorize_and_check(restored, restored_port) != first_identity:

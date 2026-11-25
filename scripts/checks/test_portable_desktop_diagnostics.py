@@ -1,7 +1,9 @@
 """Keep native acceptance diagnostics useful without disclosing captured secrets."""
 import json
+import io
 from pathlib import Path
 import runpy
+import tempfile
 import unittest
 
 
@@ -9,7 +11,41 @@ class PortableDesktopDiagnosticsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         source = Path(__file__).resolve().parents[2] / 'scripts/test-portable-desktop.py'
-        cls.parse = staticmethod(runpy.run_path(str(source))['private_fixture_diagnostic'])
+        module = runpy.run_path(str(source))
+        cls.parse = staticmethod(module['private_fixture_diagnostic'])
+        cls.write_marker = staticmethod(module['write_acceptance_marker'])
+
+    def test_windows_text_translation_cannot_satisfy_the_strict_fixture_marker(self):
+        buffer = io.BytesIO()
+        text = io.TextIOWrapper(buffer, encoding='utf-8', newline='\r\n')
+        text.write('desktop-fixture\n')
+        text.flush()
+        translated = buffer.getvalue()
+        self.assertEqual(translated, b'desktop-fixture\r\n')
+        self.assertNotEqual(translated, b'desktop-fixture\n')
+        fixture = Path(__file__).resolve().parents[2] / 'tests/fixtures/portable-desktop.php'
+        self.assertIn('file_get_contents($root.\'/.portable-acceptance\') !== "desktop-fixture\\n"',
+                      fixture.read_text(encoding='utf-8'))
+
+    def test_scenario_marker_writer_uses_exact_binary_lf_without_text_translation(self):
+        class BinaryOnlyPath:
+            value = None
+
+            def write_bytes(self, value):
+                self.value = value
+                return len(value)
+
+            def write_text(self, *_args, **_kwargs):
+                raise AssertionError('Acceptance markers must not pass through platform text translation')
+
+        marker = BinaryOnlyPath()
+        self.write_marker(marker)
+        self.assertIs(type(marker.value), bytes)
+        self.assertEqual(marker.value, b'desktop-fixture\n')
+        with tempfile.TemporaryDirectory(prefix='yanji-marker-bytes-') as directory:
+            actual = Path(directory) / '.portable-acceptance'
+            self.write_marker(actual)
+            self.assertEqual(actual.read_bytes(), b'desktop-fixture\n')
 
     def test_nested_diagnostics_keep_only_allowlisted_fields_and_actual_booleans(self):
         secret = 'sk-test-never-expose-private-details'
