@@ -2,7 +2,9 @@
 
 > **v0.1.1 安装文件同版本修复重发（2026-11-25）**：修复 macOS UTF-8 Shell 的远程下载变量边界；下载地址仍为 v0.1.1，使用下方标准 `curl ... | sh` 命令。旧版安装在账号提示前中断、尚未生成实例密钥且默认数据库为空时，安装器会检查原配置与初始化/绑定状态，符合条件后接续本机免账号初始化；已有账号和数据保留。 本次替换安装文件、清单及对应引导脚本，并将发布标签对齐修复源码；请使用新摘要，首次发行的旧摘要不适用于重发资产。v0.1.0 资产保持不变。本次完整 CI：10 项发行任务全部成功，覆盖双架构测试/审计、四平台便携构建、Docker 镜像发布、资产发布和两场 Mac 公开入口验收（[本次修复重发流 #45594562303](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303)）。本次 Mac 标准公开入口分别验收：fresh 全新安装：通过；使用公开标准 `curl ... | sh`、默认目录和 8000 端口，服务就绪，已核对免账号 Cookie、工作区受保护 API 及拒绝匿名/无绑定令牌（[任务日志](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303/job/139153283994)）；interrupted 中断安装：通过；使用公开标准 `curl ... | sh`、默认目录和 8000 端口，服务就绪，已核对免账号 Cookie、工作区受保护 API 及拒绝匿名/无绑定令牌（[任务日志](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303/job/139153284005)）。入口证据仅含默认目录和端口、标准命令、工作台 Cookie 与受保护 API；不扩大为完整 GUI 或 Magpie 真实推理验收。 v0.1.1 首次发行的八项任务成功和本地包验收属于历史记录，没有覆盖当时读者经生成引导脚本走 HTTPS 下载的入口，不能当作该入口成功证据。
 
-免 Docker 便携包使用与 Docker 部署相同的 Laravel 应用、生产 Composer 依赖、已构建网页与锁定技能资产，并随包内置独立 **Python 3.12.16** 与开源报告字体（DejaVu Sans、Noto Serif CJK），普通用户无需预先安装 Docker、PHP 或 Python。程序与实例数据分离存放；浏览器打开本地地址即可使用工作台，支持第三方模型直连与可选本机 [Magpie](https://github.com/yetone/magpie)。
+免 Docker 便携包使用与 Docker 部署相同的 Laravel 应用、生产 Composer 依赖、已构建网页与锁定技能资产，并随包内置独立 **Python 3.12.16** 与开源报告字体（DejaVu Sans、Noto Serif CJK），普通用户无需预先安装 Docker、PHP 或 Python。程序与实例数据分离存放；安装完成时由本机启动器在系统浏览器打开工作台，日常使用 `yanji open` 再次打开。直接在新的浏览器会话或智能体内置预览中输入本地地址，不会自动获得访问会话。支持第三方模型直连与可选本机 [Magpie](https://github.com/yetone/magpie)。
+
+智能体安装采用相同的安装器和本机打开方式，交付要求见 [通用智能体安装协议](docs/INSTALL-AGENT.md)。其中新增的稳定双击入口、`entry` 和 `onboarding` 属于未发布候选，不能按本页正式版下载命令声称已获得这些新增能力；候选真实 GUI 验收仍待完成。
 
 > `v0.1.1` 已正式发布，统一 `SHA256SUMS`（`51e92778fce0c1c2caae9cdf72c650b055623e8c57f1897dddc34ded18b8230a`）、平台便携安装包、对应源码/重链接材料及固定摘要引导脚本见 [GitHub Release v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1)。
 
