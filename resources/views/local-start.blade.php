@@ -23,10 +23,18 @@
         </section>
         <main>
             <h1>打开工作台</h1>
-            <p class="intro">无需填写邮箱和密码。</p>
+            <p class="intro">从桌面或应用菜单的“言及工作台”本机入口打开，无需填写邮箱和密码。</p>
             <p class="status" id="localStartMessage" role="status" aria-live="polite">正在打开你的本机工作台…</p>
-            <p class="field-note" id="localStartHelp" hidden>请在终端用安装完成时显示的管理命令路径运行 <code>yanji open</code>，从新打开的页面进入。</p>
-            <noscript><p class="status">请启用浏览器 JavaScript，再运行本机管理命令 <code>yanji open</code>。</p></noscript>
+            <div id="localStartHelp" hidden>
+                <p>请从桌面或应用菜单的“言及工作台”本机入口打开，在系统浏览器中使用。没有快捷方式时，可按安装完成时显示的位置找到本机入口并双击。</p>
+                <p class="field-note">不同浏览器或应用窗口的访问状态可能分开保存。如果当前浏览器已打开过工作台，可以重新检查。</p>
+                <button class="btn-primary" id="localStartCheck" type="button" disabled>重新检查当前浏览器</button>
+                <details class="footer">
+                    <summary>高级排障（可选）</summary>
+                    <p class="field-note">熟悉命令行的用户也可使用安装时显示的管理命令运行 <code>yanji open</code>，重新从本机入口打开。</p>
+                </details>
+            </div>
+            <noscript><p class="status">请启用系统浏览器的 JavaScript，再从桌面或应用菜单的“言及工作台”本机入口打开。没有快捷方式时，可按安装完成时显示的位置找到本机入口并双击。</p></noscript>
         </main>
         <div class="eco-note">{{ config('brand.name') }} · 本机工作台</div>
     </div>
