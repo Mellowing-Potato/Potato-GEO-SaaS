@@ -1,16 +1,8 @@
 /* ============================================================================
-   个人设置 · 工作区与权限（geo-entry-workspace-settings.js）
+   个人设置 · 工作区名称（geo-entry-workspace-settings.js）
 
-   接上两条"后端有、前端零调用"的接口（2026-09-22 复核）：
-
-     1) PATCH /api/v1/workspace        改工作区名称（can:team:manage）
-        —— 接口 2026-09-13 就有，工作台一直没入口，改名只能靠运维改库。
-     2) GET   /api/v1/me/permissions   当前角色的权限清单
-        —— 用它决定改名表单是否可用（与接口层的 can:team:manage 同一口径），
-           并把清单如实展示；读不到权限时不放开写入口。
-
-   边界：只做名称读写，不碰成员/角色/租户设置（团队管理按产品口径暂不开放，
-   见 panels/team.blade.php 的说明）。读不到的权限不猜：拉失败就置灰并说明原因。
+   通过权限接口决定改名表单是否可用，接口层继续检查 can:team:manage。
+   权限代码只用于内部判断，不在设置页展示；读取失败时保持只读。
 
    接入方式与 geo-entry-management.js 一致：消费 window.GEO，只注册视图加载器。
    注意：本地取元素的辅助函数叫 byId（不叫 el）—— entry-split-scope 的作用域护栏把
@@ -27,8 +19,8 @@
   const byId = (id) => document.getElementById(id);
 
   let permissions = null;
-
-  const ROLE_LABELS = { admin: "管理员", editor: "编辑", member: "成员", owner: "创建者", platform_admin: "平台管理员" };
+  let permissionState = "loading";
+  let permissionRequestId = 0;
 
   function canManageWorkspace() {
     return Array.isArray(permissions) && permissions.includes(WORKSPACE_PERMISSION);
@@ -42,30 +34,34 @@
     const allowed = canManageWorkspace();
     input.disabled = !allowed;
     button.disabled = !allowed;
-    if (help && !allowed) {
-      help.textContent = "只有工作区管理员（team:manage）可以改名；当前账号可以查看名称，但不能修改。";
+    if (help) {
+      help.textContent = allowed
+        ? "名称用于区分你的工作区，不改变资料归属和已经发布的内容。"
+        : permissionState === "loading"
+          ? "正在确认是否可以修改名称，请稍候。"
+          : permissionState === "failed"
+            ? "暂时无法修改工作区名称，请刷新后重试。"
+            : "当前账号只能查看工作区名称，不能修改。";
     }
   }
 
   async function loadPermissions() {
-    const roleNode = byId("myPermissionsRole");
-    const listNode = byId("myPermissionsList");
-    if (!roleNode || !listNode) return;
+    const requestId = ++permissionRequestId;
+    permissions = null;
+    permissionState = "loading";
+    applyWorkspacePermission();
     try {
       const body = await api("/api/v1/me/permissions");
-      permissions = Array.isArray(body?.permissions) ? body.permissions : [];
-      const role = ROLE_LABELS[body?.role] || body?.role || "未知";
-      roleNode.textContent = `当前角色：${role} · ${permissions.length} 项权限`;
-      listNode.textContent = permissions.length
-        ? permissions.join("、")
-        : "当前账号没有任何显式权限，请联系工作区管理员。";
-    } catch (error) {
+      if (requestId !== permissionRequestId) return;
+      if (!Array.isArray(body?.permissions)) throw new Error("Missing workspace authorization");
+      permissions = body.permissions;
+      permissionState = "ready";
+    } catch {
+      if (requestId !== permissionRequestId) return;
       permissions = null;
-      // 读不到权限就不放开写入口，也不能把"读不到"显示成"没有权限"。
-      roleNode.textContent = `权限清单读取失败：${error?.message || "请重试"}。改名入口已暂时置灰，避免无权限提交。`;
-      listNode.textContent = "";
+      permissionState = "failed";
     } finally {
-      applyWorkspacePermission();
+      if (requestId === permissionRequestId) applyWorkspacePermission();
     }
   }
 
@@ -81,9 +77,9 @@
       const name = me?.tenant?.name || fromSession || "";
       input.value = name;
       if (!name && message) setMessage(message, "服务端没有返回工作区名称，请刷新重试。", "danger");
-    } catch (error) {
+    } catch {
       if (!fromSession && message) {
-        setMessage(message, `工作区名称读取失败：${error?.message || "请重试"}。`, "danger");
+        setMessage(message, "工作区名称暂时无法读取，请刷新后重试。", "danger");
       }
     }
   }
@@ -95,7 +91,7 @@
     const button = byId("saveWorkspaceName");
     if (!input || !message) return;
     if (!canManageWorkspace()) {
-      setMessage(message, "当前账号没有 team:manage 权限，不能修改工作区名称。", "danger");
+      setMessage(message, "当前账号不能修改工作区名称。", "danger");
       return;
     }
     const name = String(input.value || "").trim();
@@ -115,8 +111,8 @@
       // 会话快照同步改名，避免侧栏/标题还显示旧名字（下次登录会以服务端为准）。
       if (state?.session?.tenant) state.session.tenant.name = saved;
       setMessage(message, "工作区名称已保存。", "success");
-    } catch (error) {
-      setMessage(message, error?.message || "保存失败，请重试。", "danger");
+    } catch {
+      setMessage(message, "工作区名称未能保存，请稍后重试。", "danger");
     } finally {
       if (button) button.disabled = !canManageWorkspace();
     }
