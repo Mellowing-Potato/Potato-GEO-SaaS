@@ -3,7 +3,6 @@
 // This helper only mints a browser nonce for a disposable native acceptance-test instance.
 use Yanji\Portable\Instance;
 use Yanji\Portable\DesktopLauncher;
-use Yanji\Portable\Platform;
 
 [, $root, $output] = $argv;
 if (!is_file($root.'/.portable-acceptance') || file_get_contents($root.'/.portable-acceptance') !== "desktop-fixture\n") {
@@ -17,7 +16,7 @@ require $release.'/app/portable/src/Instance.php';
 require $release.'/app/portable/src/Installation.php';
 require $release.'/app/portable/src/DesktopLauncher.php';
 $instance = new Instance($root);
-if (Platform::normalize(dirname($output)) !== $instance->root.'/run' || file_exists($output) || is_link($output)) {
+if (realpath(dirname($output)) !== realpath($instance->root.'/run') || file_exists($output) || is_link($output)) {
     throw new RuntimeException('The capture must be a new private file in the disposable instance.');
 }
 $opened = DesktopLauncher::open($instance, opener: static function (string $uri) use ($output): bool {

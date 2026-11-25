@@ -82,6 +82,19 @@ def resolve_release(instance):
     return (instance / 'current').resolve()
 
 
+def checked_identity(user, tenant):
+    if not isinstance(user, dict) or not isinstance(tenant, dict):
+        raise AssertionError('Desktop authorization did not return an account and workspace object')
+    user_id = user.get('id')
+    tenant_id = user.get('tenant_id')
+    related_tenant_id = tenant.get('id')
+    if any(type(value) is not int or value <= 0 for value in (user_id, tenant_id, related_tenant_id)):
+        raise AssertionError('Desktop authorization returned a missing or invalid account/workspace identity')
+    if tenant_id != related_tenant_id:
+        raise AssertionError('Desktop authorization returned an account assigned to a different workspace')
+    return {'user_id': user_id, 'tenant_id': tenant_id}
+
+
 def authorize_and_check(instance, port):
     origin = f'http://127.0.0.1:{port}'
     anonymous = client()
@@ -127,6 +140,9 @@ def authorize_and_check(instance, port):
     if code != 200:
         raise AssertionError('The native desktop nonce could not establish a browser session')
     authorized = json.loads(body)
+    if not isinstance(authorized, dict):
+        raise AssertionError('Desktop authorization did not return a session object')
+    session_identity = checked_identity(authorized.get('user'), authorized.get('tenant'))
     token = authorized.get('token')
     if not isinstance(token, str) or not token:
         raise AssertionError('Desktop authorization did not issue an API credential')
@@ -137,13 +153,18 @@ def authorize_and_check(instance, port):
     if code != 200:
         raise AssertionError('The browser session cannot access its authenticated workspace')
     identity = json.loads(body)
+    if not isinstance(identity, dict):
+        raise AssertionError('The authenticated workspace API did not return an account object')
+    api_identity = checked_identity(identity, identity.get('tenant'))
+    if api_identity != session_identity:
+        raise AssertionError('The authenticated API identity differs from the authorized desktop session')
     if request(browser, origin, '/api/v1/projects', token=token)[0] != 200:
         raise AssertionError('The authenticated desktop session cannot access the workspace API')
     if request(client(), origin, '/api/v1/projects', token=token)[0] != 401:
         raise AssertionError('A desktop API token bypassed its browser-cookie binding')
     if request(client(), origin, '/api/v1/auth/local-start', method='POST', body={'ticket': nonce})[0] != 403:
         raise AssertionError('A consumed desktop nonce was accepted twice')
-    return {'user_id': identity.get('id'), 'tenant_id': identity.get('tenant_id')}
+    return api_identity
 
 
 def scenario(args, work, program=None):
