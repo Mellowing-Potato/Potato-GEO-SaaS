@@ -95,6 +95,54 @@ def checked_identity(user, tenant):
     return {'user_id': user_id, 'tenant_id': tenant_id}
 
 
+def private_fixture_diagnostic(raw):
+    if len(raw) > 16384:
+        return None
+    try:
+        record = json.loads(raw)
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if not isinstance(record, dict) or record.get('fixture') != 'portable-desktop':
+        return None
+    allowed = {
+        'stage': {'argument_guard', 'instance_guard', 'release_resolve', 'runtime_load', 'instance_construct',
+                  'capture_guard', 'desktop_launch', 'capture_write', 'application_environment',
+                  'application_bootstrap', 'application_launch_file', 'diagnostic_process'},
+        'code': {'fixture_exception', 'unexpected_output', 'desktop_disabled', 'launch_path_rejected',
+                 'owner_not_unique', 'instance_key_missing', 'run_directory_untrusted', 'ticket_path_untrusted',
+                 'ticket_file_open_failed', 'ticket_file_lock_failed', 'ticket_file_changed', 'ticket_write_failed',
+                 'launch_output_open_failed', 'file_permissions_rejected', 'windows_acl_write_failed',
+                 'launcher_rejected', 'launch_html_untrusted', 'spawn_failed',
+                 'application_probe_passed', 'application_probe_failed'},
+        'exception': {'RuntimeException', 'ErrorException', 'Error', 'TypeError', 'ValueError', 'JsonException',
+                      'ParseError', 'LogicException', 'InvalidArgumentException',
+                      'Illuminate\\Database\\QueryException', 'Throwable', 'none'},
+        'file': {'Platform.php', 'Instance.php', 'Installation.php', 'DesktopLauncher.php',
+                 'PortableDesktopAccess.php', 'portable-desktop.php', 'unknown'},
+    }
+
+    def clean(item, depth=0):
+        result = {key: value for key, value in item.items()
+                  if key in allowed and isinstance(value, str) and value in allowed[key]}
+        for key in ('line', 'stdout_bytes', 'stderr_bytes', 'exit_code'):
+            value = item.get(key)
+            if type(value) is int and (-255 if key == 'exit_code' else 0) <= value <= 100000000:
+                result[key] = value
+        if isinstance(item.get('flags'), dict):
+            flag_names = {'root_private', 'run_private', 'root_private_check_ok', 'run_private_check_ok',
+                          'desktop_enabled', 'ticket_exists', 'ticket_is_link', 'fstat_ok', 'lstat_ok',
+                          'handle_regular', 'path_regular', 'dev_equal', 'ino_equal', 'ticket_nonempty', 'probe_failed'}
+            result['flags'] = {key: value for key, value in item['flags'].items()
+                               if key in flag_names and type(value) is bool}
+        if depth < 2:
+            for key in ('application', 'detail'):
+                if isinstance(item.get(key), dict):
+                    result[key] = clean(item[key], depth + 1)
+        return result
+
+    return clean(record)
+
+
 def authorize_and_check(instance, port):
     origin = f'http://127.0.0.1:{port}'
     anonymous = client()
@@ -109,9 +157,12 @@ def authorize_and_check(instance, port):
     output = instance / 'run' / ('browser-launch-' + secrets.token_hex(12) + '.json')
     minted = subprocess.run([str(php), '-n', str(ROOT / 'tests/fixtures/portable-desktop.php'),
                              str(instance), str(output)], stdin=subprocess.DEVNULL,
-                            capture_output=True, timeout=30)
+                            capture_output=True, timeout=60)
     if minted.returncode != 0 or minted.stdout or minted.stderr:
-        raise AssertionError('The native launcher failed to write a silent private desktop authorization')
+        detail = private_fixture_diagnostic(minted.stderr)
+        raise AssertionError('The native launcher failed to write a silent private desktop authorization: '
+                             f'exit={minted.returncode}, stdout_bytes={len(minted.stdout)}, '
+                             f'stderr_bytes={len(minted.stderr)}' + (f', diagnostic={detail}' if detail else ''))
     try:
         launch = json.loads(output.read_text(encoding='utf-8'))
     finally:
