@@ -87,7 +87,40 @@ try {
     [Console]::Write((@{code='saved';phase='complete';target_matches=($link.TargetPath -ceq $env:YANJI_ENTRY_FILE);arguments_empty=($link.Arguments -eq '');working_directory_matches=($link.WorkingDirectory -ceq $env:YANJI_ENTRY_DIRECTORY);marker_matches=($link.Description -ceq $env:YANJI_ENTRY_MARKER)} | ConvertTo-Json -Compress))
     exit 0
 } catch {
-    [Console]::Write((@{code='exception';phase=$phase;hresult=[int]$_.Exception.HResult} | ConvertTo-Json -Compress))
+    $failureHresult = [int]$_.Exception.HResult
+    $target = [string]$env:YANJI_ENTRY_FILE
+    $sha = [Security.Cryptography.SHA256]::Create()
+    $digest = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($target)) | ForEach-Object { $_.ToString('x2') })
+    $sha.Dispose()
+    $result = @{code='exception';phase=$phase;hresult=$failureHresult;inputs=@{
+        target_null=($null -eq $env:YANJI_ENTRY_FILE);target_empty=($target.Length -eq 0);target_length=$target.Length
+        target_exists=[IO.File]::Exists($target);target_has_quote=$target.Contains([string][char]34)
+        target_has_control=[regex]::IsMatch($target,'[\x00-\x1f]');target_env_matches_php=($digest -ceq $env:YANJI_ENTRY_EXPECTED_SHA)
+        ascii_control_exists=[IO.File]::Exists($env:YANJI_ENTRY_CONTROL_FILE)
+    };controls=@{}}
+    $cases = @(@{label='ascii';target=$env:YANJI_ENTRY_CONTROL_FILE}, @{label='quoted';target=('"' + $target + '"')})
+    try {
+        $fso = New-Object -ComObject Scripting.FileSystemObject
+        $short = $fso.GetFile($target).ShortPath
+        $cases += @{label='short';target=$short}
+    } catch { $result.controls.short = @{available=$false;hresult=[int]$_.Exception.HResult} }
+    foreach ($case in $cases) {
+        $control = @{available=$true;accepted=$false;saved_exists=$false}
+        try {
+            $controlPath = [IO.Path]::Combine($env:YANJI_ENTRY_PROBE_DIRECTORY, ('control-' + $case.label + '.lnk'))
+            $controlLink = $shell.CreateShortcut($controlPath)
+            $controlLink.TargetPath = $case.target
+            $control.accepted = $true
+            $control.getter_matches_raw = ($controlLink.TargetPath -ceq $target)
+            if ($case.label -eq 'short') {
+                $control.short_target_same_file = ($fso.GetFile($controlLink.TargetPath).ShortPath -ieq $fso.GetFile($target).ShortPath)
+            }
+            $controlLink.Save()
+            $control.saved_exists = [IO.File]::Exists($controlPath)
+        } catch { $control.hresult = [int]$_.Exception.HResult }
+        $result.controls[$case.label] = $control
+    }
+    [Console]::Write(($result | ConvertTo-Json -Compress -Depth 5))
     exit 1
 }
 PS;
@@ -101,11 +134,16 @@ PS;
             }
         }
         $path = $directory.'/言及诊断快捷方式.lnk';
+        $controlFile = $directory.'/ascii-control.cmd';
+        Instance::atomicFile($controlFile, "@exit /b 0\r\n");
         $environment = [...Platform::windowsPowerShellEnv($environment),
             'YANJI_ENTRY_FILE' => Platform::nativePath($file),
             'YANJI_ENTRY_SHORTCUT' => Platform::nativePath($path),
             'YANJI_ENTRY_DIRECTORY' => Platform::nativePath($instance->root),
-            'YANJI_ENTRY_MARKER' => 'yanji-native-entry-probe'];
+            'YANJI_ENTRY_MARKER' => 'yanji-native-entry-probe',
+            'YANJI_ENTRY_EXPECTED_SHA' => hash('sha256', Platform::nativePath($file)),
+            'YANJI_ENTRY_CONTROL_FILE' => Platform::nativePath($controlFile),
+            'YANJI_ENTRY_PROBE_DIRECTORY' => Platform::nativePath($directory)];
         $record = entryExecute([Platform::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-EncodedCommand',
             Platform::encodePowerShellCommand($script)], $directory, $environment);
         $detail = json_decode($record['stdout'], true);
@@ -124,6 +162,31 @@ PS;
             foreach (['target_matches', 'arguments_empty', 'working_directory_matches', 'marker_matches'] as $key) {
                 if (is_bool($detail[$key] ?? null)) {
                     $safe[$key] = $detail[$key];
+                }
+            }
+            if (is_array($detail['inputs'] ?? null)) {
+                foreach (['target_null', 'target_empty', 'target_exists', 'target_has_quote', 'target_has_control',
+                    'target_env_matches_php', 'ascii_control_exists'] as $key) {
+                    if (is_bool($detail['inputs'][$key] ?? null)) {
+                        $safe['inputs'][$key] = $detail['inputs'][$key];
+                    }
+                }
+                if (is_int($detail['inputs']['target_length'] ?? null) && $detail['inputs']['target_length'] >= 0
+                    && $detail['inputs']['target_length'] <= 32768) {
+                    $safe['inputs']['target_length'] = $detail['inputs']['target_length'];
+                }
+            }
+            foreach (['ascii', 'quoted', 'short'] as $label) {
+                if (!is_array($detail['controls'][$label] ?? null)) {
+                    continue;
+                }
+                foreach (['available', 'accepted', 'saved_exists', 'getter_matches_raw', 'short_target_same_file'] as $key) {
+                    if (is_bool($detail['controls'][$label][$key] ?? null)) {
+                        $safe['controls'][$label][$key] = $detail['controls'][$label][$key];
+                    }
+                }
+                if (is_int($detail['controls'][$label]['hresult'] ?? null)) {
+                    $safe['controls'][$label]['hresult'] = $detail['controls'][$label]['hresult'];
                 }
             }
         }
