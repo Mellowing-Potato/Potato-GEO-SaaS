@@ -33,6 +33,20 @@ for (const [name, expected] of Object.entries(expectedPalette)) {
   assert.equal(tokens[name], expected, `${name} must use the converged stone-white & deep-pine palette`);
 }
 
+// Refined desktop workbench type scale & sidebar hierarchy (1st-level > 2nd-level)
+assert.equal(tokens['--md-fs-compact'], '13px', '--md-fs-compact must stay 13px for refined desktop density');
+assert.match(tokens['--md-type-section'], /^600 16px\//, 'Section h3 headings must stay crisp 16px/600 (not oversized 20px)');
+assert.match(tokens['--md-type-ui'], /^400 13px\//, 'Base UI copy must use refined 13px scale');
+assert.match(tokens['--md-type-caption'], /^400 12px\//, 'Captions/hints must stay compact 12px');
+
+const shellCss = fs.readFileSync('public/geo-shell.css', 'utf8');
+assert.match(shellCss, /\.workspace-menu-section \+ \.workspace-menu-section\s*\{[^}]*border-top:/s, 'Sidebar categories must have clear visual separation');
+assert.match(shellCss, /\.workspace-menu-group\s*\{[^}]*font-size:\s*var\(--md-fs-sm\)[^}]*font-weight:\s*var\(--md-weight-semibold\)/s, '1st-level sidebar group headers must be larger and bolder than 2nd-level links');
+assert.match(shellCss, /\.workspace-menu-group \+ \.workspace-menu-items \.workspace-menu-link\s*\{[^}]*font-size:\s*var\(--md-fs-compact\)/s, '2nd-level sidebar items must use compact 13px type smaller than 1st-level');
+
+const entryCss = fs.readFileSync('public/geo-entry.css', 'utf8');
+assert.match(entryCss, /#aikeysPanel\.panel\s*\{[^}]*max-width:\s*820px[^}]*background:\s*transparent/s, '#aikeysPanel must constrain width and avoid outer card nesting');
+
 const legacyHexPattern = /#(3F7A61|223E36|F7F4ED|1E6594|D4A438|6B5B8E)/i;
 for (const file of [
   'public/geo-tokens.css',

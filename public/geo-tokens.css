@@ -37,13 +37,13 @@
   --md-shadow-modal: 0 16px 48px rgba(23,26,24,.12);
   --md-font-sans: "GEO Sans";
   --md-font-mono: "GEO Mono", "GEO Sans";
-  --md-type-page: 600 24px/1.4 var(--md-font-sans);
-  --md-type-section: 500 20px/1.5 var(--md-font-sans);
-  --md-type-subheading: 500 16px/1.5 var(--md-font-sans);
-  --md-type-ui: 400 14px/1.6 var(--md-font-sans);
-  --md-type-label: 500 14px/1.6 var(--md-font-sans);
-  --md-type-caption: 400 14px/1.7 var(--md-font-sans);
-  --md-type-body: 400 16px/1.85 var(--md-font-sans);
+  --md-type-page: 600 24px/1.35 var(--md-font-sans);
+  --md-type-section: 600 16px/1.45 var(--md-font-sans);
+  --md-type-subheading: 600 14px/1.45 var(--md-font-sans);
+  --md-type-ui: 400 13px/1.55 var(--md-font-sans);
+  --md-type-label: 500 13px/1.45 var(--md-font-sans);
+  --md-type-caption: 400 12px/1.5 var(--md-font-sans);
+  --md-type-body: 400 15px/1.75 var(--md-font-sans);
 
   /* ══ 应用端固定档位（2026-09-03 新增）══════════════════════════════════
      权威源：design-specs/tokens.css 的同名段，值逐字一致。
@@ -69,7 +69,7 @@
   --md-space-1: 4px;  --md-space-2: 8px;   --md-space-3: 12px; --md-space-4: 16px;
   --md-space-5: 20px; --md-space-6: 24px;  --md-space-8: 32px;
   --md-space-10: 40px; --md-space-12: 48px;
-  --md-fs-xs: 12px; --md-fs-sm: 14px; --md-fs-base: 14px; --md-fs-md: 16px;
+  --md-fs-xs: 12px; --md-fs-compact: 13px; --md-fs-sm: 14px; --md-fs-base: 14px; --md-fs-md: 16px;
   --md-fs-lg: 18px; --md-fs-xl: 20px; --md-fs-2xl: 24px; --md-fs-3xl: 30px;
   --md-weight-normal: 400; --md-weight-medium: 500;
   --md-weight-semibold: 600; --md-weight-bold: 700;

@@ -3,7 +3,7 @@
    Page styles handle layout; do not create another local typography scale. */
 body.geo-app { font: var(--md-type-ui); color: var(--md-text); font-synthesis: none; }
 body.geo-app :is(button, input, select, textarea) { font-family: var(--md-font-sans); }
-body.geo-app :is(h1, h2) { font: var(--md-type-page); color: var(--md-text-strong); }
+body.geo-app :is(h1, h2) { font: var(--md-type-page); letter-spacing: -0.015em; color: var(--md-text-strong); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    触屏点击范围：44px 硬下限（2026-09-21，计划 §5.1 验收 / R18 + 侧栏补充
@@ -48,16 +48,36 @@ body.geo-app :is(h1, h2) { font: var(--md-type-page); color: var(--md-text-stron
 }
 body.geo-app h3 { font: var(--md-type-section); color: var(--md-text-heading); }
 body.geo-app :is(h4, h5, h6) { font: var(--md-type-subheading); color: var(--md-text-heading); }
-body.geo-app :is(label, th) { font: var(--md-type-label); color: var(--md-text-heading); }
+body.geo-app :is(label, th) { font: var(--md-type-label); color: var(--md-text-secondary); }
 body.geo-app :is(.eyebrow, .hint, .muted, .field-help, .form-hint) { font: var(--md-type-caption); color: var(--md-text-muted); }
 body.geo-app :is(button, .button, .btn) { font-weight: var(--md-weight-medium); }
 body.geo-app :is(input, textarea, select) { font-weight: var(--md-weight-normal); }
 body.geo-app :is(code, pre, .md-code, .md-mono, .cell-mono, .mono) { font-family: var(--md-font-mono); }
 
-/* Application navigation: group, destination and selection have distinct roles. */
-.geo-app .workspace-menu .workspace-menu-group { font: var(--md-type-label); color: var(--md-text-group); }
-.geo-app .workspace-menu .workspace-menu-link { font: var(--md-type-ui); color: var(--md-text-secondary); }
-.geo-app .workspace-menu .workspace-menu-link.active { color: var(--md-primary-pressed); }
+/* Application navigation: 1st-level groups/items lead cleanly over indented 2nd-level children. */
+body.geo-app .workspace-sidebar .workspace-menu .workspace-menu-group {
+  font-size: var(--md-fs-sm);
+  font-weight: var(--md-weight-semibold);
+  line-height: var(--md-leading-snug);
+  color: var(--md-text-strong);
+}
+body.geo-app .workspace-sidebar .workspace-menu .workspace-menu-section:not(:has(> .workspace-menu-group)) .workspace-menu-link {
+  font-size: var(--md-fs-sm);
+  font-weight: var(--md-weight-medium);
+  line-height: var(--md-leading-snug);
+  color: var(--md-text-strong);
+}
+body.geo-app .workspace-sidebar .workspace-menu .workspace-menu-group + .workspace-menu-items .workspace-menu-link {
+  font-size: var(--md-fs-compact);
+  font-weight: var(--md-weight-normal);
+  line-height: var(--md-leading-snug);
+  color: var(--md-text-secondary);
+}
+body.geo-app .workspace-sidebar .workspace-menu .workspace-menu-link[aria-current="page"],
+.geo-app .workspace-menu .workspace-menu-link.active {
+  color: var(--md-primary-hover);
+  font-weight: var(--md-weight-medium);
+}
 .geo-app .workspace-menu :is(.project-nav-item, .project-nav-action) { font: var(--md-type-ui); color: var(--md-text-secondary); }
 .geo-app .workspace-menu .project-nav-item[aria-current] { color: var(--md-primary-pressed); }
 
