@@ -97,9 +97,14 @@ $before = $null
 $after = $null
 $reloaded = $null
 $extended = $null
+$unicodeWriter = $null
+function Compare-Arguments([string]$actual) {
+    $expected = [string]$env:YANJI_ENTRY_ARGUMENTS
+    return @{case_insensitive_match=($actual -ieq $expected);nonascii_as_question_match=($actual -ceq [regex]::Replace($expected,'[^\x00-\x7f]','?'));expected_nonascii_count=[regex]::Matches($expected,'[^\x00-\x7f]').Count;actual_nonascii_count=[regex]::Matches($actual,'[^\x00-\x7f]').Count;expected_question_count=[regex]::Matches($expected,'\?').Count;actual_question_count=[regex]::Matches($actual,'\?').Count}
+}
 function Read-Link($value) {
     $actualArguments = [string]$value.Arguments
-    return @{target_matches=($value.TargetPath -ceq $env:YANJI_ENTRY_TARGET);target_case_insensitive_match=($value.TargetPath -ieq $env:YANJI_ENTRY_TARGET);target_exists=[IO.File]::Exists([string]$value.TargetPath);arguments_match=($actualArguments -ceq $env:YANJI_ENTRY_ARGUMENTS);description_matches=($value.Description -ceq $env:YANJI_ENTRY_MARKER);working_directory_matches=($value.WorkingDirectory -ceq $env:YANJI_ENTRY_WORKING_DIRECTORY);working_directory_case_insensitive_match=($value.WorkingDirectory -ieq $env:YANJI_ENTRY_WORKING_DIRECTORY);expected_arguments_length=([string]$env:YANJI_ENTRY_ARGUMENTS).Length;actual_arguments_length=$actualArguments.Length}
+    return @{target_matches=($value.TargetPath -ceq $env:YANJI_ENTRY_TARGET);target_case_insensitive_match=($value.TargetPath -ieq $env:YANJI_ENTRY_TARGET);target_exists=[IO.File]::Exists([string]$value.TargetPath);arguments_match=($actualArguments -ceq $env:YANJI_ENTRY_ARGUMENTS);description_matches=($value.Description -ceq $env:YANJI_ENTRY_MARKER);working_directory_matches=($value.WorkingDirectory -ceq $env:YANJI_ENTRY_WORKING_DIRECTORY);working_directory_case_insensitive_match=($value.WorkingDirectory -ieq $env:YANJI_ENTRY_WORKING_DIRECTORY);expected_arguments_length=([string]$env:YANJI_ENTRY_ARGUMENTS).Length;actual_arguments_length=$actualArguments.Length;argument_diff=(Compare-Arguments $actualArguments)}
 }
 try {
     $shell = New-Object -ComObject WScript.Shell
@@ -126,12 +131,33 @@ try {
     $folder = $application.NameSpace([IO.Path]::GetDirectoryName($env:YANJI_ENTRY_SHORTCUT))
     $item = $folder.ParseName([IO.Path]::GetFileName($env:YANJI_ENTRY_SHORTCUT))
     $value = $item.ExtendedProperty('System.Link.Arguments')
-    $extended = @{available=($null -ne $value);value_is_string=($value -is [string]);arguments_match=($value -is [string] -and $value -ceq $env:YANJI_ENTRY_ARGUMENTS);expected_arguments_length=([string]$env:YANJI_ENTRY_ARGUMENTS).Length;actual_arguments_length=([string]$value).Length}
-    [Console]::Write((@{code='saved';phase='complete';before=$before;after=$after;reloaded=$reloaded;extended_arguments=$extended} | ConvertTo-Json -Compress -Depth 5))
+    $extended = @{available=($null -ne $value);value_is_string=($value -is [string]);arguments_match=($value -is [string] -and $value -ceq $env:YANJI_ENTRY_ARGUMENTS);expected_arguments_length=([string]$env:YANJI_ENTRY_ARGUMENTS).Length;actual_arguments_length=([string]$value).Length;argument_diff=(Compare-Arguments ([string]$value))}
+    $unicodePhase = 'create'
+    try {
+        $control = $shell.CreateShortcut($env:YANJI_ENTRY_UNICODE_SHORTCUT)
+        $control.TargetPath = $env:YANJI_ENTRY_TARGET
+        $control.Description = $env:YANJI_ENTRY_MARKER
+        $control.WorkingDirectory = $env:YANJI_ENTRY_WORKING_DIRECTORY
+        $control.Save()
+        $unicodePhase = 'get_link'
+        $controlFolder = $application.NameSpace([IO.Path]::GetDirectoryName($env:YANJI_ENTRY_UNICODE_SHORTCUT))
+        $controlItem = $controlFolder.ParseName([IO.Path]::GetFileName($env:YANJI_ENTRY_UNICODE_SHORTCUT))
+        $controlLink = $controlItem.GetLink
+        $unicodePhase = 'arguments'
+        $controlLink.Arguments = $env:YANJI_ENTRY_ARGUMENTS
+        $writerReadback = [string]$controlLink.Arguments
+        $unicodePhase = 'save'
+        [void]$controlLink.Save()
+        $unicodePhase = 'readback'
+        $freshItem = $controlFolder.ParseName([IO.Path]::GetFileName($env:YANJI_ENTRY_UNICODE_SHORTCUT))
+        $saved = $freshItem.ExtendedProperty('System.Link.Arguments')
+        $unicodeWriter = @{code='saved';phase='complete';available=($null -ne $saved);value_is_string=($saved -is [string]);arguments_match=($saved -is [string] -and $saved -ceq $env:YANJI_ENTRY_ARGUMENTS);writer_readback_match=($writerReadback -ceq $env:YANJI_ENTRY_ARGUMENTS);expected_arguments_length=([string]$env:YANJI_ENTRY_ARGUMENTS).Length;actual_arguments_length=([string]$saved).Length;writer_readback_length=$writerReadback.Length;argument_diff=(Compare-Arguments ([string]$saved))}
+    } catch { $unicodeWriter = @{code='exception';phase=$unicodePhase;hresult=[int]$_.Exception.HResult} }
+    [Console]::Write((@{code='saved';phase='complete';before=$before;after=$after;reloaded=$reloaded;extended_arguments=$extended;unicode_writer_control=$unicodeWriter} | ConvertTo-Json -Compress -Depth 5))
     exit 0
 } catch {
     $hresult = [int]$_.Exception.HResult
-    [Console]::Write((@{code='exception';phase=$phase;hresult=$hresult;before=$before;after=$after;reloaded=$reloaded;extended_arguments=$extended} | ConvertTo-Json -Compress -Depth 5))
+    [Console]::Write((@{code='exception';phase=$phase;hresult=$hresult;before=$before;after=$after;reloaded=$reloaded;extended_arguments=$extended;unicode_writer_control=$unicodeWriter} | ConvertTo-Json -Compress -Depth 5))
     exit 1
 }
 PS;
@@ -144,6 +170,7 @@ PS;
         }
         $controlPath = $directory.'/current-builder-control.lnk';
         $variables['YANJI_ENTRY_SHORTCUT'] = Platform::nativePath($controlPath);
+        $variables['YANJI_ENTRY_UNICODE_SHORTCUT'] = Platform::nativePath($directory.'/unicode-writer-control.lnk');
         $environment = [...Platform::windowsPowerShellEnv($environment), ...$variables];
         $record = entryExecute([Platform::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-EncodedCommand',
             Platform::encodePowerShellCommand($script)], $directory, $environment);
@@ -188,6 +215,45 @@ PS;
                     $value = $detail['extended_arguments'][$key] ?? null;
                     if (is_int($value) && $value >= 0 && $value <= 32768) {
                         $safe['extended_arguments'][$key] = $value;
+                    }
+                }
+            }
+            if (is_array($detail['unicode_writer_control'] ?? null)) {
+                $unicode = $detail['unicode_writer_control'];
+                if (in_array($unicode['code'] ?? null, ['saved', 'exception'], true)) {
+                    $safe['unicode_writer_control']['code'] = $unicode['code'];
+                }
+                if (in_array($unicode['phase'] ?? null, ['create', 'get_link', 'arguments', 'save', 'readback', 'complete'], true)) {
+                    $safe['unicode_writer_control']['phase'] = $unicode['phase'];
+                }
+                if (is_int($unicode['hresult'] ?? null)) {
+                    $safe['unicode_writer_control']['hresult'] = $unicode['hresult'];
+                }
+                foreach (['available', 'value_is_string', 'arguments_match', 'writer_readback_match'] as $key) {
+                    if (is_bool($unicode[$key] ?? null)) {
+                        $safe['unicode_writer_control'][$key] = $unicode[$key];
+                    }
+                }
+                foreach (['expected_arguments_length', 'actual_arguments_length', 'writer_readback_length'] as $key) {
+                    $value = $unicode[$key] ?? null;
+                    if (is_int($value) && $value >= 0 && $value <= 32768) {
+                        $safe['unicode_writer_control'][$key] = $value;
+                    }
+                }
+            }
+            foreach (['before', 'after', 'reloaded', 'extended_arguments', 'unicode_writer_control'] as $when) {
+                if (!is_array($detail[$when]['argument_diff'] ?? null)) {
+                    continue;
+                }
+                foreach (['case_insensitive_match', 'nonascii_as_question_match'] as $key) {
+                    if (is_bool($detail[$when]['argument_diff'][$key] ?? null)) {
+                        $safe[$when]['argument_diff'][$key] = $detail[$when]['argument_diff'][$key];
+                    }
+                }
+                foreach (['expected_nonascii_count', 'actual_nonascii_count', 'expected_question_count', 'actual_question_count'] as $key) {
+                    $value = $detail[$when]['argument_diff'][$key] ?? null;
+                    if (is_int($value) && $value >= 0 && $value <= 32768) {
+                        $safe[$when]['argument_diff'][$key] = $value;
                     }
                 }
             }

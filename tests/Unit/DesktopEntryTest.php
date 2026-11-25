@@ -71,7 +71,9 @@ final class DesktopEntryTest extends TestCase
         }
         self::assertFileDoesNotExist($path);
         $saved = $record;
-        $saved['arguments'] = substr($saved['arguments'], 0, 1023);
+        if (!str_contains($script, '$unicodeLink.Arguments = $env:YANJI_ENTRY_ARGUMENTS')) {
+            $saved['arguments'] = substr(preg_replace('/[^\x00-\x7f]/u', '?', $saved['arguments']), 0, 1023);
+        }
         file_put_contents($path, json_encode($saved, JSON_THROW_ON_ERROR));
         return ['code' => $readArguments($saved['arguments']) === $record['arguments'] ? 0 : 3, 'stdout' => ''];
     }
@@ -211,6 +213,10 @@ final class DesktopEntryTest extends TestCase
             self::assertStringContainsString('$null -eq $item', $script);
             self::assertStringContainsString('$fullArguments -cne $env:YANJI_ENTRY_ARGUMENTS', $script);
             self::assertStringNotContainsString('$link.Arguments -c', $script);
+            self::assertStringContainsString('$unicodeLink = (Open-SavedLinkItem).GetLink', $script);
+            self::assertStringContainsString('$unicodeLink.Arguments = $env:YANJI_ENTRY_ARGUMENTS', $script);
+            self::assertStringContainsString('[void]$unicodeLink.Save()', $script);
+            self::assertStringNotContainsString('$link.Arguments = $env:YANJI_ENTRY_ARGUMENTS', $script);
             self::assertMatchesRegularExpression('/\A[A-Za-z]:\\\\.+\\\\System32\\\\WindowsPowerShell\\\\v1\.0\\\\powershell\.exe\z/', $variables['YANJI_ENTRY_TARGET']);
             self::assertSame(substr($variables['YANJI_ENTRY_TARGET'], 0, -strlen('\\powershell.exe')), $variables['YANJI_ENTRY_WORKING_DIRECTORY']);
             self::assertSame(1, preg_match('/\A-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "([^"\r\n]+)"\z/', $variables['YANJI_ENTRY_ARGUMENTS'], $fileArgument));
