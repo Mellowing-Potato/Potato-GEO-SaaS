@@ -192,3 +192,129 @@
 @media (pointer: coarse) {
     .btn-primary, .btn-code, .tab, .footer button { min-height: 44px; }
 }
+
+/* Local desktop launch & recovery states (Stone-White & Deep-Pine). */
+.launch-steps {
+    list-style: none;
+    margin: 24px 0 0;
+    padding: 20px 0 0;
+    border-top: 1px solid var(--line);
+    display: grid;
+    gap: 12px;
+}
+.launch-steps li {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+}
+.launch-step-ix {
+    font-family: var(--font-mono);
+    font-size: var(--md-fs-xs);
+    font-weight: var(--md-weight-semibold);
+    color: var(--accent);
+    line-height: var(--md-leading-snug);
+    padding-top: 2px;
+}
+.launch-steps strong {
+    display: block;
+    color: var(--text-strong);
+    font-size: var(--md-fs-sm);
+    font-weight: var(--md-weight-medium);
+    line-height: var(--md-leading-snug);
+}
+.launch-steps small {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: var(--md-fs-xs);
+    line-height: var(--md-leading-snug);
+}
+.launch-main {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.launch-status-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+}
+.launch-status-card .status {
+    margin: 0;
+    min-height: 0;
+    color: var(--text);
+}
+.launch-indicator {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    border: 2px solid var(--line-strong);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: launchSpin .9s linear infinite;
+}
+.launch-status-card.is-error {
+    background: var(--bad-soft);
+    border-color: var(--bad-border);
+}
+.launch-status-card.is-error .status {
+    color: var(--bad);
+}
+.launch-status-card.is-error .launch-indicator {
+    animation: none;
+    border: 0;
+    width: 8px;
+    height: 8px;
+    flex: 0 0 8px;
+    background: var(--bad);
+}
+@keyframes launchSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .launch-indicator { animation: none; } }
+.launch-recovery {
+    margin-top: 20px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+    display: grid;
+    gap: 10px;
+}
+.launch-recovery-title {
+    margin: 0;
+    color: var(--text-strong);
+    font-size: var(--md-fs-sm);
+    font-weight: var(--md-weight-semibold);
+}
+.launch-recovery .field-note {
+    margin: 0;
+}
+.launch-cmd-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 10px 8px 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+}
+.launch-cmd-row code {
+    color: var(--text-strong);
+    font-size: var(--md-fs-sm);
+    font-weight: var(--md-weight-medium);
+    overflow-wrap: anywhere;
+}
+.launch-copy-btn {
+    height: 32px;
+    padding: 0 12px;
+}
+@media (max-width: 720px) {
+    .launch-steps { margin-top: 16px; padding-top: 14px; gap: 8px; }
+    .launch-cmd-row { flex-wrap: wrap; }
+}

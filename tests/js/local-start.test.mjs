@@ -73,6 +73,39 @@ for (const options of [
 assert.match(page, /<meta name="referrer" content="no-referrer">/);
 assert.doesNotMatch(page, /<input|<form|(?:src|href)="https?:\/\//);
 assert.match(page, /yanji open/);
+assert.match(page, /id="localStartCopy"/);
+assert.match(page, /class="launch-steps"/);
+
+{
+  let copied = '';
+  const listeners = new Map();
+  const classes = new Set();
+  const copyStatus = {textContent: ''};
+  const nodes = {
+    localStartMessage: {textContent: ''},
+    localStartHelp: {hidden: true},
+    localStartCard: {classList: {add: name => classes.add(name)}},
+    localStartCopy: {addEventListener: (name, fn) => listeners.set(name, fn)},
+    localStartCopyStatus: copyStatus,
+  };
+  let fetchCount = 0;
+  vm.runInNewContext(source, {
+    document: {getElementById: id => nodes[id]},
+    location: {hash: '#ticket=short', pathname: '/local-start', replace() {}},
+    history: {replaceState() {}},
+    sessionStorage: {setItem() {}, removeItem() {}},
+    navigator: {clipboard: {writeText: async text => { copied = text; }}},
+    AbortSignal,
+    fetch: async () => { fetchCount++; return {ok: false, json: async () => ({})}; },
+  });
+  await flush();
+  assert.equal(classes.has('is-error'), true, 'Failed launch must mark status card as error.');
+  assert.equal(nodes.localStartHelp.hidden, false);
+  await listeners.get('click')?.();
+  assert.equal(copied, 'yanji open', 'Recovery copy button must copy the local launch command.');
+  assert.match(copyStatus.textContent, /yanji open/);
+  assert.equal(fetchCount, 0, 'Copy button must never trigger authentication requests.');
+}
 
 const entry = readFileSync(new URL('../../public/geo-entry.js', import.meta.url), 'utf8');
 const start = entry.indexOf('  async function loadPersonalAccount() {');
