@@ -10,7 +10,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-BASE_URL = 'https://example.com/releases/v0.1.2'
+BASE_URL = 'https://example.com/releases/v0.1.1'
 BAD_PACKAGE = b'corrupted-package-fixture\n'
 EXPECTED_PACKAGE = b'authenticated-package-fixture\n'
 
@@ -34,9 +34,9 @@ done
 [ "$fail:$location:$proto:$redirect:$timeout" = '1:1:=https:=https:30' ]
 [ -n "$output" ]
 case "$url" in
-    https://example.com/releases/v0.1.2/install-local.sh) name=install-local.sh;;
-    https://example.com/releases/v0.1.2/SHA256SUMS) name=SHA256SUMS;;
-    "https://example.com/releases/v0.1.2/$YANJI_DOWNLOAD_NAME") name=$YANJI_DOWNLOAD_NAME;;
+    https://example.com/releases/v0.1.1/install-local.sh) name=install-local.sh;;
+    https://example.com/releases/v0.1.1/SHA256SUMS) name=SHA256SUMS;;
+    "https://example.com/releases/v0.1.1/$YANJI_DOWNLOAD_NAME") name=$YANJI_DOWNLOAD_NAME;;
     *) exit 92;;
 esac
 cp "$YANJI_DOWNLOAD_FIXTURE/$name" "$output"

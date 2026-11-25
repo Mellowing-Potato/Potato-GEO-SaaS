@@ -16,7 +16,7 @@ SOURCE = Path(__file__).resolve().parents[1] / 'test-published-macos-onboarding.
 SPEC = importlib.util.spec_from_file_location('published_macos_onboarding', SOURCE)
 onboarding = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(onboarding)
-VERSION = 'v0.1.2'
+VERSION = 'v0.1.1'
 
 
 class PublishedMacosOnboardingTest(unittest.TestCase):
@@ -75,7 +75,7 @@ class PublishedMacosOnboardingTest(unittest.TestCase):
     def test_wrong_platform_self_hosted_repository_or_tag_ref_is_rejected(self):
         for key, value in [('RUNNER_OS', 'Linux'), ('RUNNER_ENVIRONMENT', 'self-hosted'),
                            ('GITHUB_REPOSITORY', 'example/project'), ('GITHUB_REF_TYPE', 'branch'),
-                           ('GITHUB_REF_NAME', 'v0.1.1'), ('GITHUB_REF', 'refs/heads/main')]:
+                           ('GITHUB_REF_NAME', 'v0.0.0'), ('GITHUB_REF', 'refs/heads/main')]:
             with self.subTest(key=key), patch.dict(os.environ, {key: value}):
                 with self.assertRaisesRegex(onboarding.AcceptanceError, 'fresh_github_hosted_macos_required'):
                     onboarding.preflight(VERSION)
@@ -115,8 +115,8 @@ class PublishedMacosOnboardingTest(unittest.TestCase):
         with self.assertRaisesRegex(onboarding.AcceptanceError, 'default_port_already_in_use'):
             onboarding.preflight(VERSION)
         self.assertEqual(onboarding.release_url(VERSION),
-                         'https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.2/get-yanji.sh')
-        for version in ('../v0.1.2', 'v0.1.2;echo test', 'https://example.com/test', 'v0.1.2\n'):
+                         'https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.1/get-yanji.sh')
+        for version in ('../v0.1.1', 'v0.1.1;echo test', 'https://example.com/test', 'v0.1.1\n'):
             with self.subTest(version=version), self.assertRaises(onboarding.AcceptanceError):
                 onboarding.release_url(version)
 
@@ -153,7 +153,7 @@ class PublishedMacosOnboardingTest(unittest.TestCase):
         instance, release = self.fixture_installation()
         self.assertEqual(onboarding.check_installed_release(self.base, VERSION), instance)
         for path, bad, original, code in [
-            (release / 'app' / 'VERSION', '0.1.1\n', VERSION[1:] + '\n', 'installed_version_differs_from_release_tag'),
+            (release / 'app' / 'VERSION', '0.0.0\n', VERSION[1:] + '\n', 'installed_version_differs_from_release_tag'),
             (release / 'release.json', '{"platform":"linux-x86_64"}', '{"platform":"macos-arm64"}', 'installed_platform_is_not_macos_arm64'),
             (instance / 'instance.json', '{"port":8001}', '{"port":8000}', 'installed_instance_did_not_use_default_port'),
         ]:
