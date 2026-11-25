@@ -218,21 +218,26 @@ final class DesktopEntryTest extends TestCase
         self::assertLessThan(strpos($contents, $message), $offset, 'Switch the code page before parsing the Chinese block.');
     }
 
-    public function test_windows_failure_fixture_executes_only_its_managed_launcher_and_waits_for_acknowledgement(): void
+    public function test_native_fixture_executes_only_its_managed_launcher_and_preserves_failure_status(): void
     {
-        if (PHP_OS_FAMILY !== 'Windows') {
-            self::markTestSkipped('Actual cmd.exe/PowerShell execution requires the Windows native runner.');
-        }
-        $instance = $this->instance("中文 it's %value% !name! & [workspace]");
-        Instance::atomicFile($instance->root.'/yanji.cmd', "@echo off\r\nsetlocal DisableDelayedExpansion\r\n>\"%~dp0invocations\" echo %1\r\nexit /b 7\r\n");
-        $result = $this->install($instance, 'Windows', false);
-        $environment = ['YANJI_ENTRY_TEST_FILE' => str_replace('/', '\\', $result['file'])];
-        $process = new Process(['cmd.exe', '/d', '/v:off', '/s', '/c', '"%YANJI_ENTRY_TEST_FILE%"'], null, $environment, "\r\n", 30);
+        $root = dirname(__DIR__, 2);
+        $process = new Process([PHP_BINARY, $root.'/tests/fixtures/native-desktop-entry.php', $root.'/portable'],
+            null, null, '', 90);
         $process->run();
-        self::assertSame(1, $process->getExitCode());
-        self::assertSame('open', trim(file_get_contents($instance->root.'/invocations')));
-        self::assertStringContainsString('Please run yanji doctor.', $process->getOutput().$process->getErrorOutput());
-        self::assertStringContainsString('言及暂时无法打开', $process->getOutput().$process->getErrorOutput());
+        self::assertSame(0, $process->getExitCode(), 'The isolated native entry fixture must complete both success and deliberate failure. '
+            .$process->getErrorOutput());
+        self::assertSame('', $process->getErrorOutput());
+        $record = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('native-desktop-entry', $record['fixture']);
+        self::assertSame(PHP_OS_FAMILY, $record['platform']);
+        self::assertTrue($record['packaged_entry_class']);
+        self::assertTrue($record['temporary_known_folders_only']);
+        self::assertTrue($record['native_shortcuts_registered']);
+        self::assertTrue($record['canonical_only_invoked_open']);
+        self::assertSame(PHP_OS_FAMILY === 'Windows' ? 1 : 7, $record['canonical_failure_exit_code']);
+        self::assertSame(PHP_OS_FAMILY === 'Windows' ? true : null, $record['windows_error_visible']);
+        self::assertFalse($record['browser_or_services_invoked']);
+        self::assertFalse($record['real_user_desktop_touched']);
     }
 
     public function test_describe_is_read_only_and_rejects_unverified_metadata_and_warning_messages(): void
