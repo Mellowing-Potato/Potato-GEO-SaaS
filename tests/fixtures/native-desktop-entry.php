@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-/** Execute a packaged DesktopEntry against private fake launchers, never a browser or a real desktop. */
+/** Exercise a supplied DesktopEntry against private fake launchers, never a browser or a real desktop. */
 use Yanji\Portable\DesktopEntry;
 use Yanji\Portable\Instance;
 use Yanji\Portable\Platform;
@@ -11,6 +11,7 @@ umask(0077);
 $stage = 'arguments';
 $temporary = null;
 $exitCode = 0;
+$diagnostic = [];
 
 function entryRequire(bool $condition, string $code): void
 {
@@ -60,6 +61,78 @@ function entryExecute(array|string $command, string $directory, array $environme
         'stdout' => (string) file_get_contents($stdout), 'stderr' => (string) file_get_contents($stderr)];
 }
 
+/** A failed primary registration stays failed; this separate probe reports only bounded native diagnostics. */
+function entryWindowsProbe(Instance $instance, ?string $file, string $directory): array
+{
+    if ($file === null || !is_file($file)) {
+        return ['code' => 'canonical_unavailable'];
+    }
+    $script = <<<'PS'
+$ErrorActionPreference = 'Stop'
+$phase = 'com_shell'
+try {
+    $shell = New-Object -ComObject WScript.Shell
+    $phase = 'shortcut_create'
+    $link = $shell.CreateShortcut($env:YANJI_ENTRY_SHORTCUT)
+    $phase = 'shortcut_properties'
+    $link.TargetPath = $env:YANJI_ENTRY_FILE
+    $link.Arguments = ''
+    $link.Description = $env:YANJI_ENTRY_MARKER
+    $link.WorkingDirectory = $env:YANJI_ENTRY_DIRECTORY
+    $phase = 'shortcut_save'
+    $link.Save()
+    [Console]::Write((@{code='saved';phase='complete';target_matches=($link.TargetPath -ceq $env:YANJI_ENTRY_FILE);arguments_empty=($link.Arguments -eq '');working_directory_matches=($link.WorkingDirectory -ceq $env:YANJI_ENTRY_DIRECTORY);marker_matches=($link.Description -ceq $env:YANJI_ENTRY_MARKER)} | ConvertTo-Json -Compress))
+    exit 0
+} catch {
+    [Console]::Write((@{code='exception';phase=$phase;hresult=[int]$_.Exception.HResult} | ConvertTo-Json -Compress))
+    exit 1
+}
+PS;
+    $started = microtime(true);
+    try {
+        $keep = array_flip(['SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'LOCALAPPDATA', 'APPDATA', 'USERPROFILE', 'PATH']);
+        $environment = [];
+        foreach (getenv() as $key => $value) {
+            if (isset($keep[strtoupper($key)])) {
+                $environment[$key] = $value;
+            }
+        }
+        $path = $directory.'/言及诊断快捷方式.lnk';
+        $environment = [...Platform::windowsPowerShellEnv($environment),
+            'YANJI_ENTRY_FILE' => Platform::nativePath($file),
+            'YANJI_ENTRY_SHORTCUT' => Platform::nativePath($path),
+            'YANJI_ENTRY_DIRECTORY' => Platform::nativePath($instance->root),
+            'YANJI_ENTRY_MARKER' => 'yanji-native-entry-probe'];
+        $record = entryExecute([Platform::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-EncodedCommand',
+            Platform::encodePowerShellCommand($script)], $directory, $environment);
+        $detail = json_decode($record['stdout'], true);
+        $safe = [];
+        if (is_array($detail)) {
+            if (in_array($detail['code'] ?? null, ['saved', 'exception'], true)) {
+                $safe['code'] = $detail['code'];
+            }
+            if (in_array($detail['phase'] ?? null, ['com_shell', 'shortcut_create', 'shortcut_properties', 'shortcut_save', 'complete'], true)) {
+                $safe['phase'] = $detail['phase'];
+            }
+            if (is_int($detail['hresult'] ?? null)) {
+                $safe['hresult'] = $detail['hresult'];
+            }
+            foreach (['target_matches', 'arguments_empty', 'working_directory_matches', 'marker_matches'] as $key) {
+                if (is_bool($detail[$key] ?? null)) {
+                    $safe[$key] = $detail[$key];
+                }
+            }
+        }
+        $exists = is_file($path) && !is_link($path);
+        return ['exit_code' => $record['code'], 'stdout_bytes' => strlen($record['stdout']),
+            'stderr_bytes' => strlen($record['stderr']), 'elapsed_ms' => (int) round((microtime(true) - $started) * 1000),
+            'temporary_lnk_exists' => $exists, 'publish_hardlink_ok' => $exists && @link($path, $path.'.published.lnk'),
+            'detail' => $safe];
+    } catch (Throwable) {
+        return ['code' => 'probe_unavailable', 'elapsed_ms' => (int) round((microtime(true) - $started) * 1000)];
+    }
+}
+
 try {
     entryRequire(count($argv) === 2, 'portable_directory_required');
     $portable = realpath($argv[1]);
@@ -81,10 +154,28 @@ try {
     Instance::atomicFile($launcher, $fake, 0700);
     $stage = 'temporary_shortcuts';
     $knownFolders = static fn (string $kind): string => $temporary.'/known-folders/'.$kind;
+    $entryStarted = microtime(true);
     $entry = DesktopEntry::install($instance, true, $knownFolders);
+    $warningCodes = ['entry_unavailable', 'entry_conflict', 'launcher_unavailable', 'desktop_unavailable',
+        'start_menu_unavailable', 'applications_unavailable', 'shortcut_conflict', 'shortcut_failed',
+        'entry_state_conflict', 'entry_state_unavailable'];
+    $diagnostic = [
+        'elapsed_ms' => (int) round((microtime(true) - $entryStarted) * 1000),
+        'warnings' => array_values(array_filter($entry['warnings'], static fn ($value): bool => in_array($value, $warningCodes, true))),
+        'shortcut_count' => count($entry['shortcuts']),
+        'shortcut_kinds' => array_values(array_filter(array_column($entry['shortcuts'], 'kind'),
+            static fn ($value): bool => in_array($value, ['desktop', 'start_menu', 'applications'], true))),
+        'flags' => ['canonical_created' => is_string($entry['file']) && is_file($entry['file']),
+            'desktop_directory_created' => is_dir($knownFolders('desktop')),
+            'start_menu_directory_created' => is_dir($knownFolders('start_menu')),
+            'applications_directory_created' => is_dir($knownFolders('applications'))],
+    ];
     $expectedKinds = match (PHP_OS_FAMILY) {
         'Windows' => ['desktop', 'start_menu'], 'Darwin' => ['desktop'], default => ['applications'],
     };
+    if ($windows && $entry['warnings'] !== []) {
+        $diagnostic['independent_windows_probe'] = entryWindowsProbe($instance, $entry['file'], $temporary);
+    }
     entryRequire($entry['warnings'] === [], 'native_shortcut_registration_failed');
     entryRequire(is_string($entry['file']) && is_file($entry['file']), 'canonical_entry_missing');
     entryRequire(dirname($entry['file']) === $instance->root, 'canonical_entry_wrong_instance');
@@ -134,13 +225,14 @@ try {
     entryRequire(file_get_contents($launcher) === $fake && file_get_contents($entry['file']) === $contents,
         'canonical_execution_changed_launchers');
     echo json_encode(['fixture' => 'native-desktop-entry', 'platform' => PHP_OS_FAMILY,
-        'packaged_entry_class' => true, 'temporary_known_folders_only' => true,
+        'supplied_entry_class_verified' => true, 'temporary_known_folders_only' => true,
         'native_shortcuts_registered' => true, 'canonical_only_invoked_open' => true,
         'canonical_failure_exit_code' => $failure['code'], 'windows_error_visible' => $windows ? true : null,
         'browser_or_services_invoked' => false, 'real_user_desktop_touched' => false], JSON_THROW_ON_ERROR)."\n";
 } catch (Throwable $error) {
     $code = preg_match('/\A[a-z0-9_]+\z/', $error->getMessage()) ? $error->getMessage() : 'unexpected_fixture_failure';
-    fwrite(STDERR, json_encode(['fixture' => 'native-desktop-entry', 'stage' => $stage, 'code' => $code], JSON_THROW_ON_ERROR)."\n");
+    fwrite(STDERR, json_encode(['fixture' => 'native-desktop-entry', 'stage' => $stage, 'code' => $code,
+        'diagnostic' => $diagnostic], JSON_THROW_ON_ERROR)."\n");
     $exitCode = 1;
 } finally {
     if ($temporary !== null) {

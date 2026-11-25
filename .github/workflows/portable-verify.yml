@@ -84,6 +84,21 @@ jobs:
             D:\yanji-build\py-out
           key: yanji-win-rt-v1-${{ hashFiles('licenses/portable-web.json', 'scripts/runtime/build-web-windows.ps1', 'scripts/runtime/collect-web-go-notices.py', 'licenses/portable-python.json', 'scripts/runtime/build-portable-python.py') }}
 
+      - name: Early native Windows source desktop entry smoke in private fake known folders
+        timeout-minutes: 3
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          New-Item -ItemType Directory -Force -Path D:\yanji-build\native-entry-check | Out-Null
+          $out = Get-Content D:\yanji-build\web-out\windows-web-outputs.json -Raw | ConvertFrom-Json
+          & tar -xzf ("D:\yanji-build\web-out\" + $out.cli_runtime.name) -C D:\yanji-build\native-entry-check
+          if ($LASTEXITCODE -ne 0) { throw 'Native entry smoke runtime extraction failed' }
+          & D:\yanji-build\native-entry-check\bin\php.exe -n `
+            -d "extension_dir=D:\yanji-build\native-entry-check\bin\ext" -d extension=mbstring `
+            .\tests\fixtures\native-desktop-entry.php .\portable
+          if ($LASTEXITCODE -ne 0) { throw 'Native Windows source desktop entry smoke failed' }
+
       - name: Build production frontend, npm notices, skills and Composer vendor
         shell: pwsh
         run: |

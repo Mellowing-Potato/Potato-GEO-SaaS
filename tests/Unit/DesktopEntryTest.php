@@ -230,7 +230,7 @@ final class DesktopEntryTest extends TestCase
         $record = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
         self::assertSame('native-desktop-entry', $record['fixture']);
         self::assertSame(PHP_OS_FAMILY, $record['platform']);
-        self::assertTrue($record['packaged_entry_class']);
+        self::assertTrue($record['supplied_entry_class_verified']);
         self::assertTrue($record['temporary_known_folders_only']);
         self::assertTrue($record['native_shortcuts_registered']);
         self::assertTrue($record['canonical_only_invoked_open']);
