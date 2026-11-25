@@ -1,0 +1,340 @@
+<?php
+
+namespace Tests\Unit;
+
+use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\Process;
+use Yanji\Portable\DesktopEntry;
+use Yanji\Portable\Instance;
+
+require_once __DIR__.'/../../portable/src/DesktopEntry.php';
+
+final class DesktopEntryTest extends TestCase
+{
+    private string $directory;
+    private array $powerShellCalls = [];
+
+    protected function setUp(): void
+    {
+        $directory = sys_get_temp_dir().'/yanji-entry-test-'.bin2hex(random_bytes(10));
+        mkdir($directory, 0700);
+        $this->directory = realpath($directory);
+    }
+
+    protected function tearDown(): void
+    {
+        (new Filesystem)->deleteDirectory($this->directory);
+    }
+
+    private function instance(string $suffix = 'instance', int $port = 8123): Instance
+    {
+        $instance = new Instance($this->directory.'/'.$suffix);
+        $instance->prepare();
+        Instance::atomicFile($instance->root.'/instance.json', json_encode(['port' => $port]));
+        Instance::atomicFile($instance->root.'/yanji', "#!/bin/sh\nexit 0\n", 0700);
+        Instance::atomicFile($instance->root.'/yanji.cmd', "@echo off\r\nexit /b 0\r\n", 0700);
+        return $instance;
+    }
+
+    private function folder(string $kind): string
+    {
+        return $this->directory.'/known folders/'.$kind;
+    }
+
+    private function fakePowerShell(string $script, array $variables): array
+    {
+        $this->powerShellCalls[] = [$script, $variables];
+        if (str_contains($script, 'GetFolderPath')) {
+            return ['code' => 0, 'stdout' => $this->folder(str_contains($script, 'DesktopDirectory') ? 'desktop' : 'start_menu')];
+        }
+        self::assertStringNotContainsString($this->directory, $script, 'Paths must be passed as data, never interpolated PowerShell code.');
+        self::assertStringContainsString('CreateShortcut($env:YANJI_ENTRY_SHORTCUT)', $script);
+        self::assertStringNotContainsString('Start-Process', $script);
+        $path = PHP_OS_FAMILY === 'Windows' ? $variables['YANJI_ENTRY_SHORTCUT'] : str_replace('\\', '/', $variables['YANJI_ENTRY_SHORTCUT']);
+        $record = ['target' => $variables['YANJI_ENTRY_FILE'], 'directory' => $variables['YANJI_ENTRY_DIRECTORY'],
+            'marker' => $variables['YANJI_ENTRY_MARKER']];
+        if ($variables['YANJI_ENTRY_INSPECT'] === '1') {
+            return ['code' => @json_decode((string) @file_get_contents($path), true) === $record ? 0 : 3, 'stdout' => ''];
+        }
+        self::assertFileDoesNotExist($path);
+        file_put_contents($path, json_encode($record, JSON_THROW_ON_ERROR));
+        return ['code' => 0, 'stdout' => ''];
+    }
+
+    private function install(Instance $instance, string $platform, bool $shortcuts = true): array
+    {
+        return DesktopEntry::install($instance, $shortcuts, $this->folder(...), $this->fakePowerShell(...), $platform);
+    }
+
+    public static function platforms(): array
+    {
+        return ['Mac' => ['Darwin', '.command', ['desktop']],
+            'Windows' => ['Windows', '.cmd', ['desktop', 'start_menu']],
+            'Linux' => ['Linux', '.desktop', ['applications']]];
+    }
+
+    #[DataProvider('platforms')]
+    public function test_each_platform_has_a_stable_per_instance_entry_and_real_registered_files(
+        string $platform, string $extension, array $kinds
+    ): void {
+        $instance = $this->instance("中文 it's %value% !name! \$cash & [workspace]");
+        ob_start();
+        try {
+            $result = $this->install($instance, $platform);
+        } finally {
+            self::assertSame('', ob_get_clean());
+        }
+        self::assertSame(['name', 'file', 'shortcuts', 'warnings'], array_keys($result));
+        self::assertSame([], $result['warnings']);
+        self::assertSame('言及工作台-8123-'.substr(hash('sha256', $instance->root), 0, 8), $result['name']);
+        self::assertSame($instance->root.'/'.$result['name'].$extension, $result['file']);
+        self::assertFileExists($result['file']);
+        self::assertSame($kinds, array_column($result['shortcuts'], 'kind'));
+        foreach ($result['shortcuts'] as $shortcut) {
+            self::assertFileExists($shortcut['path']);
+            self::assertStringStartsWith($this->directory.'/', $shortcut['path']);
+        }
+        $contents = file_get_contents($result['file']);
+        self::assertStringContainsString('open', $contents);
+        foreach (['http://', 'https://', 'ticket=', 'APP_KEY', 'password', 'current/', 'current-release', '%*', '$@'] as $forbidden) {
+            self::assertStringNotContainsString($forbidden, $contents);
+        }
+        self::assertSame($result, DesktopEntry::describe($instance, $platform));
+        self::assertSame($result, $this->install($instance, $platform), 'Repeated registration must retain the same files without conflict.');
+        self::assertSame([], glob($this->directory.'/known folders/*/.yanji-entry-*'));
+    }
+
+    #[DataProvider('platforms')]
+    public function test_release_changes_keep_the_entry_and_other_instances_have_separate_names(
+        string $platform, string $extension, array $kinds
+    ): void {
+        $first = $this->instance('first');
+        $second = $this->instance('second');
+        $original = $this->install($first, $platform);
+        $contents = file_get_contents($original['file']);
+        Instance::atomicFile($first->root.'/current-release.txt', 'new release fixture');
+        self::assertSame($original, $this->install($first, $platform));
+        $other = $this->install($second, $platform);
+        self::assertNotSame($original['name'], $other['name']);
+        self::assertNotSame($original['file'], $other['file']);
+        self::assertSame($contents, file_get_contents($original['file']));
+        self::assertCount(count($kinds), $other['shortcuts']);
+    }
+
+    #[DataProvider('platforms')]
+    public function test_existing_foreign_canonical_and_shortcut_files_are_never_overwritten(
+        string $platform, string $extension, array $kinds
+    ): void {
+        $instance = $this->instance();
+        $canonical = $this->install($instance, $platform, false);
+        $directory = $this->folder($kinds[0]);
+        mkdir($directory, 0700, true);
+        $shortcut = $directory.'/'.$canonical['name'].($platform === 'Windows' ? '.lnk' : $extension);
+        Instance::atomicFile($shortcut, 'foreign shortcut fixture');
+        $result = $this->install($instance, $platform);
+        self::assertContains('shortcut_conflict', $result['warnings']);
+        self::assertSame('foreign shortcut fixture', file_get_contents($shortcut));
+        self::assertSame($canonical['file'], $result['file']);
+        self::assertNotContains($shortcut, array_column($result['shortcuts'], 'path'));
+
+        Instance::atomicFile($canonical['file'], 'foreign canonical fixture');
+        $result = $this->install($instance, $platform);
+        self::assertNull($result['file']);
+        self::assertSame(['entry_conflict'], $result['warnings']);
+        self::assertSame('foreign canonical fixture', file_get_contents($canonical['file']));
+        self::assertNull(DesktopEntry::describe($instance, $platform)['file']);
+    }
+
+    public function test_registration_failure_preserves_the_canonical_entry_and_only_reports_controlled_codes(): void
+    {
+        $instance = $this->instance();
+        $result = DesktopEntry::install($instance, true, static function (): never {
+            throw new \RuntimeException('sk-test-do-not-echo-an-exception');
+        }, platform: 'Darwin');
+        self::assertFileExists($result['file']);
+        self::assertSame([], $result['shortcuts']);
+        self::assertSame(['shortcut_failed'], $result['warnings']);
+        self::assertSame($result, DesktopEntry::describe($instance, 'Darwin'));
+        self::assertStringNotContainsString('sk-test-', json_encode($result));
+    }
+
+    public function test_windows_shortcut_failure_does_not_claim_registration_or_run_the_browser(): void
+    {
+        $instance = $this->instance();
+        $result = DesktopEntry::install($instance, true, $this->folder(...),
+            static fn (): array => ['code' => 70, 'stdout' => 'sk-test-ignore-process-output'], 'Windows');
+        self::assertFileExists($result['file']);
+        self::assertSame([], $result['shortcuts']);
+        self::assertSame(['shortcut_failed'], $result['warnings']);
+        self::assertStringNotContainsString('sk-test-', json_encode($result));
+        self::assertStringNotContainsString('call ', strtolower(file_get_contents($result['file'])));
+    }
+
+    public function test_windows_uses_actual_known_folders_instead_of_guessing_profile_subdirectories(): void
+    {
+        $instance = $this->instance();
+        $result = DesktopEntry::install($instance, powerShell: $this->fakePowerShell(...), platform: 'Windows');
+        self::assertSame([], $result['warnings']);
+        self::assertCount(2, $result['shortcuts']);
+        self::assertSame($this->folder('desktop'), dirname($result['shortcuts'][0]['path']));
+        self::assertSame($this->folder('start_menu'), dirname($result['shortcuts'][1]['path']));
+        self::assertCount(4, $this->powerShellCalls);
+    }
+
+    public function test_windows_parent_preserves_failure_visibility_without_call_or_interpolated_paths(): void
+    {
+        $instance = $this->instance("中文 it's %value% !name! \$cash & [workspace]");
+        $result = $this->install($instance, 'Windows', false);
+        $contents = file_get_contents($result['file']);
+        self::assertStringContainsString('set "YANJI_ENTRY_ROOT=%~dp0"', $contents);
+        self::assertStringContainsString('DisableDelayedExpansion', $contents);
+        self::assertStringContainsString('if errorlevel 1 (', $contents);
+        self::assertStringContainsString("  pause\r\n", $contents);
+        self::assertStringContainsString('Please run yanji doctor.', $contents);
+        self::assertStringNotContainsString('call ', strtolower($contents));
+        self::assertSame(1, preg_match('/-EncodedCommand ([A-Za-z0-9+\/=]+)/', $contents, $match));
+        $script = mb_convert_encoding(base64_decode($match[1], true), 'UTF-8', 'UTF-16LE');
+        self::assertStringContainsString('%YANJI_ENTRY_ROOT%yanji.cmd', $script);
+        self::assertStringContainsString('/d /v:off /s /c', $script);
+        self::assertStringContainsString('-NoNewWindow -PassThru -Wait', $script);
+        self::assertStringNotContainsString($instance->root, $script);
+        self::assertDoesNotMatchRegularExpression('/[\x80-\xff]/', $script, 'The encoded PowerShell command must remain ASCII.');
+    }
+
+    public function test_windows_chinese_failure_message_is_utf8_after_an_ascii_codepage_switch(): void
+    {
+        $result = $this->install($this->instance(), 'Windows', false);
+        $contents = file_get_contents($result['file']);
+        self::assertStringStartsWith("@echo off\r\n", $contents, 'The batch file must not start with a UTF-8 BOM.');
+        self::assertTrue(mb_check_encoding($contents, 'UTF-8'));
+        $switch = "chcp 65001 >nul\r\n";
+        $offset = strpos($contents, $switch);
+        self::assertNotFalse($offset);
+        self::assertDoesNotMatchRegularExpression('/[\x80-\xff]/', substr($contents, 0, $offset + strlen($switch)));
+        $message = '言及暂时无法打开，请保留此窗口中的错误信息并反馈。按任意键关闭窗口。';
+        self::assertStringContainsString($message, $contents);
+        self::assertLessThan(strpos($contents, $message), $offset, 'Switch the code page before parsing the Chinese block.');
+    }
+
+    public function test_windows_failure_fixture_executes_only_its_managed_launcher_and_waits_for_acknowledgement(): void
+    {
+        if (PHP_OS_FAMILY !== 'Windows') {
+            self::markTestSkipped('Actual cmd.exe/PowerShell execution requires the Windows native runner.');
+        }
+        $instance = $this->instance("中文 it's %value% !name! & [workspace]");
+        Instance::atomicFile($instance->root.'/yanji.cmd', "@echo off\r\nsetlocal DisableDelayedExpansion\r\n>\"%~dp0invocations\" echo %1\r\nexit /b 7\r\n");
+        $result = $this->install($instance, 'Windows', false);
+        $environment = ['YANJI_ENTRY_TEST_FILE' => str_replace('/', '\\', $result['file'])];
+        $process = new Process(['cmd.exe', '/d', '/v:off', '/s', '/c', '"%YANJI_ENTRY_TEST_FILE%"'], null, $environment, "\r\n", 30);
+        $process->run();
+        self::assertSame(1, $process->getExitCode());
+        self::assertSame('open', trim(file_get_contents($instance->root.'/invocations')));
+        self::assertStringContainsString('Please run yanji doctor.', $process->getOutput().$process->getErrorOutput());
+        self::assertStringContainsString('言及暂时无法打开', $process->getOutput().$process->getErrorOutput());
+    }
+
+    public function test_describe_is_read_only_and_rejects_unverified_metadata_and_warning_messages(): void
+    {
+        $instance = $this->instance();
+        self::assertNull(DesktopEntry::describe($instance, 'Darwin')['file']);
+        self::assertFileDoesNotExist($instance->root.'/desktop-entry.json');
+        self::assertDirectoryDoesNotExist($this->directory.'/known folders');
+        $result = $this->install($instance, 'Darwin');
+        $statePath = $instance->root.'/desktop-entry.json';
+        $state = json_decode(file_get_contents($statePath), true);
+        $state['file'] = 'https://example.com/#ticket=sk-test-untrusted';
+        $state['warnings'] = ['shortcut_failed', 'sk-test-never-show-this', ['path' => 'sk-test-hidden']];
+        $state['shortcuts'][0]['path'] = $instance->root.'/.env';
+        Instance::atomicFile($statePath, json_encode($state));
+        $before = file_get_contents($statePath);
+        $description = DesktopEntry::describe($instance, 'Darwin');
+        self::assertSame($result['file'], $description['file']);
+        self::assertSame([], $description['shortcuts']);
+        self::assertSame(['shortcut_failed', 'shortcut_conflict'], $description['warnings']);
+        self::assertSame($before, file_get_contents($statePath));
+        self::assertStringNotContainsString('sk-test-', json_encode($description));
+    }
+
+    public function test_foreign_registration_metadata_is_not_replaced(): void
+    {
+        $instance = $this->instance();
+        Instance::atomicFile($instance->root.'/desktop-entry.json', 'foreign state fixture');
+        $result = $this->install($instance, 'Darwin');
+        self::assertFileExists($result['file']);
+        self::assertContains('entry_state_conflict', $result['warnings']);
+        self::assertSame('foreign state fixture', file_get_contents($instance->root.'/desktop-entry.json'));
+    }
+
+    public function test_deleted_or_non_executable_managed_launcher_is_reported_as_unavailable(): void
+    {
+        $instance = $this->instance();
+        $result = $this->install($instance, 'Darwin', false);
+        unlink($instance->root.'/yanji');
+        self::assertFileExists($result['file']);
+        self::assertSame(['launcher_unavailable'], DesktopEntry::describe($instance, 'Darwin')['warnings']);
+        self::assertNull(DesktopEntry::describe($instance, 'Darwin')['file']);
+        self::assertNull($this->install($instance, 'Darwin')['file']);
+        self::assertFileDoesNotExist($instance->root.'/yanji');
+        if (PHP_OS_FAMILY !== 'Windows') {
+            Instance::atomicFile($instance->root.'/yanji', "#!/bin/sh\n", 0600);
+            self::assertNull(DesktopEntry::describe($instance, 'Darwin')['file']);
+        }
+    }
+
+    public function test_symbolic_links_are_never_followed_or_replaced(): void
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            self::markTestSkipped('This file-link fixture requires Unix symlink permissions.');
+        }
+        $instance = $this->instance();
+        $result = $this->install($instance, 'Darwin', false);
+        $foreign = $this->directory.'/foreign';
+        Instance::atomicFile($foreign, 'foreign fixture');
+        unlink($result['file']);
+        symlink($foreign, $result['file']);
+        self::assertNull($this->install($instance, 'Darwin')['file']);
+        self::assertTrue(is_link($result['file']));
+        self::assertSame('foreign fixture', file_get_contents($foreign));
+        unlink($result['file']);
+        $result = $this->install($instance, 'Darwin', false);
+        mkdir($this->folder('desktop'), 0700, true);
+        $shortcut = $this->folder('desktop').'/'.$result['name'].'.command';
+        symlink($foreign, $shortcut);
+        self::assertContains('shortcut_conflict', $this->install($instance, 'Darwin')['warnings']);
+        self::assertTrue(is_link($shortcut));
+        self::assertSame('foreign fixture', file_get_contents($foreign));
+        unlink($instance->root.'/yanji');
+        symlink($foreign, $instance->root.'/yanji');
+        self::assertNull(DesktopEntry::describe($instance, 'Darwin')['file']);
+        self::assertSame(['launcher_unavailable'], $this->install($instance, 'Darwin')['warnings']);
+    }
+
+    public function test_mac_command_runs_only_the_bound_fake_launcher_with_the_fixed_open_argument(): void
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            self::markTestSkipped('The Mac command fixture executes /bin/sh.');
+        }
+        $instance = $this->instance('中文 it\'s "quoted" `backtick` $value; & [work]');
+        Instance::atomicFile($instance->root.'/yanji', "#!/bin/sh\nprintf '%s\\n' \"\$@\" > \"\$(dirname \"\$0\")/invocations\"\n", 0700);
+        $result = $this->install($instance, 'Darwin', false);
+        $process = new Process(['/bin/sh', $result['file'], 'https://example.com/ignored'], null, ['LC_ALL' => 'C']);
+        $process->mustRun();
+        self::assertSame("open\n", file_get_contents($instance->root.'/invocations'));
+        self::assertSame('', $process->getOutput().$process->getErrorOutput());
+    }
+
+    public function test_linux_exec_escapes_both_desktop_strings_and_arguments_and_percent_field_codes(): void
+    {
+        $instance = $this->instance("中文 it's %field% \$cash & [work]");
+        $result = $this->install($instance, 'Linux', false);
+        $contents = file_get_contents($result['file']);
+        self::assertSame(1, preg_match('/^Exec=\/bin\/sh "(.*)" open$/m', $contents, $match));
+        self::assertStringContainsString('%%field%%', $match[1]);
+        self::assertStringContainsString('\\\\$', $match[1]);
+        $value = str_replace('\\\\', '\\', $match[1]);
+        $argument = preg_replace_callback('/\\\\([\\\\"`$])/', static fn (array $part): string => $part[1], $value);
+        self::assertSame($instance->root.'/yanji', str_replace('%%', '%', $argument));
+    }
+}
