@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import runpy
 import shutil
 import socket
 import subprocess
@@ -377,6 +378,8 @@ def main():
         work = Path(directory)
         try:
             result = scenario(args, work)
+            desktop = runpy.run_path(str(ROOT / 'scripts/test-portable-desktop.py'))
+            result.update(desktop['scenario'](args, work / 'desktop-default-acceptance', program=work / 'program'))
         finally:
             if not IS_WIN:
                 subprocess.run(['chmod', '-R', 'u+w', str(work)], check=False)
