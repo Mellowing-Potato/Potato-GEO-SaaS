@@ -61,6 +61,11 @@ final class DesktopEntryTest extends TestCase
         $readArguments = static fn (string $value): string => str_contains($script, "ExtendedProperty('System.Link.Arguments')")
             ? $value : substr($value, 0, 1023);
         if ($variables['YANJI_ENTRY_INSPECT'] === '1') {
+            $inspect = explode('} else {', explode("if (\$env:YANJI_ENTRY_INSPECT -eq '1') {", $script, 2)[1], 2)[0];
+            if (preg_match('/[^\x00-\x7f]/u', $path)
+                && !str_contains($inspect, '$link = (Open-SavedLinkItem).GetLink')) {
+                return ['code' => 3, 'stdout' => ''];
+            }
             $stored = @json_decode((string) @file_get_contents($path), true);
             if (is_array($stored) && is_string($stored['arguments'] ?? null)) {
                 $stored['arguments'] = $readArguments($stored['arguments']);
@@ -213,6 +218,10 @@ final class DesktopEntryTest extends TestCase
             self::assertStringContainsString('$null -eq $item', $script);
             self::assertStringContainsString('$fullArguments -cne $env:YANJI_ENTRY_ARGUMENTS', $script);
             self::assertStringNotContainsString('$link.Arguments -c', $script);
+            self::assertStringContainsString('$link = (Open-SavedLinkItem).GetLink', $script);
+            self::assertStringContainsString('$link.Path -ceq $env:YANJI_ENTRY_TARGET', $script);
+            self::assertStringContainsString('$link.Path -cne $env:YANJI_ENTRY_TARGET', $script);
+            self::assertStringNotContainsString('$link.TargetPath -c', $script);
             self::assertStringContainsString('$unicodeLink = (Open-SavedLinkItem).GetLink', $script);
             self::assertStringContainsString('$unicodeLink.Arguments = $env:YANJI_ENTRY_ARGUMENTS', $script);
             self::assertStringContainsString('[void]$unicodeLink.Save()', $script);

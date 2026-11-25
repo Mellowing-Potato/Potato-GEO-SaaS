@@ -267,14 +267,16 @@ function Read-FullLinkArguments {
     if ($arguments -isnot [string]) { throw 'Shortcut arguments are unavailable.' }
     return $arguments
 }
-$shell = New-Object -ComObject WScript.Shell
-$link = $shell.CreateShortcut($env:YANJI_ENTRY_SHORTCUT)
 if ($env:YANJI_ENTRY_INSPECT -eq '1') {
+    $link = (Open-SavedLinkItem).GetLink
+    if ($null -eq $link) { throw 'Shortcut reader is unavailable.' }
     $fullArguments = Read-FullLinkArguments
-    $current = $link.TargetPath -ceq $env:YANJI_ENTRY_TARGET -and $fullArguments -ceq $env:YANJI_ENTRY_ARGUMENTS -and $link.WorkingDirectory -ceq $env:YANJI_ENTRY_WORKING_DIRECTORY
-    $legacy = $link.TargetPath -ceq $env:YANJI_ENTRY_FILE -and $fullArguments -ceq '' -and $link.WorkingDirectory -ceq $env:YANJI_ENTRY_DIRECTORY
+    $current = $link.Path -ceq $env:YANJI_ENTRY_TARGET -and $fullArguments -ceq $env:YANJI_ENTRY_ARGUMENTS -and $link.WorkingDirectory -ceq $env:YANJI_ENTRY_WORKING_DIRECTORY
+    $legacy = $link.Path -ceq $env:YANJI_ENTRY_FILE -and $fullArguments -ceq '' -and $link.WorkingDirectory -ceq $env:YANJI_ENTRY_DIRECTORY
     if ($link.Description -cne $env:YANJI_ENTRY_MARKER -or -not ($current -or $legacy)) { exit 3 }
 } else {
+    $shell = New-Object -ComObject WScript.Shell
+    $link = $shell.CreateShortcut($env:YANJI_ENTRY_SHORTCUT)
     $link.TargetPath = $env:YANJI_ENTRY_TARGET
     $link.Description = $env:YANJI_ENTRY_MARKER
     $link.WorkingDirectory = $env:YANJI_ENTRY_WORKING_DIRECTORY
@@ -283,9 +285,10 @@ if ($env:YANJI_ENTRY_INSPECT -eq '1') {
     if ($null -eq $unicodeLink) { throw 'Shortcut writer is unavailable.' }
     $unicodeLink.Arguments = $env:YANJI_ENTRY_ARGUMENTS
     [void]$unicodeLink.Save()
-    $link = $shell.CreateShortcut($env:YANJI_ENTRY_SHORTCUT)
+    $link = (Open-SavedLinkItem).GetLink
+    if ($null -eq $link) { throw 'Shortcut reader is unavailable.' }
     $fullArguments = Read-FullLinkArguments
-    if ($link.TargetPath -cne $env:YANJI_ENTRY_TARGET -or $fullArguments -cne $env:YANJI_ENTRY_ARGUMENTS -or $link.Description -cne $env:YANJI_ENTRY_MARKER -or $link.WorkingDirectory -cne $env:YANJI_ENTRY_WORKING_DIRECTORY) { exit 3 }
+    if ($link.Path -cne $env:YANJI_ENTRY_TARGET -or $fullArguments -cne $env:YANJI_ENTRY_ARGUMENTS -or $link.Description -cne $env:YANJI_ENTRY_MARKER -or $link.WorkingDirectory -cne $env:YANJI_ENTRY_WORKING_DIRECTORY) { exit 3 }
 }
 PS;
         $record = self::powerShell($script, ['YANJI_ENTRY_FILE' => str_replace('/', '\\', $file),

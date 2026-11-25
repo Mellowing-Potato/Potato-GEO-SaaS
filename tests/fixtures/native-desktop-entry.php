@@ -271,6 +271,91 @@ PS;
     }
 }
 
+function entryPublishedInspectProbe(Instance $instance, string $file, string $published, string $directory): array
+{
+    $result = [];
+    try {
+        $captured = null;
+        $capture = static function (string $script, array $variables) use (&$captured): array {
+            $captured = [$script, $variables];
+            return ['code' => 74, 'stdout' => ''];
+        };
+        (new ReflectionMethod(DesktopEntry::class, 'windowsShortcut'))->invoke(null, $instance, $file, $published, true, $capture);
+        entryRequire(is_array($captured), 'published_capture_unavailable');
+        [$productionScript, $variables] = $captured;
+        $started = microtime(true);
+        $helper = (new ReflectionMethod(DesktopEntry::class, 'powerShell'))->invoke(null, $productionScript, $variables, null);
+        $result['production_inspect'] = ['code' => $helper['code'], 'stdout_bytes' => strlen($helper['stdout']),
+            'elapsed_ms' => (int) round((microtime(true) - $started) * 1000)];
+        $script = <<<'PS'
+$ErrorActionPreference = 'Stop'
+$phase = 'wsh_read'
+try {
+    $wsh = New-Object -ComObject WScript.Shell
+    $old = $wsh.CreateShortcut($env:YANJI_ENTRY_SHORTCUT)
+    $wshRecord = @{target_match=($old.TargetPath -ceq $env:YANJI_ENTRY_TARGET);description_match=($old.Description -ceq $env:YANJI_ENTRY_MARKER);working_directory_match=($old.WorkingDirectory -ceq $env:YANJI_ENTRY_WORKING_DIRECTORY);target_empty=([string]::IsNullOrEmpty($old.TargetPath));description_empty=([string]::IsNullOrEmpty($old.Description));working_directory_empty=([string]::IsNullOrEmpty($old.WorkingDirectory))}
+    $phase = 'shell_read'
+    $application = New-Object -ComObject Shell.Application
+    $folder = $application.NameSpace([IO.Path]::GetDirectoryName($env:YANJI_ENTRY_SHORTCUT))
+    $item = $folder.ParseName([IO.Path]::GetFileName($env:YANJI_ENTRY_SHORTCUT))
+    $link = $item.GetLink
+    $arguments = $item.ExtendedProperty('System.Link.Arguments')
+    $shellRecord = @{target_match=($link.Path -ceq $env:YANJI_ENTRY_TARGET);description_match=($link.Description -ceq $env:YANJI_ENTRY_MARKER);working_directory_match=($link.WorkingDirectory -ceq $env:YANJI_ENTRY_WORKING_DIRECTORY);arguments_available=($arguments -is [string]);arguments_match=($arguments -is [string] -and $arguments -ceq $env:YANJI_ENTRY_ARGUMENTS);expected_arguments_length=([string]$env:YANJI_ENTRY_ARGUMENTS).Length;actual_arguments_length=([string]$arguments).Length}
+    [Console]::Write((@{code='read';phase='complete';published_file_exists=[IO.File]::Exists($env:YANJI_ENTRY_SHORTCUT);wsh=$wshRecord;shell=$shellRecord} | ConvertTo-Json -Compress -Depth 4))
+    exit 0
+} catch {
+    [Console]::Write((@{code='exception';phase=$phase;hresult=[int]$_.Exception.HResult} | ConvertTo-Json -Compress))
+    exit 1
+}
+PS;
+        $keep = array_flip(['SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'LOCALAPPDATA', 'APPDATA', 'USERPROFILE', 'PATH']);
+        $environment = [];
+        foreach (getenv() as $key => $value) {
+            if (isset($keep[strtoupper($key)])) {
+                $environment[$key] = $value;
+            }
+        }
+        $environment = [...Platform::windowsPowerShellEnv($environment), ...$variables];
+        $read = entryExecute([Platform::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-EncodedCommand',
+            Platform::encodePowerShellCommand($script)], $directory, $environment);
+        $detail = json_decode($read['stdout'], true);
+        $safe = [];
+        if (is_array($detail)) {
+            if (in_array($detail['code'] ?? null, ['read', 'exception'], true)) {
+                $safe['code'] = $detail['code'];
+            }
+            if (in_array($detail['phase'] ?? null, ['wsh_read', 'shell_read', 'complete'], true)) {
+                $safe['phase'] = $detail['phase'];
+            }
+            if (is_int($detail['hresult'] ?? null)) {
+                $safe['hresult'] = $detail['hresult'];
+            }
+            if (is_bool($detail['published_file_exists'] ?? null)) {
+                $safe['published_file_exists'] = $detail['published_file_exists'];
+            }
+            foreach (['wsh', 'shell'] as $kind) {
+                foreach (['target_match', 'description_match', 'working_directory_match', 'target_empty',
+                    'description_empty', 'working_directory_empty', 'arguments_available', 'arguments_match'] as $key) {
+                    if (is_bool($detail[$kind][$key] ?? null)) {
+                        $safe[$kind][$key] = $detail[$kind][$key];
+                    }
+                }
+                foreach (['expected_arguments_length', 'actual_arguments_length'] as $key) {
+                    $value = $detail[$kind][$key] ?? null;
+                    if (is_int($value) && $value >= 0 && $value <= 32768) {
+                        $safe[$kind][$key] = $value;
+                    }
+                }
+            }
+        }
+        $result['readback'] = ['code' => $read['code'], 'stdout_bytes' => strlen($read['stdout']),
+            'stderr_bytes' => strlen($read['stderr']), 'elapsed_ms' => $read['elapsed_ms'], 'detail' => $safe];
+    } catch (Throwable) {
+        $result['code'] = 'published_probe_unavailable';
+    }
+    return $result;
+}
+
 try {
     entryRequire(count($argv) === 2, 'portable_directory_required');
     $portable = realpath($argv[1]);
@@ -291,7 +376,7 @@ try {
         : "#!/bin/sh\nset -eu\n[ \"\$#\" -eq 1 ] && [ \"\$1\" = open ] || exit 9\nprintf '%s\\n' \"\$1\" >> ".$quotedRoot."/invocations\nif [ -f ".$quotedRoot."/fail ]; then exit 7; fi\n";
     Instance::atomicFile($launcher, $fake, 0700);
     $stage = 'temporary_shortcuts';
-    $knownFolders = static fn (string $kind): string => $temporary.'/known-folders/'.$kind;
+    $knownFolders = static fn (string $kind): string => $temporary.'/中文 known-folders/'.$kind;
     $entryStarted = microtime(true);
     $entry = DesktopEntry::install($instance, true, $knownFolders);
     $warningCodes = ['entry_unavailable', 'entry_conflict', 'launcher_unavailable', 'desktop_unavailable',
@@ -323,7 +408,27 @@ try {
             'shortcut_escaped_private_fixture');
     }
     entryRequire(DesktopEntry::describe($instance) === $entry, 'registered_entry_description_changed');
-    entryRequire(DesktopEntry::install($instance, true, $knownFolders) === $entry, 'repeated_registration_changed_entry');
+    $stage = 'repeated_registration';
+    $stateHash = hash_file('sha256', $instance->root.'/desktop-entry.json');
+    $shortcutHashes = array_map(static fn (array $shortcut): string => hash_file('sha256', $shortcut['path']), $entry['shortcuts']);
+    $repeated = DesktopEntry::install($instance, true, $knownFolders);
+    if ($repeated !== $entry) {
+        $diagnostic['repeated_registration'] = [
+            'warnings' => array_values(array_filter($repeated['warnings'], static fn ($value): bool => in_array($value, $warningCodes, true))),
+            'shortcut_count' => count($repeated['shortcuts']),
+            'shortcut_kinds' => array_values(array_filter(array_column($repeated['shortcuts'], 'kind'),
+                static fn ($value): bool => in_array($value, ['desktop', 'start_menu', 'applications'], true))),
+            'flags' => ['name_unchanged' => $repeated['name'] === $entry['name'], 'canonical_unchanged' => $repeated['file'] === $entry['file'],
+                'state_sha_changed' => hash_file('sha256', $instance->root.'/desktop-entry.json') !== $stateHash,
+                'shortcut_bytes_unchanged' => array_map(static fn (array $shortcut): string => hash_file('sha256', $shortcut['path']), $entry['shortcuts']) === $shortcutHashes],
+        ];
+        if ($windows) {
+            [$bridge, $expectedBridge] = (new ReflectionMethod(DesktopEntry::class, 'windowsShortcutBridge'))->invoke(null, $entry['file']);
+            $diagnostic['repeated_registration']['flags']['bridge_bytes_match'] = @file_get_contents($bridge) === $expectedBridge;
+            $diagnostic['published_inspect'] = entryPublishedInspectProbe($instance, $entry['file'], $entry['shortcuts'][0]['path'], $temporary);
+        }
+    }
+    entryRequire($repeated === $entry, 'repeated_registration_changed_entry');
     $contents = file_get_contents($entry['file']);
     foreach (['http://', 'https://', 'ticket=', 'APP_KEY', 'password', 'current-release'] as $forbidden) {
         entryRequire(!str_contains($contents, $forbidden), 'canonical_contains_transient_authorization');
@@ -382,12 +487,11 @@ try {
         $shortcutScript = <<<'PS'
 $ErrorActionPreference = 'Stop'
 try {
-    $shell = New-Object -ComObject WScript.Shell
-    $link = $shell.CreateShortcut($env:YANJI_ENTRY_REGISTERED_LINK)
-    if ($link.TargetPath -cne $env:YANJI_ENTRY_EXPECTED_TARGET -or $link.WorkingDirectory -cne $env:YANJI_ENTRY_EXPECTED_DIRECTORY -or $link.Description -cne $env:YANJI_ENTRY_EXPECTED_MARKER) { exit 41 }
     $application = New-Object -ComObject Shell.Application
     $folder = $application.NameSpace([IO.Path]::GetDirectoryName($env:YANJI_ENTRY_REGISTERED_LINK))
     $item = $folder.ParseName([IO.Path]::GetFileName($env:YANJI_ENTRY_REGISTERED_LINK))
+    $link = $item.GetLink
+    if ($null -eq $link -or $link.Path -cne $env:YANJI_ENTRY_EXPECTED_TARGET -or $link.WorkingDirectory -cne $env:YANJI_ENTRY_EXPECTED_DIRECTORY -or $link.Description -cne $env:YANJI_ENTRY_EXPECTED_MARKER) { exit 41 }
     $arguments = $item.ExtendedProperty('System.Link.Arguments')
     if ($arguments -isnot [string] -or $arguments -cne $env:YANJI_ENTRY_EXPECTED_ARGUMENTS) { exit 42 }
     if (-not ($arguments -cmatch '\A-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "([^"\r\n]+)"\z')) { exit 45 }
@@ -398,9 +502,9 @@ try {
     $expectedBridge = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:YANJI_ENTRY_EXPECTED_BRIDGE_CONTENTS))
     if ($decoded -cne $expectedBridge) { exit 48 }
     if (-not $decoded.Contains($env:YANJI_ENTRY_EXPECTED_CANONICAL_BASE64) -or $decoded -match 'ticket=|APP_KEY|Bearer\s') { exit 43 }
-    $metadata = @{expected_arguments_length=([string]$env:YANJI_ENTRY_EXPECTED_ARGUMENTS).Length;extended_arguments_length=$arguments.Length;wsh_arguments_length=([string]$link.Arguments).Length;full_arguments_match=$true;private_bridge_matches=$true}
+    $metadata = @{expected_arguments_length=([string]$env:YANJI_ENTRY_EXPECTED_ARGUMENTS).Length;extended_arguments_length=$arguments.Length;shell_link_arguments_length=([string]$link.Arguments).Length;full_arguments_match=$true;private_bridge_matches=$true}
     [IO.File]::WriteAllText($env:YANJI_ENTRY_METADATA_CAPTURE, ($metadata | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))
-    $process = Start-Process -FilePath $link.TargetPath -ArgumentList $arguments -WorkingDirectory $link.WorkingDirectory -NoNewWindow -PassThru -Wait
+    $process = Start-Process -FilePath $link.Path -ArgumentList $arguments -WorkingDirectory $link.WorkingDirectory -NoNewWindow -PassThru -Wait
     exit $process.ExitCode
 } catch { exit 44 }
 PS;
@@ -435,8 +539,8 @@ PS;
                     && ($metadata['private_bridge_matches'] ?? null) === true
                     && ($metadata['expected_arguments_length'] ?? null) === $expectedArgumentsLength
                     && ($metadata['extended_arguments_length'] ?? null) === $expectedArgumentsLength
-                    && is_int($metadata['wsh_arguments_length'] ?? null)
-                    && $metadata['wsh_arguments_length'] >= 0 && $metadata['wsh_arguments_length'] <= 32768,
+                    && is_int($metadata['shell_link_arguments_length'] ?? null)
+                    && $metadata['shell_link_arguments_length'] >= 0 && $metadata['shell_link_arguments_length'] <= 32768,
                     'registered_shortcut_full_arguments_not_verified');
                 $shortcutArgumentLengths[$shortcut['kind']] = $metadata;
                 if ($fail) {
