@@ -14,15 +14,48 @@
             <div class="workspace-grid project-detail-grid" id="projectEditorViews">
                 <section class="md-panel create-panel" id="createProjectPanel">
                     <div class="pj-sheet">
+                        <section class="onboarding-guide" id="onboardingGuide" aria-label="首次使用指引">
+                            <div class="onboarding-guide-head">
+                                <div>
+                                    <p class="md-eyebrow md-eyebrow--lead">快速上手</p>
+                                    <h2>3 步开启首次 AI 搜索诊断</h2>
+                                </div>
+                                <span class="md-badge md-badge--neutral" id="onboardingModelBadge">检查模型状态…</span>
+                            </div>
+                            <ol class="onboarding-steps">
+                                <li class="onboarding-step" id="onboardingStepModel" data-step-state="current">
+                                    <span class="onboarding-step-ix" aria-hidden="true">01</span>
+                                    <div class="onboarding-step-body">
+                                        <strong>配置文本模型</strong>
+                                        <p id="onboardingModelCopy">先填自己的 API Key 或连接本机 Magpie，配好文本模型即可驱动诊断与写作。</p>
+                                        <button class="md-btn md-btn--primary md-btn--sm" id="onboardingGoModels" type="button" data-open-workspace-view="aikeys">去配置文本模型</button>
+                                    </div>
+                                </li>
+                                <li class="onboarding-step" id="onboardingStepProject" data-step-state="todo">
+                                    <span class="onboarding-step-ix" aria-hidden="true">02</span>
+                                    <div class="onboarding-step-body">
+                                        <strong>建立第一个项目</strong>
+                                        <p>填项目名称、品牌与目标市场即可创建，官网与竞品可在项目设置里随时补全。</p>
+                                    </div>
+                                </li>
+                                <li class="onboarding-step" id="onboardingStepSkill" data-step-state="todo">
+                                    <span class="onboarding-step-ix" aria-hidden="true">03</span>
+                                    <div class="onboarding-step-body">
+                                        <strong>运行首个 GEO 技能</strong>
+                                        <p>执行意图挖掘或综合诊断，生成可导出的 Markdown / HTML / DOCX 报告。</p>
+                                    </div>
+                                </li>
+                            </ol>
+                        </section>
                         <div class="pj-lead pj-lead-fresh">
-                            <p class="md-eyebrow md-eyebrow--lead">开始</p>
+                            <p class="md-eyebrow md-eyebrow--lead">第 2 步</p>
                             <h2>建立你的第一个项目</h2>
-                            <p>填一张项目档案，之后的诊断、内容和分发都围绕它进行；写得越具体，AI 搜索诊断越准。</p>
+                            <p>先填核心信息即可创建，之后的诊断、内容和分发都会围绕这份档案展开。</p>
                         </div>
                         <div class="pj-lead pj-lead-new">
                             <p class="md-eyebrow md-eyebrow--lead">新建项目</p>
                             <h2>填一张项目档案</h2>
-                            <p>写得越具体，AI 搜索诊断越准。</p>
+                            <p>先填核心信息即可创建，其余诊断输入可稍后在项目设置里补充。</p>
                         </div>
                         <div class="stage-rail pj-create-rail rail-ghost" id="pjCreateRail" aria-hidden="true" hidden>
                             <div class="stage-node"><i></i><b>研究</b></div>
@@ -34,40 +67,47 @@
                         </div>
                         <div class="rail-caption" id="pjCreateRailCaption" hidden>创建后，项目会沿这条工作流推进</div>
 <form class="pj-formbody" id="createProjectForm">
-                            <div class="md-legend pj-legend">项目与品牌<small>告诉我们这个项目替谁做优化。</small></div>
+                            <div class="md-legend pj-legend">核心信息<small>填完这几项就能创建项目并开始诊断。</small></div>
                             <div class="pj-field">
                                 <label class="md-field-label" for="createProject-name">项目名称 <span class="req">*</span></label>
-                                <div class="md-field"><input id="createProject-name" aria-describedby="createProject-name-help" class="md-input" name="name" required maxlength="255" placeholder="请输入项目名称，例如：AI 搜索增长测试"><div class="md-field-hint" id="createProject-name-help">给这次优化起个名字。</div></div>
+                                <div class="md-field"><input id="createProject-name" aria-describedby="createProject-name-help" class="md-input" name="name" required maxlength="255" placeholder="例如：2026 AI 搜索可见性增长"><div class="md-field-hint" id="createProject-name-help">用于在工作台里区分不同品牌或优化阶段。</div></div>
                             </div>
                             <div class="pj-field">
                                 <label class="md-field-label" for="createProject-brand_name">品牌名称</label>
-                                <div class="md-field"><input id="createProject-brand_name" aria-describedby="createProject-brand_name-help" class="md-input" name="brand_name" maxlength="255" placeholder="请输入要分析的品牌名称"><div class="md-field-hint" id="createProject-brand_name-help">要在 AI 搜索里被找到的品牌。</div></div>
-                            </div>
-                            <div class="pj-field">
-                                <label class="md-field-label" for="createProject-brand_url">官网地址（可选）</label>
-                                <div class="md-field"><input id="createProject-brand_url" aria-describedby="createProject-brand_url-help" class="md-input" name="brand_url" type="url" maxlength="500" autocomplete="off" placeholder="没有官网可留空；不要填写测试网址"><div class="md-field-hint" id="createProject-brand_url-help">没有官网可留空；不要填测试网址。</div></div>
+                                <div class="md-field"><input id="createProject-brand_name" aria-describedby="createProject-brand_name-help" class="md-input" name="brand_name" maxlength="255" placeholder="例如：言及"><div class="md-field-hint" id="createProject-brand_name-help">希望在 AI 回答中被提及和推荐的品牌或产品名。</div></div>
                             </div>
                             <div class="pj-field">
                                 <label class="md-field-label" for="createProject-target_market">目标市场</label>
-                                <div class="md-field"><input id="createProject-target_market" aria-describedby="createProject-target_market-help" class="md-input" name="target_market" maxlength="255" placeholder="请输入目标客户、行业或地区"><div class="md-field-hint" id="createProject-target_market-help">客户群、行业或地区。</div></div>
+                                <div class="md-field"><input id="createProject-target_market" aria-describedby="createProject-target_market-help" class="md-input" name="target_market" maxlength="255" placeholder="例如：国内 B2B SaaS 企业 / 华东制造业"><div class="md-field-hint" id="createProject-target_market-help">填写目标客户群、所在行业或主要服务地区。</div></div>
                             </div>
-                            <div class="md-legend pj-legend">给 AI 诊断的输入<small>这四项会直接进入诊断分析——写得越具体，报告越有用。</small></div>
                             <div class="pj-field">
                                 <label class="md-field-label" for="createProject-product_description">产品说明</label>
-                                <div class="md-field"><textarea id="createProject-product_description" class="md-textarea" name="product_description" maxlength="2000" rows="3" placeholder="请说明产品解决的问题、核心功能和服务对象"></textarea></div>
+                                <div class="md-field"><textarea id="createProject-product_description" class="md-textarea" name="product_description" maxlength="2000" rows="2" placeholder="一句话说明产品解决什么问题、核心功能和服务对象"></textarea></div>
                             </div>
-                            <div class="pj-field">
-                                <label class="md-field-label" for="createProject-target_keywords">目标关键词</label>
-                                <div class="md-field"><textarea id="createProject-target_keywords" aria-describedby="createProject-target_keywords-help" class="md-textarea" name="target_keywords" rows="3" placeholder="每行一个目标关键词，例如：AI 搜索优化"></textarea><div class="md-field-hint" id="createProject-target_keywords-help">每行一个，例如：AI 搜索优化。</div></div>
-                            </div>
-                            <div class="pj-field">
-                                <label class="md-field-label" for="createProject-competitors">竞品</label>
-                                <div class="md-field"><textarea id="createProject-competitors" aria-describedby="createProject-competitors-help" class="md-textarea" name="competitors" rows="3" placeholder="每行一个竞品名称或网址"></textarea><div class="md-field-hint" id="createProject-competitors-help">每行一个名称或网址。</div></div>
-                            </div>
-                            <div class="pj-field">
-                                <label class="md-field-label" for="createProject-goals">目标</label>
-                                <div class="md-field"><textarea id="createProject-goals" class="md-textarea" name="goals" maxlength="2000" rows="2" placeholder="请描述希望通过内容优化改善的业务目标"></textarea></div>
-                            </div>
+                            <details class="pj-more-fields" id="createProjectMoreFields">
+                                <summary class="pj-more-summary">
+                                    <span class="pj-more-title">更多诊断输入（选填 · 官网 / 关键词 / 竞品 / 目标）</span>
+                                    <span class="pj-more-hint">建好项目后也可在「项目设置」里补充或用 AI 推荐</span>
+                                </summary>
+                                <div class="pj-more-body">
+                                    <div class="pj-field">
+                                        <label class="md-field-label" for="createProject-brand_url">官网地址（可选）</label>
+                                        <div class="md-field"><input id="createProject-brand_url" aria-describedby="createProject-brand_url-help" class="md-input" name="brand_url" type="url" maxlength="500" autocomplete="off" placeholder="https://example.com"><div class="md-field-hint" id="createProject-brand_url-help">没有正式官网可留空，请勿填写测试地址。</div></div>
+                                    </div>
+                                    <div class="pj-field">
+                                        <label class="md-field-label" for="createProject-target_keywords">目标关键词</label>
+                                        <div class="md-field"><textarea id="createProject-target_keywords" aria-describedby="createProject-target_keywords-help" class="md-textarea" name="target_keywords" rows="3" placeholder="AI 搜索优化&#10;GEO 内容诊断"></textarea><div class="md-field-hint" id="createProject-target_keywords-help">每行填写一个目标问题或关键词。</div></div>
+                                    </div>
+                                    <div class="pj-field">
+                                        <label class="md-field-label" for="createProject-competitors">竞品</label>
+                                        <div class="md-field"><textarea id="createProject-competitors" aria-describedby="createProject-competitors-help" class="md-textarea" name="competitors" rows="3" placeholder="竞品品牌名或官网地址"></textarea><div class="md-field-hint" id="createProject-competitors-help">每行填写一个主要竞品，便于做对比诊断。</div></div>
+                                    </div>
+                                    <div class="pj-field">
+                                        <label class="md-field-label" for="createProject-goals">目标</label>
+                                        <div class="md-field"><textarea id="createProject-goals" class="md-textarea" name="goals" maxlength="2000" rows="2" placeholder="例如：提升核心场景问答里的品牌提及率与引用准确率"></textarea></div>
+                                    </div>
+                                </div>
+                            </details>
                             <div class="md-formfoot pj-formfoot">
                                 <button class="md-btn md-btn--primary" type="submit">创建项目</button>
                                 <button class="md-btn md-btn--secondary" id="cancelCreateProjectButton" type="button">取消</button>
@@ -95,6 +135,24 @@
                     <section class="md-panel ws-stage" aria-label="项目阶段">
                         <div class="stage-rail" id="pjStageRail" aria-label="项目阶段进度"></div>
                         <button class="md-btn md-btn--secondary md-btn--sm" id="openAnalysisButton" type="button">执行综合诊断</button>
+                    </section>
+                    <section class="md-panel pj-day1-card" id="projectHomeDay1Card" hidden aria-labelledby="projectHomeDay1Title">
+                        <div class="pj-day1-body">
+                            <div class="pj-day1-head">
+                                <span class="md-badge md-badge--primary" id="projectHomeDay1Badge">推荐第一步</span>
+                                <h2 id="projectHomeDay1Title">运行你的第一个 GEO 技能</h2>
+                            </div>
+                            <p class="pj-day1-desc" id="projectHomeDay1Desc">项目档案已就绪。先执行意图挖掘或综合诊断，摸清目标客户在 AI 搜索里最常问的问题。</p>
+                            <ul class="pj-day1-facts">
+                                <li>按你自己的模型供应商账户计费，单次消耗少量 tokens</li>
+                                <li>后台异步执行，切换页面不中断；结果未知时不会自动重发</li>
+                                <li>完成后自动归档，支持导出 Markdown / HTML / DOCX</li>
+                            </ul>
+                            <div class="pj-day1-actions">
+                                <button class="md-btn md-btn--primary" id="projectHomeDay1Primary" type="button">运行第一个技能</button>
+                                <button class="md-btn md-btn--secondary" id="projectHomeDay1Secondary" type="button">执行综合诊断</button>
+                            </div>
+                        </div>
                     </section>
                     <section class="md-panel" aria-labelledby="projectHomeQueueTitle">
                         <div class="md-panel-head"><h2 id="projectHomeQueueTitle">接下来做什么</h2><span id="projectHomeQueueCount"></span></div>

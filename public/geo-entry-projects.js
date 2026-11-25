@@ -650,6 +650,7 @@
       if (rail) rail.hidden = !fresh;
       if (caption) caption.hidden = !fresh;
     }
+    globalThis.GEO?.syncOnboardingGuide?.();
   }
 
   function openCreateProjectPanel() {
