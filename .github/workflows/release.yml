@@ -417,3 +417,35 @@ jobs:
             done
             test "$ok" -eq 1
           done
+
+  published-macos-onboarding:
+    name: Verify Published Reader Installation on macOS (${{ matrix.scenario }})
+    needs: publish-release
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [fresh, interrupted]
+    runs-on: macos-15
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - name: Fetch source
+        env:
+          SOURCE_SERVER: ${{ github.server_url }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_TOKEN: ${{ github.token }}
+        run: |
+          git init .
+          source_auth=$(printf 'x-access-token:%s' "$SOURCE_TOKEN" | base64 | tr -d '\n')
+          echo "::add-mask::$source_auth"
+          git -c protocol.version=2 -c "http.extraheader=AUTHORIZATION: basic $source_auth" fetch --no-tags --depth=1 "$SOURCE_SERVER/$SOURCE_REPOSITORY.git" "$SOURCE_COMMIT"
+          unset SOURCE_TOKEN source_auth
+          git switch --detach FETCH_HEAD
+
+      - name: Install through the published reader command and verify the workspace
+        env:
+          VERSION: ${{ github.ref_name }}
+          SCENARIO: ${{ matrix.scenario }}
+        run: python3 scripts/test-published-macos-onboarding.py --version "$VERSION" --scenario "$SCENARIO"
