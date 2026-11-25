@@ -7,6 +7,7 @@ use Dotenv\Dotenv;
 use Dotenv\Parser\Lines;
 use RuntimeException;
 use stdClass;
+use Yanji\Portable\Platform;
 
 /** Merge the selected workspace into one unambiguous deployment target. */
 final class LocalMagpieAuthorization
@@ -19,12 +20,13 @@ final class LocalMagpieAuthorization
         return InstanceKey::bindingHash($key, $instanceId);
     }
 
-    public function grant(string $path, int $tenantId, ?string $expectedBindingHash = null): void
+    public function grant(string $path, int $tenantId, ?string $expectedBindingHash = null): string
     {
         if ($tenantId < 1 || ! is_file($path) || is_link($path)) {
             throw new RuntimeException('无法安全更新实例环境文件。');
         }
-        InstanceEnvironment::update($path, function (?string $contents) use ($tenantId, $expectedBindingHash): ?string {
+        $alias = null;
+        InstanceEnvironment::update($path, function (?string $contents) use ($tenantId, $expectedBindingHash, &$alias): ?string {
             if ($contents === null) {
                 throw new RuntimeException('实例环境文件缺失，未修改授权。');
             }
@@ -77,6 +79,49 @@ final class LocalMagpieAuthorization
 
             return $updated;
         });
+
+        return $alias;
+    }
+
+    /** Never use an arbitrary configured path or another instance's environment for hot authorization. */
+    public static function desktopEnvironmentPath(): string
+    {
+        PortableDesktopAccess::assertEnabled();
+        require_once base_path('portable/src/Platform.php');
+        $root = (string) config('instance.portable_root');
+        $path = app()->environmentFilePath();
+        if (realpath(dirname($path)) !== realpath($root) || basename($path) !== '.env'
+            || ! is_file($path) || ! Platform::isPrivate($root) || ! Platform::isPrivate($path)) {
+            throw new RuntimeException('无法安全读取当前本机实例的授权。');
+        }
+
+        return $path;
+    }
+
+    /** Reload only this instance's trusted target declaration; all other runtime configuration stays untouched. */
+    public static function currentDesktopTargets(): array
+    {
+        $path = self::desktopEnvironmentPath();
+        $binding = InstanceKey::assertReady($path, true);
+        $contents = file_get_contents($path);
+        if ($contents === false || strlen($contents) > 1048576) {
+            throw new RuntimeException('无法读取本机模型授权。');
+        }
+        $environment = Dotenv::parse($contents);
+        if (! hash_equals($binding, self::bindingHash($environment['APP_KEY'] ?? '', $environment['YANJI_INSTANCE_ID'] ?? ''))) {
+            throw new RuntimeException('本机实例身份已变更。');
+        }
+        $span = self::assignmentSpan($contents);
+        if (($span !== null) !== array_key_exists(self::ENV_NAME, $environment)) {
+            throw new RuntimeException('本机模型授权格式无效。');
+        }
+        $raw = $environment[self::ENV_NAME] ?? '';
+        $targets = $raw === '' ? [] : json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
+        if (! is_array($targets) || ($targets !== [] && array_is_list($targets))) {
+            throw new RuntimeException('本机模型授权格式无效。');
+        }
+
+        return array_filter($targets, 'is_array');
     }
 
     private function localAlias(stdClass $targets): string

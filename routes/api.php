@@ -459,6 +459,7 @@ Route::prefix('v1')
 
         Route::prefix('ai-keys/magpie')->middleware('can:team:manage')->group(function () {
             Route::get('/', [MagpieModelController::class, 'index']);
+            Route::post('local-connect', [MagpieModelController::class, 'localConnect'])->middleware('throttle:10,1');
             Route::post('profiles', [MagpieModelController::class, 'store']);
             Route::patch('profiles/{profile}', [MagpieModelController::class, 'update'])->whereNumber('profile');
             Route::delete('profiles/{profile}', [MagpieModelController::class, 'destroy'])->whereNumber('profile');

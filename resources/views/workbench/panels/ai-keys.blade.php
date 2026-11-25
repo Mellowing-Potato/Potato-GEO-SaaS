@@ -73,10 +73,14 @@
             <div class="model-magpie">
                 <h4>Magpie</h4>
                 <p class="muted">可选的本机模型入口。<a href="https://github.com/yetone/magpie" target="_blank" rel="noopener noreferrer">Magpie 项目与安装说明</a>；第三方直连配置会继续保留。</p>
-                <p class="muted" data-magpie-authorization>正在读取部署授权…</p>
+                <p class="muted" data-magpie-authorization>{{ \App\Support\PortableDesktopAccess::enabled() ? '正在读取本机连接状态…' : '正在读取部署授权…' }}</p>
+                @if(\App\Support\PortableDesktopAccess::enabled())
+                    <p class="muted">先启动这台电脑上的 Magpie，再点击连接。此操作只检测并允许本机连接，不会发送生成请求或切换当前模型来源。</p>
+                    <button class="button secondary small" type="button" data-magpie-local-connect disabled>连接本机 Magpie</button>
+                @endif
                 <form class="model-magpie-form" autocomplete="off" hidden>
-                    <p class="muted">模型和上游账号在 Magpie 中管理。请先启动 Magpie，再保存连接并读取模型目录。</p>
-                    <label for="magpie-target-{{ $slot }}">部署授权目标
+                    <p class="muted">{{ \App\Support\PortableDesktopAccess::enabled() ? '模型和上游账号在 Magpie 中管理。连接后请从目录选择模型，保存后再设为当前用途。' : '模型和上游账号在 Magpie 中管理。请先启动 Magpie，再保存连接并读取模型目录。' }}</p>
+                    <label for="magpie-target-{{ $slot }}">{{ \App\Support\PortableDesktopAccess::enabled() ? '连接目标' : '部署授权目标' }}
                         <select id="magpie-target-{{ $slot }}" name="target_alias" required></select>
                     </label>
                     <p class="muted" data-magpie-endpoint></p>
