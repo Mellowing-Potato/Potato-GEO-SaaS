@@ -305,6 +305,12 @@ try {
         $builder = (new ReflectionMethod(DesktopEntry::class, 'windowsShortcutLaunch'))->invoke(null, $entry['file']);
         entryRequire($builder[0] === Platform::windowsPowerShell() && $builder[2] === dirname(Platform::windowsPowerShell()),
             'registered_shortcut_builder_target_mismatch');
+        [$bridgePath, $bridgeContents] = (new ReflectionMethod(DesktopEntry::class, 'windowsShortcutBridge'))->invoke(null, $entry['file']);
+        entryRequire(dirname($bridgePath) === $instance->root && is_file($bridgePath) && !is_link($bridgePath)
+            && file_get_contents($bridgePath) === $bridgeContents && Platform::isPrivate($bridgePath),
+            'registered_shortcut_private_bridge_not_verified');
+        $expectedArgumentsLength = intdiv(strlen(mb_convert_encoding($builder[1], 'UTF-16LE', 'UTF-8')), 2);
+        entryRequire($expectedArgumentsLength <= 1023, 'registered_shortcut_arguments_exceed_wsh_limit');
         $expectedMarker = (new ReflectionClass(DesktopEntry::class))->getConstant('FORMAT').':'.hash('sha256', $instance->root);
         $metadataCapture = $temporary.'/registered-link-metadata.json';
         $shortcutScript = <<<'PS'
@@ -318,10 +324,15 @@ try {
     $item = $folder.ParseName([IO.Path]::GetFileName($env:YANJI_ENTRY_REGISTERED_LINK))
     $arguments = $item.ExtendedProperty('System.Link.Arguments')
     if ($arguments -isnot [string] -or $arguments -cne $env:YANJI_ENTRY_EXPECTED_ARGUMENTS) { exit 42 }
-    if (-not ($arguments -cmatch '\A-NoProfile -NonInteractive -EncodedCommand ([A-Za-z0-9+/=]+)\z')) { exit 45 }
-    $decoded = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($Matches[1]))
+    if (-not ($arguments -cmatch '\A-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "([^"\r\n]+)"\z')) { exit 45 }
+    $bridge = $Matches[1]
+    if ($bridge -cne $env:YANJI_ENTRY_EXPECTED_BRIDGE -or [IO.Path]::GetDirectoryName($bridge) -cne $env:YANJI_ENTRY_EXPECTED_INSTANCE_ROOT) { exit 46 }
+    if (([IO.File]::GetAttributes($bridge) -band [IO.FileAttributes]::ReparsePoint) -ne 0) { exit 47 }
+    $decoded = [IO.File]::ReadAllText($bridge)
+    $expectedBridge = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:YANJI_ENTRY_EXPECTED_BRIDGE_CONTENTS))
+    if ($decoded -cne $expectedBridge) { exit 48 }
     if (-not $decoded.Contains($env:YANJI_ENTRY_EXPECTED_CANONICAL_BASE64) -or $decoded -match 'ticket=|APP_KEY|Bearer\s') { exit 43 }
-    $metadata = @{expected_arguments_length=([string]$env:YANJI_ENTRY_EXPECTED_ARGUMENTS).Length;extended_arguments_length=$arguments.Length;wsh_arguments_length=([string]$link.Arguments).Length;full_arguments_match=$true}
+    $metadata = @{expected_arguments_length=([string]$env:YANJI_ENTRY_EXPECTED_ARGUMENTS).Length;extended_arguments_length=$arguments.Length;wsh_arguments_length=([string]$link.Arguments).Length;full_arguments_match=$true;private_bridge_matches=$true}
     [IO.File]::WriteAllText($env:YANJI_ENTRY_METADATA_CAPTURE, ($metadata | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))
     $process = Start-Process -FilePath $link.TargetPath -ArgumentList $arguments -WorkingDirectory $link.WorkingDirectory -NoNewWindow -PassThru -Wait
     exit $process.ExitCode
@@ -335,6 +346,9 @@ PS;
                 'YANJI_ENTRY_EXPECTED_TARGET' => Platform::windowsPowerShell(),
                 'YANJI_ENTRY_EXPECTED_DIRECTORY' => dirname(Platform::windowsPowerShell()),
                 'YANJI_ENTRY_EXPECTED_ARGUMENTS' => $builder[1], 'YANJI_ENTRY_EXPECTED_MARKER' => $expectedMarker,
+                'YANJI_ENTRY_EXPECTED_BRIDGE' => Platform::nativePath($bridgePath),
+                'YANJI_ENTRY_EXPECTED_BRIDGE_CONTENTS' => base64_encode($bridgeContents),
+                'YANJI_ENTRY_EXPECTED_INSTANCE_ROOT' => Platform::nativePath($instance->root),
                 'YANJI_ENTRY_METADATA_CAPTURE' => Platform::nativePath($metadataCapture),
                 'YANJI_ENTRY_EXPECTED_CANONICAL_BASE64' => base64_encode(Platform::nativePath($entry['file']))];
             foreach ([false, true] as $fail) {
@@ -352,8 +366,9 @@ PS;
                 entryRequire($executed['code'] === ($fail ? 1 : 0), 'registered_shortcut_exit_code_mismatch');
                 $metadata = json_decode((string) @file_get_contents($metadataCapture), true);
                 entryRequire(is_array($metadata) && ($metadata['full_arguments_match'] ?? null) === true
-                    && ($metadata['expected_arguments_length'] ?? null) === strlen($builder[1])
-                    && ($metadata['extended_arguments_length'] ?? null) === strlen($builder[1])
+                    && ($metadata['private_bridge_matches'] ?? null) === true
+                    && ($metadata['expected_arguments_length'] ?? null) === $expectedArgumentsLength
+                    && ($metadata['extended_arguments_length'] ?? null) === $expectedArgumentsLength
                     && is_int($metadata['wsh_arguments_length'] ?? null)
                     && $metadata['wsh_arguments_length'] >= 0 && $metadata['wsh_arguments_length'] <= 32768,
                     'registered_shortcut_full_arguments_not_verified');

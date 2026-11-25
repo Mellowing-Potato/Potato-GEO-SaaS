@@ -57,7 +57,7 @@ final class DesktopEntryTest extends TestCase
             'arguments' => $variables['YANJI_ENTRY_ARGUMENTS'] ?? '',
             'directory' => $variables['YANJI_ENTRY_WORKING_DIRECTORY'] ?? $variables['YANJI_ENTRY_DIRECTORY'],
             'marker' => $variables['YANJI_ENTRY_MARKER']];
-        // Native WSH exposed only the first 1023 argument characters; the property store returns the full string.
+        // Native WSH persisted only 1023 argument characters, confirmed through the full property store.
         $readArguments = static fn (string $value): string => str_contains($script, "ExtendedProperty('System.Link.Arguments')")
             ? $value : substr($value, 0, 1023);
         if ($variables['YANJI_ENTRY_INSPECT'] === '1') {
@@ -70,8 +70,10 @@ final class DesktopEntryTest extends TestCase
             return ['code' => $stored === $record || $stored === $legacy ? 0 : 3, 'stdout' => ''];
         }
         self::assertFileDoesNotExist($path);
-        file_put_contents($path, json_encode($record, JSON_THROW_ON_ERROR));
-        return ['code' => $readArguments($record['arguments']) === $record['arguments'] ? 0 : 3, 'stdout' => ''];
+        $saved = $record;
+        $saved['arguments'] = substr($saved['arguments'], 0, 1023);
+        file_put_contents($path, json_encode($saved, JSON_THROW_ON_ERROR));
+        return ['code' => $readArguments($saved['arguments']) === $record['arguments'] ? 0 : 3, 'stdout' => ''];
     }
 
     private function install(Instance $instance, string $platform, bool $shortcuts = true): array
@@ -194,7 +196,7 @@ final class DesktopEntryTest extends TestCase
         self::assertCount(4, $this->powerShellCalls);
     }
 
-    public function test_windows_shortcuts_use_a_system_target_and_encode_only_the_current_instance_entry(): void
+    public function test_windows_shortcuts_use_a_system_target_with_a_bound_private_file_bridge(): void
     {
         $instance = $this->instance("中文 it's %value% !name! \$cash & [workspace]");
         $result = $this->install($instance, 'Windows');
@@ -202,7 +204,7 @@ final class DesktopEntryTest extends TestCase
         foreach ($this->powerShellCalls as [$script, $variables]) {
             self::assertStringContainsString('$link.TargetPath = $env:YANJI_ENTRY_TARGET', $script);
             self::assertStringNotContainsString('$link.TargetPath = $env:YANJI_ENTRY_FILE', $script);
-            self::assertGreaterThan(1023, strlen($variables['YANJI_ENTRY_ARGUMENTS']));
+            self::assertLessThanOrEqual(1023, intdiv(strlen(mb_convert_encoding($variables['YANJI_ENTRY_ARGUMENTS'], 'UTF-16LE', 'UTF-8')), 2));
             self::assertStringContainsString("ExtendedProperty('System.Link.Arguments')", $script);
             self::assertStringContainsString('$arguments -isnot [string]', $script);
             self::assertStringContainsString('$null -eq $folder', $script);
@@ -211,9 +213,14 @@ final class DesktopEntryTest extends TestCase
             self::assertStringNotContainsString('$link.Arguments -c', $script);
             self::assertMatchesRegularExpression('/\A[A-Za-z]:\\\\.+\\\\System32\\\\WindowsPowerShell\\\\v1\.0\\\\powershell\.exe\z/', $variables['YANJI_ENTRY_TARGET']);
             self::assertSame(substr($variables['YANJI_ENTRY_TARGET'], 0, -strlen('\\powershell.exe')), $variables['YANJI_ENTRY_WORKING_DIRECTORY']);
-            self::assertMatchesRegularExpression('/\A-NoProfile -NonInteractive -EncodedCommand [A-Za-z0-9+\/=]+\z/', $variables['YANJI_ENTRY_ARGUMENTS']);
-            $encoded = substr($variables['YANJI_ENTRY_ARGUMENTS'], strlen('-NoProfile -NonInteractive -EncodedCommand '));
-            $command = mb_convert_encoding(base64_decode($encoded, true), 'UTF-8', 'UTF-16LE');
+            self::assertSame(1, preg_match('/\A-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "([^"\r\n]+)"\z/', $variables['YANJI_ENTRY_ARGUMENTS'], $fileArgument));
+            [$bridgePath, $expected] = (new \ReflectionMethod(DesktopEntry::class, 'windowsShortcutBridge'))->invoke(null, $result['file']);
+            self::assertSame(str_replace('/', '\\', $bridgePath), $fileArgument[1]);
+            self::assertSame($instance->root, dirname($bridgePath));
+            self::assertFileExists($bridgePath);
+            self::assertFalse(is_link($bridgePath));
+            $command = file_get_contents($bridgePath);
+            self::assertSame($expected, $command);
             self::assertDoesNotMatchRegularExpression('/[\x80-\xff]/', $command);
             self::assertSame(1, preg_match("/FromBase64String\\('([A-Za-z0-9+\\/=]+)'\\)/", $command, $match));
             self::assertSame(str_replace('/', '\\', $result['file']), base64_decode($match[1], true));
@@ -221,6 +228,36 @@ final class DesktopEntryTest extends TestCase
             foreach (['http://', 'https://', 'ticket=', '$args', '%*'] as $forbidden) {
                 self::assertStringNotContainsString($forbidden, $command);
             }
+        }
+    }
+
+    public function test_windows_private_bridge_is_bound_unchanged_and_foreign_files_or_links_are_never_overwritten(): void
+    {
+        $instance = $this->instance();
+        $result = $this->install($instance, 'Windows');
+        [$bridgePath, $expected] = (new \ReflectionMethod(DesktopEntry::class, 'windowsShortcutBridge'))->invoke(null, $result['file']);
+        $before = count($this->powerShellCalls);
+        Instance::atomicFile($bridgePath, 'foreign bridge fixture');
+        $description = DesktopEntry::describe($instance, 'Windows');
+        self::assertSame($result['file'], $description['file'], 'The original canonical entry remains the independent fallback.');
+        self::assertSame([], $description['shortcuts']);
+        self::assertContains('shortcut_conflict', $description['warnings']);
+        self::assertContains('shortcut_conflict', $this->install($instance, 'Windows')['warnings']);
+        self::assertSame('foreign bridge fixture', file_get_contents($bridgePath));
+        self::assertCount($before, $this->powerShellCalls);
+
+        unlink($bridgePath);
+        self::assertSame([], DesktopEntry::describe($instance, 'Windows')['shortcuts']);
+        self::assertSame([], $this->install($instance, 'Windows')['warnings']);
+        self::assertSame($expected, file_get_contents($bridgePath));
+        if (PHP_OS_FAMILY !== 'Windows') {
+            $foreign = $this->directory.'/foreign-bridge';
+            Instance::atomicFile($foreign, 'other file fixture');
+            unlink($bridgePath);
+            symlink($foreign, $bridgePath);
+            self::assertContains('shortcut_conflict', $this->install($instance, 'Windows')['warnings']);
+            self::assertTrue(is_link($bridgePath));
+            self::assertSame('other file fixture', file_get_contents($foreign));
         }
     }
 

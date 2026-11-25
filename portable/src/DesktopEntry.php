@@ -247,6 +247,10 @@ PS;
     private static function windowsShortcut(Instance $instance, string $file, string $path, bool $inspect, ?callable $runner): bool
     {
         [$target, $arguments, $workingDirectory] = self::windowsShortcutLaunch($file);
+        [$bridgePath, $bridgeContents] = self::windowsShortcutBridge($file);
+        if (!self::publishText($bridgePath, $bridgeContents)) {
+            return false;
+        }
         $script = <<<'PS'
 $ErrorActionPreference = 'Stop'
 function Read-FullLinkArguments {
@@ -297,8 +301,19 @@ PS;
         if (Platform::isWindows() && (!is_file($target) || is_link($target))) {
             throw new RuntimeException('System PowerShell is unavailable.');
         }
-        // WSH rejects some valid complex paths as TargetPath. Bind COM to system
-        // PowerShell with ASCII arguments; the canonical path is data, never source or a URL.
+        // A stable private bridge keeps WSH arguments short without changing their meaning.
+        [$bridgePath] = self::windowsShortcutBridge($file);
+        $nativeBridge = str_replace('/', '\\', $bridgePath);
+        if (preg_match('/[\x00-\x1f"]/', $nativeBridge)) {
+            throw new RuntimeException('The private desktop bridge path is invalid.');
+        }
+        return [$target, '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'.$nativeBridge.'"', $directory];
+    }
+
+    private static function windowsShortcutBridge(string $file): array
+    {
+        $id = substr(hash('sha256', $file), 0, 16);
+        $path = dirname($file).'/desktop-entry-'.$id.'.ps1';
         $encodedPath = base64_encode(str_replace('/', '\\', $file));
         $script = <<<'PS'
 $ErrorActionPreference = 'Stop'
@@ -310,7 +325,7 @@ try {
 } catch { exit 1 }
 PS;
         $script = str_replace('CANONICAL_BASE64', $encodedPath, $script);
-        return [$target, '-NoProfile -NonInteractive -EncodedCommand '.Platform::encodePowerShellCommand($script), $directory];
+        return [$path, '# '.self::FORMAT.' '.$id."\n".$script."\n"];
     }
 
     private static function powerShell(string $script, array $variables, ?callable $runner): array
@@ -368,7 +383,13 @@ PS;
 
     private static function verifiedShortcuts(Instance $instance, string $platform, array $state): array
     {
-        [$name, , $contents] = self::entry($instance, $platform);
+        [$name, $file, $contents] = self::entry($instance, $platform);
+        if ($platform === 'Windows') {
+            [$bridgePath, $bridgeContents] = self::windowsShortcutBridge($file);
+            if (!self::matches($bridgePath, $bridgeContents)) {
+                return [];
+            }
+        }
         $verified = [];
         $kinds = $platform === 'Windows' ? ['desktop', 'start_menu'] : ($platform === 'Darwin' ? ['desktop'] : ['applications']);
         $extension = $platform === 'Windows' ? '.lnk' : ($platform === 'Darwin' ? '.command' : '.desktop');

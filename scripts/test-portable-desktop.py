@@ -80,7 +80,7 @@ def onboarding_files(instance):
     """Snapshot configuration, entry and authorization files; running service logs may change independently."""
     files = {instance / name for name in ('.env', '.portable-initialized', 'instance.json',
              'desktop-entry.json', 'yanji', 'yanji.cmd', 'current', 'current-release.txt')}
-    for pattern in ('*.command', '*.desktop', '*.cmd', 'run/browser-*', 'run/desktop-ticket*'):
+    for pattern in ('*.command', '*.desktop', '*.cmd', '*.ps1', 'run/browser-*', 'run/desktop-ticket*'):
         files.update(instance.glob(pattern))
     snapshot = {}
     for path in files:
