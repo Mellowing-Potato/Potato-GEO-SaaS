@@ -53,10 +53,15 @@ final class DesktopEntryTest extends TestCase
         self::assertStringContainsString('CreateShortcut($env:YANJI_ENTRY_SHORTCUT)', $script);
         self::assertStringNotContainsString('Start-Process', $script);
         $path = PHP_OS_FAMILY === 'Windows' ? $variables['YANJI_ENTRY_SHORTCUT'] : str_replace('\\', '/', $variables['YANJI_ENTRY_SHORTCUT']);
-        $record = ['target' => $variables['YANJI_ENTRY_FILE'], 'directory' => $variables['YANJI_ENTRY_DIRECTORY'],
+        $record = ['target' => $variables['YANJI_ENTRY_TARGET'] ?? $variables['YANJI_ENTRY_FILE'],
+            'arguments' => $variables['YANJI_ENTRY_ARGUMENTS'] ?? '',
+            'directory' => $variables['YANJI_ENTRY_WORKING_DIRECTORY'] ?? $variables['YANJI_ENTRY_DIRECTORY'],
             'marker' => $variables['YANJI_ENTRY_MARKER']];
         if ($variables['YANJI_ENTRY_INSPECT'] === '1') {
-            return ['code' => @json_decode((string) @file_get_contents($path), true) === $record ? 0 : 3, 'stdout' => ''];
+            $stored = @json_decode((string) @file_get_contents($path), true);
+            $legacy = ['target' => $variables['YANJI_ENTRY_FILE'], 'arguments' => '',
+                'directory' => $variables['YANJI_ENTRY_DIRECTORY'], 'marker' => $variables['YANJI_ENTRY_MARKER']];
+            return ['code' => $stored === $record || $stored === $legacy ? 0 : 3, 'stdout' => ''];
         }
         self::assertFileDoesNotExist($path);
         file_put_contents($path, json_encode($record, JSON_THROW_ON_ERROR));
@@ -183,6 +188,73 @@ final class DesktopEntryTest extends TestCase
         self::assertCount(4, $this->powerShellCalls);
     }
 
+    public function test_windows_shortcuts_use_a_system_target_and_encode_only_the_current_instance_entry(): void
+    {
+        $instance = $this->instance("中文 it's %value% !name! \$cash & [workspace]");
+        $result = $this->install($instance, 'Windows');
+        self::assertSame([], $result['warnings']);
+        foreach ($this->powerShellCalls as [$script, $variables]) {
+            self::assertStringContainsString('$link.TargetPath = $env:YANJI_ENTRY_TARGET', $script);
+            self::assertStringNotContainsString('$link.TargetPath = $env:YANJI_ENTRY_FILE', $script);
+            self::assertMatchesRegularExpression('/\A[A-Za-z]:\\\\.+\\\\System32\\\\WindowsPowerShell\\\\v1\.0\\\\powershell\.exe\z/', $variables['YANJI_ENTRY_TARGET']);
+            self::assertSame(substr($variables['YANJI_ENTRY_TARGET'], 0, -strlen('\\powershell.exe')), $variables['YANJI_ENTRY_WORKING_DIRECTORY']);
+            self::assertMatchesRegularExpression('/\A-NoProfile -NonInteractive -EncodedCommand [A-Za-z0-9+\/=]+\z/', $variables['YANJI_ENTRY_ARGUMENTS']);
+            $encoded = substr($variables['YANJI_ENTRY_ARGUMENTS'], strlen('-NoProfile -NonInteractive -EncodedCommand '));
+            $command = mb_convert_encoding(base64_decode($encoded, true), 'UTF-8', 'UTF-16LE');
+            self::assertDoesNotMatchRegularExpression('/[\x80-\xff]/', $command);
+            self::assertSame(1, preg_match("/FromBase64String\\('([A-Za-z0-9+\\/=]+)'\\)/", $command, $match));
+            self::assertSame(str_replace('/', '\\', $result['file']), base64_decode($match[1], true));
+            self::assertStringContainsString('/d /v:off /s /c ""%YANJI_ENTRY_CANONICAL%""', $command);
+            foreach (['http://', 'https://', 'ticket=', '$args', '%*'] as $forbidden) {
+                self::assertStringNotContainsString($forbidden, $command);
+            }
+        }
+    }
+
+    public function test_windows_foreign_shortcut_properties_are_rejected_and_owned_legacy_shortcuts_are_preserved(): void
+    {
+        $instance = $this->instance();
+        $result = $this->install($instance, 'Windows');
+        $shortcut = $result['shortcuts'][0]['path'];
+        $record = json_decode(file_get_contents($shortcut), true);
+        foreach (['target', 'arguments', 'directory', 'marker'] as $property) {
+            $foreign = $record;
+            $foreign[$property] .= '-foreign';
+            Instance::atomicFile($shortcut, json_encode($foreign));
+            self::assertContains('shortcut_conflict', $this->install($instance, 'Windows')['warnings']);
+            self::assertSame($foreign, json_decode(file_get_contents($shortcut), true));
+        }
+
+        $legacy = ['target' => str_replace('/', '\\', $result['file']), 'arguments' => '',
+            'directory' => str_replace('/', '\\', $instance->root), 'marker' => $record['marker']];
+        Instance::atomicFile($shortcut, json_encode($legacy));
+        self::assertSame([], $this->install($instance, 'Windows')['warnings']);
+        self::assertSame($legacy, json_decode(file_get_contents($shortcut), true));
+        $legacy['arguments'] = 'foreign';
+        Instance::atomicFile($shortcut, json_encode($legacy));
+        self::assertContains('shortcut_conflict', $this->install($instance, 'Windows')['warnings']);
+    }
+
+    public function test_windows_never_uses_path_lookup_when_the_system_directory_is_invalid(): void
+    {
+        $construct = new \ReflectionMethod(DesktopEntry::class, 'windowsShortcutLaunch');
+        $previous = getenv('SystemRoot');
+        $exception = null;
+        putenv('SystemRoot=relative-system-directory');
+        try {
+            $construct->invoke(null, $this->directory.'/fixed-entry.cmd');
+        } catch (\RuntimeException $error) {
+            $exception = $error;
+        } finally {
+            putenv($previous === false ? 'SystemRoot' : 'SystemRoot='.$previous);
+        }
+        self::assertInstanceOf(\RuntimeException::class, $exception);
+        self::assertSame('System PowerShell is unavailable.', $exception->getMessage());
+        self::assertSame([], $this->powerShellCalls, 'A missing fixed system target must not fall back to PATH.');
+        self::assertSame([], array_values(array_diff(scandir($this->directory), ['.', '..'])),
+            'The pure constructor must not write an entry, ACL state or registration metadata.');
+    }
+
     public function test_windows_parent_preserves_failure_visibility_without_call_or_interpolated_paths(): void
     {
         $instance = $this->instance("中文 it's %value% !name! \$cash & [workspace]");
@@ -222,7 +294,7 @@ final class DesktopEntryTest extends TestCase
     {
         $root = dirname(__DIR__, 2);
         $process = new Process([PHP_BINARY, $root.'/tests/fixtures/native-desktop-entry.php', $root.'/portable'],
-            null, null, '', 90);
+            null, null, '', PHP_OS_FAMILY === 'Windows' ? 600 : 90);
         $process->run();
         self::assertSame(0, $process->getExitCode(), 'The isolated native entry fixture must complete both success and deliberate failure. '
             .$process->getErrorOutput());

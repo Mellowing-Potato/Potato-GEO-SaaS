@@ -13,7 +13,7 @@ jobs:
   windows-x64:
     name: Native Windows x64 Portable Build & Acceptance
     runs-on: windows-2025
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       PYTHONUTF8: '1'
     steps:
@@ -85,7 +85,7 @@ jobs:
           key: yanji-win-rt-v1-${{ hashFiles('licenses/portable-web.json', 'scripts/runtime/build-web-windows.ps1', 'scripts/runtime/collect-web-go-notices.py', 'licenses/portable-python.json', 'scripts/runtime/build-portable-python.py') }}
 
       - name: Early native Windows source desktop entry smoke in private fake known folders
-        timeout-minutes: 3
+        timeout-minutes: 10
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -218,7 +218,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Windows test-portable-runtime.py failed with exit code $LASTEXITCODE" }
 
       - name: Native Windows packaged desktop entry in private fake known folders
-        timeout-minutes: 3
+        timeout-minutes: 10
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'

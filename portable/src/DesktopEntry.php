@@ -246,26 +246,59 @@ PS;
 
     private static function windowsShortcut(Instance $instance, string $file, string $path, bool $inspect, ?callable $runner): bool
     {
+        [$target, $arguments, $workingDirectory] = self::windowsShortcutLaunch($file);
         $script = <<<'PS'
 $ErrorActionPreference = 'Stop'
 $shell = New-Object -ComObject WScript.Shell
 $link = $shell.CreateShortcut($env:YANJI_ENTRY_SHORTCUT)
 if ($env:YANJI_ENTRY_INSPECT -eq '1') {
-    if ($link.TargetPath -cne $env:YANJI_ENTRY_FILE -or $link.Arguments -ne '' -or $link.Description -cne $env:YANJI_ENTRY_MARKER -or $link.WorkingDirectory -cne $env:YANJI_ENTRY_DIRECTORY) { exit 3 }
+    $current = $link.TargetPath -ceq $env:YANJI_ENTRY_TARGET -and $link.Arguments -ceq $env:YANJI_ENTRY_ARGUMENTS -and $link.WorkingDirectory -ceq $env:YANJI_ENTRY_WORKING_DIRECTORY
+    $legacy = $link.TargetPath -ceq $env:YANJI_ENTRY_FILE -and $link.Arguments -ceq '' -and $link.WorkingDirectory -ceq $env:YANJI_ENTRY_DIRECTORY
+    if ($link.Description -cne $env:YANJI_ENTRY_MARKER -or -not ($current -or $legacy)) { exit 3 }
 } else {
-    $link.TargetPath = $env:YANJI_ENTRY_FILE
-    $link.Arguments = ''
+    $link.TargetPath = $env:YANJI_ENTRY_TARGET
+    $link.Arguments = $env:YANJI_ENTRY_ARGUMENTS
     $link.Description = $env:YANJI_ENTRY_MARKER
-    $link.WorkingDirectory = $env:YANJI_ENTRY_DIRECTORY
+    $link.WorkingDirectory = $env:YANJI_ENTRY_WORKING_DIRECTORY
     $link.Save()
+    if ($link.TargetPath -cne $env:YANJI_ENTRY_TARGET -or $link.Arguments -cne $env:YANJI_ENTRY_ARGUMENTS -or $link.Description -cne $env:YANJI_ENTRY_MARKER -or $link.WorkingDirectory -cne $env:YANJI_ENTRY_WORKING_DIRECTORY) { exit 3 }
 }
 PS;
         $record = self::powerShell($script, ['YANJI_ENTRY_FILE' => str_replace('/', '\\', $file),
             'YANJI_ENTRY_SHORTCUT' => str_replace('/', '\\', $path),
             'YANJI_ENTRY_DIRECTORY' => str_replace('/', '\\', $instance->root),
+            'YANJI_ENTRY_TARGET' => $target, 'YANJI_ENTRY_ARGUMENTS' => $arguments,
+            'YANJI_ENTRY_WORKING_DIRECTORY' => $workingDirectory,
             'YANJI_ENTRY_MARKER' => self::FORMAT.':'.hash('sha256', $instance->root),
             'YANJI_ENTRY_INSPECT' => $inspect ? '1' : '0'], $runner);
         return $record['code'] === 0 && $record['stdout'] === '';
+    }
+
+    private static function windowsShortcutLaunch(string $file): array
+    {
+        $systemRoot = str_replace('/', '\\', (string) (getenv('SystemRoot') ?: (getenv('WINDIR') ?: 'C:\\Windows')));
+        if (preg_match('/\A[A-Za-z]:\\\\/', $systemRoot) !== 1 || preg_match('/[\x00-\x1f"]/', $systemRoot)) {
+            throw new RuntimeException('System PowerShell is unavailable.');
+        }
+        $directory = rtrim($systemRoot, '\\').'\\System32\\WindowsPowerShell\\v1.0';
+        $target = $directory.'\\powershell.exe';
+        if (Platform::isWindows() && (!is_file($target) || is_link($target))) {
+            throw new RuntimeException('System PowerShell is unavailable.');
+        }
+        // WSH rejects some valid complex paths as TargetPath. Bind COM to system
+        // PowerShell with ASCII arguments; the canonical path is data, never source or a URL.
+        $encodedPath = base64_encode(str_replace('/', '\\', $file));
+        $script = <<<'PS'
+$ErrorActionPreference = 'Stop'
+try {
+    $env:YANJI_ENTRY_CANONICAL = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('CANONICAL_BASE64'))
+    $exe = [IO.Path]::Combine($env:SystemRoot, 'System32\cmd.exe')
+    $process = Start-Process -FilePath $exe -ArgumentList '/d /v:off /s /c ""%YANJI_ENTRY_CANONICAL%""' -NoNewWindow -PassThru -Wait
+    exit $process.ExitCode
+} catch { exit 1 }
+PS;
+        $script = str_replace('CANONICAL_BASE64', $encodedPath, $script);
+        return [$target, '-NoProfile -NonInteractive -EncodedCommand '.Platform::encodePowerShellCommand($script), $directory];
     }
 
     private static function powerShell(string $script, array $variables, ?callable $runner): array

@@ -36,6 +36,7 @@ function entryRemove(string $path): void
 
 function entryExecute(array|string $command, string $directory, array $environment): array
 {
+    $started = microtime(true);
     $stdout = $directory.'/process-stdout';
     $stderr = $directory.'/process-stderr';
     $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['file', $stdout, 'w'],
@@ -43,7 +44,8 @@ function entryExecute(array|string $command, string $directory, array $environme
     entryRequire(is_resource($process), 'canonical_process_unavailable');
     fwrite($pipes[0], "\r\n");
     fclose($pipes[0]);
-    $deadline = microtime(true) + 30;
+    // Native COM probes took 18–23 seconds; a registered entry adds nested PowerShell/cmd processes.
+    $deadline = microtime(true) + 90;
     do {
         $status = proc_get_status($process);
         if (!$status['running']) {
@@ -58,7 +60,8 @@ function entryExecute(array|string $command, string $directory, array $environme
     } while (true);
     $closed = proc_close($process);
     return ['code' => $status['exitcode'] >= 0 ? $status['exitcode'] : $closed,
-        'stdout' => (string) file_get_contents($stdout), 'stderr' => (string) file_get_contents($stderr)];
+        'stdout' => (string) file_get_contents($stdout), 'stderr' => (string) file_get_contents($stderr),
+        'elapsed_ms' => (int) round((microtime(true) - $started) * 1000)];
 }
 
 /** A failed primary registration stays failed; this separate probe reports only bounded native diagnostics. */
@@ -276,11 +279,13 @@ try {
     }
     $stage = 'canonical_success';
     $success = entryExecute($command, $temporary, $environment);
+    $executionTimes = ['canonical_success' => $success['elapsed_ms']];
     entryRequire($success['code'] === 0, 'canonical_success_exit_nonzero');
     entryRequire(file($instance->root.'/invocations', FILE_IGNORE_NEW_LINES) === ['open'], 'canonical_did_not_only_call_open');
     $stage = 'canonical_failure';
     Instance::atomicFile($instance->root.'/fail', "fixture\n");
     $failure = entryExecute($command, $temporary, $environment);
+    $executionTimes['canonical_failure'] = $failure['elapsed_ms'];
     entryRequire($failure['code'] === ($windows ? 1 : 7), 'canonical_failure_exit_code_lost');
     entryRequire(file($instance->root.'/invocations', FILE_IGNORE_NEW_LINES) === ['open', 'open'], 'canonical_failure_called_another_command');
     if ($windows) {
@@ -289,12 +294,67 @@ try {
         entryRequire(str_contains($failure['stdout'].$failure['stderr'], '言及暂时无法打开，请保留此窗口中的错误信息并反馈。'),
             'windows_chinese_failure_not_visible');
     }
+    $shortcutCases = 0;
+    if ($windows) {
+        $other = new Instance($temporary.'/other-instance');
+        Instance::privateDir($other->root);
+        Instance::atomicFile($other->root.'/yanji.cmd', $fake);
+        $shortcutScript = <<<'PS'
+$ErrorActionPreference = 'Stop'
+try {
+    $shell = New-Object -ComObject WScript.Shell
+    $link = $shell.CreateShortcut($env:YANJI_ENTRY_REGISTERED_LINK)
+    if ($link.TargetPath -ine $env:YANJI_ENTRY_EXPECTED_TARGET -or $link.WorkingDirectory -ine $env:YANJI_ENTRY_EXPECTED_DIRECTORY) { exit 41 }
+    if (-not ($link.Arguments -cmatch '\A-NoProfile -NonInteractive -EncodedCommand ([A-Za-z0-9+/=]+)\z')) { exit 42 }
+    $decoded = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($Matches[1]))
+    if (-not $decoded.Contains($env:YANJI_ENTRY_EXPECTED_CANONICAL_BASE64) -or $decoded -match 'ticket=|APP_KEY|Bearer\s') { exit 43 }
+    $process = Start-Process -FilePath $link.TargetPath -ArgumentList $link.Arguments -WorkingDirectory $link.WorkingDirectory -NoNewWindow -PassThru -Wait
+    exit $process.ExitCode
+} catch { exit 44 }
+PS;
+        $shortcutCommand = [Platform::windowsPowerShell(), '-NoProfile', '-NonInteractive', '-EncodedCommand',
+            Platform::encodePowerShellCommand($shortcutScript)];
+        foreach ($entry['shortcuts'] as $shortcut) {
+            $shortcutEnvironment = [...$environment,
+                'YANJI_ENTRY_REGISTERED_LINK' => Platform::nativePath($shortcut['path']),
+                'YANJI_ENTRY_EXPECTED_TARGET' => Platform::windowsPowerShell(),
+                'YANJI_ENTRY_EXPECTED_DIRECTORY' => dirname(Platform::windowsPowerShell()),
+                'YANJI_ENTRY_EXPECTED_CANONICAL_BASE64' => base64_encode(Platform::nativePath($entry['file']))];
+            foreach ([false, true] as $fail) {
+                if ($fail) {
+                    Instance::atomicFile($instance->root.'/fail', "fixture\n");
+                } else {
+                    unlink($instance->root.'/fail');
+                }
+                $stage = 'registered_'.$shortcut['kind'].($fail ? '_failure' : '_success');
+                $executed = entryExecute($shortcutCommand, $temporary, $shortcutEnvironment);
+                $executionTimes[$stage] = $executed['elapsed_ms'];
+                $diagnostic['last_execution'] = ['exit_code' => $executed['code'], 'elapsed_ms' => $executed['elapsed_ms'],
+                    'stdout_bytes' => strlen($executed['stdout']), 'stderr_bytes' => strlen($executed['stderr'])];
+                entryRequire($executed['code'] === ($fail ? 1 : 0), 'registered_shortcut_exit_code_mismatch');
+                if ($fail) {
+                    entryRequire(str_contains($executed['stdout'].$executed['stderr'], 'Please run yanji doctor.'),
+                        'registered_shortcut_english_failure_not_visible');
+                    entryRequire(str_contains($executed['stdout'].$executed['stderr'], '言及暂时无法打开，请保留此窗口中的错误信息并反馈。'),
+                        'registered_shortcut_chinese_failure_not_visible');
+                }
+                $shortcutCases++;
+                entryRequire(file($instance->root.'/invocations', FILE_IGNORE_NEW_LINES) === array_fill(0, 2 + $shortcutCases, 'open'),
+                    'registered_shortcut_did_not_only_call_current_open');
+                entryRequire(!file_exists($other->root.'/invocations'), 'registered_shortcut_reached_another_instance');
+            }
+        }
+    }
+    entryRequire($shortcutCases === ($windows ? 4 : 0), 'registered_shortcut_case_count_mismatch');
     entryRequire(file_get_contents($launcher) === $fake && file_get_contents($entry['file']) === $contents,
         'canonical_execution_changed_launchers');
     echo json_encode(['fixture' => 'native-desktop-entry', 'platform' => PHP_OS_FAMILY,
         'supplied_entry_class_verified' => true, 'temporary_known_folders_only' => true,
         'native_shortcuts_registered' => true, 'canonical_only_invoked_open' => true,
         'canonical_failure_exit_code' => $failure['code'], 'windows_error_visible' => $windows ? true : null,
+        'registered_shortcut_execution_cases' => $shortcutCases,
+        'registered_shortcuts_bound_to_current_instance' => $windows ? true : null,
+        'execution_ms' => $executionTimes,
         'browser_or_services_invoked' => false, 'real_user_desktop_touched' => false], JSON_THROW_ON_ERROR)."\n";
 } catch (Throwable $error) {
     $code = preg_match('/\A[a-z0-9_]+\z/', $error->getMessage()) ? $error->getMessage() : 'unexpected_fixture_failure';
