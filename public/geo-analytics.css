@@ -72,10 +72,10 @@ a { color: var(--md-primary-hover); text-decoration: none; }
 
 /* Tremor AreaChart 趋势图 */
 .trend-legend { display: inline-flex; align-items: center; gap: var(--md-space-4); flex-wrap: wrap; font-size: var(--md-fs-xs); font-weight: var(--md-weight-medium); color: var(--md-text-secondary); }
-.trend-legend > span { display: inline-flex; align-items: center; gap: var(--md-space-1); }
-.trend-legend .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
-.trend-legend .sw.total { background: var(--md-text-secondary); }
-.trend-legend .sw.ai { background: var(--md-primary); }
+.trend-legend > span { display: inline-flex; align-items: center; gap: var(--md-space-2); }
+.trend-legend .sw { display: inline-block; width: 16px; height: 0; }
+.trend-legend .sw.total { border-top: 1.5px dashed var(--md-border-strong); }
+.trend-legend .sw.ai { border-top: 2px solid var(--md-primary); }
 .ga-trend-readout { display: flex; align-items: baseline; gap: var(--md-space-4); flex-wrap: wrap; padding: var(--md-space-2) var(--md-space-3); margin-bottom: var(--md-space-3); border-radius: var(--md-radius-sm); background: var(--md-surface-soft); border: 1px solid var(--md-border-subtle); font-size: var(--md-fs-xs); color: var(--md-text-secondary); font-variant-numeric: tabular-nums; }
 .ga-readout-date { font-weight: var(--md-weight-semibold); color: var(--md-text-strong); }
 .ga-trend-readout strong { font-weight: var(--md-weight-semibold); color: var(--md-text-strong); }
@@ -85,14 +85,16 @@ a { color: var(--md-primary-hover); text-decoration: none; }
 .ga-grid-line { stroke: var(--md-border-subtle); stroke-width: 1; stroke-dasharray: 3 3; }
 .ga-axis-base { stroke: var(--md-border); stroke-width: 1; }
 .ga-axis-label { fill: var(--md-text-muted); font-size: var(--md-fs-xs); font-variant-numeric: tabular-nums; }
+.ga-line-total { fill: none; stroke: var(--md-text-disabled); stroke-width: 1.35; stroke-dasharray: 4 3; stroke-linecap: round; stroke-linejoin: round; }
+.ga-line-ai { fill: none; stroke: var(--md-primary); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .ga-hover-guide { stroke: var(--md-border-strong); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0; pointer-events: none; }
-.ga-dot-total { fill: var(--md-surface); stroke: var(--md-text-secondary); stroke-width: 2; pointer-events: none; }
-.ga-dot-ai { fill: var(--md-surface); stroke: var(--md-primary); stroke-width: 2; pointer-events: none; }
+.ga-dot-total { fill: var(--md-surface); stroke: var(--md-text-disabled); stroke-width: 1.35; pointer-events: none; }
+.ga-dot-ai { fill: var(--md-surface); stroke: var(--md-primary); stroke-width: 1.5; pointer-events: none; }
 .ga-hit-rect { fill: transparent; cursor: crosshair; }
 .ga-pt-group:focus { outline: none; }
 .ga-pt-group.is-active .ga-hover-guide { opacity: 1; }
-.ga-pt-group.is-active .ga-dot-total { r: 4.5; fill: var(--md-text-secondary); stroke: var(--md-surface); stroke-width: 2; }
-.ga-pt-group.is-active .ga-dot-ai { r: 4.5; fill: var(--md-primary); stroke: var(--md-surface); stroke-width: 2; }
+.ga-pt-group.is-active .ga-dot-total { r: 3.8; fill: var(--md-text-muted); stroke: var(--md-surface); stroke-width: 1.5; }
+.ga-pt-group.is-active .ga-dot-ai { r: 4; fill: var(--md-primary); stroke: var(--md-surface); stroke-width: 1.5; }
 
 /* Tremor DonutChart + CategoryBar 流量构成 */
 .donut-wrap { width: 100%; }

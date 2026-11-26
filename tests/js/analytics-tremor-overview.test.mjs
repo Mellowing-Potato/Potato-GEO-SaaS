@@ -12,6 +12,8 @@ assert.match(analyticsBlade, /<div class="ga-grid-split">/);
 assert.match(analyticsBlade, /data-kpi-meta="ai_bot_pv"/);
 assert.match(analyticsCss, /\.kpi-row\s*\{[^}]*repeat\(5,\s*minmax\(0,\s*1fr\)\)/s);
 assert.match(analyticsCss, /\.ga-grid-main\s*\{[^}]*minmax\(0,\s*7fr\)\s+minmax\(0,\s*5fr\)/s);
+assert.match(analyticsCss, /\.ga-line-total\s*\{[^}]*stroke-dasharray:/s, 'Total PV baseline must use dashed fine stroke to distinguish clearly from solid AI Crawler line');
+assert.match(analyticsCss, /\.ga-line-ai\s*\{[^}]*stroke-width:\s*1\.5/s, 'AI Crawler line must use refined 1.5px stroke');
 assert.doesNotMatch(analyticsJs, /style="/, 'geo-analytics.js must render Tremor charts via pure SVG/CSS classes without inline style attributes');
 
 // Real execution in VM against mocked API responses

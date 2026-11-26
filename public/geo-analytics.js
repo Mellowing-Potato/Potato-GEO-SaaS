@@ -334,8 +334,8 @@
       var showStaticDot = n <= 14;
       return '<g class="ga-pt-group" data-idx="' + i + '" tabindex="0" role="button" aria-label="' + esc((r.date || '') + ' 总 PV ' + fmtInt(r.pv) + '，AI 爬虫 ' + fmtInt(r.ai_bot_pv)) + '">' +
         '<line x1="' + cx.toFixed(1) + '" y1="' + padT + '" x2="' + cx.toFixed(1) + '" y2="' + baseY + '" class="ga-hover-guide"></line>' +
-        '<circle cx="' + cx.toFixed(1) + '" cy="' + pvPts[i].y.toFixed(1) + '" r="' + (showStaticDot ? '3' : '0') + '" class="ga-dot-total"></circle>' +
-        '<circle cx="' + cx.toFixed(1) + '" cy="' + aiPts[i].y.toFixed(1) + '" r="' + (showStaticDot ? '3' : '0') + '" class="ga-dot-ai"></circle>' +
+        '<circle cx="' + cx.toFixed(1) + '" cy="' + pvPts[i].y.toFixed(1) + '" r="' + (showStaticDot ? '2.2' : '0') + '" class="ga-dot-total"></circle>' +
+        '<circle cx="' + cx.toFixed(1) + '" cy="' + aiPts[i].y.toFixed(1) + '" r="' + (showStaticDot ? '2.4' : '0') + '" class="ga-dot-ai"></circle>' +
         '<rect x="' + hitX.toFixed(1) + '" y="' + padT + '" width="' + Math.max(8, hitW).toFixed(1) + '" height="' + plotH + '" class="ga-hit-rect"></rect>' +
       '</g>';
     }).join('');
@@ -354,8 +354,8 @@
       '<svg class="trend-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="每日 PV 与 AI 爬虫 PV 面积趋势图">' +
         '<defs>' +
           '<linearGradient id="gaAreaTotal" x1="0" y1="0" x2="0" y2="1">' +
-            '<stop offset="0%" stop-color="#484E4A" stop-opacity="0.14"></stop>' +
-            '<stop offset="100%" stop-color="#484E4A" stop-opacity="0.01"></stop>' +
+            '<stop offset="0%" stop-color="#8C948E" stop-opacity="0.10"></stop>' +
+            '<stop offset="100%" stop-color="#8C948E" stop-opacity="0.01"></stop>' +
           '</linearGradient>' +
           '<linearGradient id="gaAreaAi" x1="0" y1="0" x2="0" y2="1">' +
             '<stop offset="0%" stop-color="#2D5F4C" stop-opacity="0.22"></stop>' +
@@ -365,8 +365,8 @@
         grid +
         '<path d="' + pvArea + '" fill="url(#gaAreaTotal)"></path>' +
         '<path d="' + aiArea + '" fill="url(#gaAreaAi)"></path>' +
-        '<path d="' + pvLine + '" fill="none" stroke="#484E4A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>' +
-        '<path d="' + aiLine + '" fill="none" stroke="#2D5F4C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>' +
+        '<path d="' + pvLine + '" class="ga-line-total"></path>' +
+        '<path d="' + aiLine + '" class="ga-line-ai"></path>' +
         xLabels +
         markers +
       '</svg>';
