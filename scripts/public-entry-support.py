@@ -3,6 +3,9 @@
 This module neither opens a browser nor changes an authorization. The subsequent onboarding
 snapshot and every cookie/workspace assertion remain mandatory. It does not diagnose a prior run.
 """
+from contextlib import contextmanager
+import ctypes
+import errno
 import json
 import math
 import os
@@ -10,6 +13,7 @@ from pathlib import Path
 import re
 import stat
 import subprocess
+import sys
 import time
 
 
@@ -23,7 +27,10 @@ STAGES = frozenset({'acceptance', 'preflight', 'interrupted_fixture', 'published
     'installed_release', 'services', 'initial_authorization_settle', 'onboarding',
     'acceptance_marker', 'workspace_authorization', 'cleanup'})
 SUPPORT_CODES = frozenset({'initial_authorization_ci_required', 'initial_authorization_unavailable',
-    'initial_authorization_invalid', 'initial_authorization_replaced', 'initial_authorization_timed_out'})
+    'initial_authorization_invalid', 'initial_authorization_replaced', 'initial_authorization_timed_out',
+    'initial_authorization_missing', 'initial_authorization_path_untrusted', 'initial_authorization_not_private',
+    'initial_authorization_too_large', 'initial_authorization_read_denied', 'initial_authorization_read_locked',
+    'initial_authorization_read_error'})
 ACCEPTANCE_CODES = frozenset({
     'invalid_release_tag', 'invalid_release_source', 'fresh_github_hosted_macos_required',
     'fresh_github_hosted_windows_required', 'fixed_release_source_required',
@@ -85,9 +92,13 @@ ASSERTION_CODES = {
 
 
 class PublicEntrySupportError(Exception):
-    def __init__(self, code):
+    def __init__(self, code, identity=None, stamp=None):
         self.code = code if code in SUPPORT_CODES else 'initial_authorization_invalid'
         self.stage = 'initial_authorization_settle'
+        # Only used internally to reject replacement while a nonblocking lock is busy.
+        # safe_failure_diagnostic deliberately never serializes this value.
+        self.identity = identity
+        self.stamp = stamp
         super().__init__(self.code)
 
 
@@ -119,38 +130,160 @@ def _identity(info):
     return info.st_dev, info.st_ino
 
 
+def _read_error(error, identity=None, *, locking=False, stamp=None):
+    native = getattr(error, 'winerror', None)
+    if native in (32, 33) or (native is None and locking and error.errno in (errno.EAGAIN, errno.EWOULDBLOCK)):
+        code = 'initial_authorization_read_locked'
+    elif native in (2, 3) or (native is None and error.errno == errno.ENOENT):
+        code = 'initial_authorization_missing'
+    elif native == 5 or (native is None and error.errno in (errno.EACCES, errno.EPERM)):
+        code = 'initial_authorization_read_denied'
+    elif native is None and error.errno in (errno.ELOOP, errno.ENOTDIR):
+        code = 'initial_authorization_path_untrusted'
+    else:
+        code = 'initial_authorization_read_error'
+    return PublicEntrySupportError(code, identity, stamp)
+
+
+class _OVERLAPPED(ctypes.Structure):
+    # Fixed-width DWORDs and pointer-sized ULONG_PTR/HANDLE match the Windows ABI.
+    _fields_ = [('Internal', ctypes.c_size_t), ('InternalHigh', ctypes.c_size_t),
+                ('Offset', ctypes.c_uint32), ('OffsetHigh', ctypes.c_uint32), ('hEvent', ctypes.c_void_p)]
+
+
+def _windows_lock_api():
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.LockFileEx.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32,
+                                 ctypes.c_uint32, ctypes.c_uint32, ctypes.POINTER(_OVERLAPPED)]
+    kernel.LockFileEx.restype = ctypes.c_int32
+    kernel.UnlockFileEx.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32,
+                                   ctypes.c_uint32, ctypes.POINTER(_OVERLAPPED)]
+    kernel.UnlockFileEx.restype = ctypes.c_int32
+    return kernel
+
+
+def _windows_handle(descriptor):
+    import msvcrt
+    return msvcrt.get_osfhandle(descriptor)
+
+
+def _windows_error():
+    error = OSError(errno.EIO, 'authorization file operation failed')
+    error.winerror = ctypes.get_last_error()
+    return error
+
+
+@contextmanager
+def _shared_lock(descriptor):
+    """Cooperate with PHP flock without waiting inside a native call or modifying bytes.
+
+    PHP's Windows implementation uses LockFileEx over this exact offset/range:
+    https://github.com/php/php-src/blob/PHP-8.5/ext/standard/flock_compat.c
+    https://learn.microsoft.com/windows/win32/api/fileapi/nf-fileapi-lockfileex
+    """
+    if sys.platform == 'win32':
+        kernel, handle, offset = _windows_lock_api(), _windows_handle(descriptor), _OVERLAPPED()
+        # FAIL_IMMEDIATELY only: absence of EXCLUSIVE_LOCK requests a shared read lock.
+        if not kernel.LockFileEx(handle, 1, 0, 0xFFFFFFFF, 0xFFFFFFFF, ctypes.byref(offset)):
+            raise _windows_error()
+        try:
+            yield
+        finally:
+            if not kernel.UnlockFileEx(handle, 0, 0xFFFFFFFF, 0xFFFFFFFF, ctypes.byref(offset)):
+                raise _windows_error()
+    else:
+        import fcntl
+        fcntl.flock(descriptor, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        try:
+            yield
+        finally:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+
+
+def _assert_private_regular(info):
+    if _linked(info) or not stat.S_ISREG(info.st_mode):
+        raise PublicEntrySupportError('initial_authorization_path_untrusted')
+    if info.st_size > MAX_TICKET_BYTES:
+        raise PublicEntrySupportError('initial_authorization_too_large')
+    if os.name != 'nt' and (info.st_mode & 0o077 or info.st_uid != os.geteuid()):
+        raise PublicEntrySupportError('initial_authorization_not_private')
+
+
 def _read_ticket(instance):
     """Read bounded regular bytes without following links; the caller never receives the contents."""
     path = Path(instance) / 'run' / 'desktop-ticket.json'
+    identity = stamp = None
+    locking = False
     try:
         for directory in (Path(instance), path.parent):
             info = directory.lstat()
             if _linked(info) or not stat.S_ISDIR(info.st_mode):
-                raise PublicEntrySupportError('initial_authorization_unavailable')
+                raise PublicEntrySupportError('initial_authorization_path_untrusted')
         before = path.lstat()
-        if _linked(before) or not stat.S_ISREG(before.st_mode) or before.st_size > MAX_TICKET_BYTES:
-            raise PublicEntrySupportError('initial_authorization_unavailable')
-        if os.name != 'nt' and (before.st_mode & 0o077 or before.st_uid != os.geteuid()):
-            raise PublicEntrySupportError('initial_authorization_unavailable')
+        _assert_private_regular(before)
+        identity = _identity(before)
+        stamp = before.st_mtime_ns
         descriptor = os.open(path, os.O_RDONLY | getattr(os, 'O_BINARY', 0) | getattr(os, 'O_NOFOLLOW', 0))
         try:
             opened = os.fstat(descriptor)
-            if not stat.S_ISREG(opened.st_mode) or _identity(opened) != _identity(before):
+            if _identity(opened) != identity:
                 raise PublicEntrySupportError('initial_authorization_replaced')
-            data = os.read(descriptor, MAX_TICKET_BYTES + 1)
-            current = path.lstat()
-            after = os.fstat(descriptor)
-            if _linked(current) or _identity(current) != _identity(opened) or _identity(after) != _identity(opened):
-                raise PublicEntrySupportError('initial_authorization_replaced')
-            if len(data) > MAX_TICKET_BYTES or after.st_size > MAX_TICKET_BYTES:
-                raise PublicEntrySupportError('initial_authorization_unavailable')
-            return _identity(opened), data, after.st_mtime_ns
+            _assert_private_regular(opened)
+            locking = True
+            with _shared_lock(descriptor):
+                locking = False
+                locked = os.fstat(descriptor)
+                current = path.lstat()
+                if _identity(current) != identity or _identity(locked) != identity:
+                    raise PublicEntrySupportError('initial_authorization_replaced')
+                _assert_private_regular(current)
+                _assert_private_regular(locked)
+                data = os.read(descriptor, MAX_TICKET_BYTES + 1)
+                current = path.lstat()
+                after = os.fstat(descriptor)
+                if _identity(current) != identity or _identity(after) != identity:
+                    raise PublicEntrySupportError('initial_authorization_replaced')
+                _assert_private_regular(current)
+                _assert_private_regular(after)
+                if len(data) > MAX_TICKET_BYTES:
+                    raise PublicEntrySupportError('initial_authorization_too_large')
+                if data:
+                    _record(data, time.time())
+                return identity, data, after.st_mtime_ns
         finally:
             os.close(descriptor)
     except PublicEntrySupportError:
         raise
-    except OSError:
-        raise PublicEntrySupportError('initial_authorization_unavailable') from None
+    except OSError as error:
+        raise _read_error(error, identity, locking=locking, stamp=stamp) from None
+
+
+def _read_when_unlocked(instance, start, expected_identity=None):
+    """Retry only an identified lock conflict, within the same overall 125-second budget."""
+    identity = expected_identity
+    locked_stamp = None
+    while True:
+        try:
+            result = _read_ticket(instance)
+            if identity is not None and result[0] != identity:
+                raise PublicEntrySupportError('initial_authorization_replaced')
+            if result[1] and locked_stamp is not None and result[2] != locked_stamp:
+                raise PublicEntrySupportError('initial_authorization_replaced')
+            return result
+        except PublicEntrySupportError as error:
+            if error.code != 'initial_authorization_read_locked' or error.identity is None:
+                raise
+            if identity is not None and error.identity != identity:
+                raise PublicEntrySupportError('initial_authorization_replaced') from None
+            identity = error.identity
+            # Keep the earliest stamp: consumption may empty it, but a rewritten nonempty
+            # record cannot silently become our initial authorization after waiting for a lock.
+            if locked_stamp is None:
+                locked_stamp = error.stamp
+            remaining = MAX_WAIT_SECONDS - (time.monotonic() - start)
+            if remaining <= 0:
+                raise PublicEntrySupportError('initial_authorization_read_locked') from None
+            time.sleep(min(POLL_SECONDS, remaining))
 
 
 def _record(data, now):
@@ -190,9 +323,9 @@ def wait_for_initial_authorization_settle(instance):
             or os.environ.get('RUNNER_OS') not in {'macOS', 'Windows'}:
         raise PublicEntrySupportError('initial_authorization_ci_required')
     start = time.monotonic()
-    identity, original, stamp = _read_ticket(instance)
+    identity, original, stamp = _read_when_unlocked(instance, start)
     expires = None if original == b'' else _record(original, time.time())
-    empty_since = start if original == b'' else None
+    empty_since = time.monotonic() if original == b'' else None
     empty_stamp = stamp if original == b'' else None
     expired_since = None
     while True:
@@ -212,7 +345,7 @@ def wait_for_initial_authorization_settle(instance):
         if remaining <= 0:
             raise PublicEntrySupportError('initial_authorization_timed_out')
         time.sleep(min(POLL_SECONDS, remaining))
-        current_identity, data, current_stamp = _read_ticket(instance)
+        current_identity, data, current_stamp = _read_when_unlocked(instance, start, identity)
         if current_identity != identity:
             raise PublicEntrySupportError('initial_authorization_replaced')
         if data == b'':
