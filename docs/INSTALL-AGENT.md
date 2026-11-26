@@ -4,7 +4,7 @@
 
 “本机”指用户指定的目标电脑。智能体在云端容器或远程沙箱中能运行命令，不代表已连接用户的电脑；未连接目标环境时，按“无本机执行能力”交付步骤，不能把沙箱里的安装或服务状态当作用户电脑已安装成功。用户明确选择服务器自部署时，以该服务器为目标环境，并保留账号登录流程。
 
-**适用范围：当前线上已发布正式包为 `v0.1.2`（构建源 `20d57bc17f541a3064a7c61b9b65d453a939c9cc`，清单 SHA-256 `a2e8d887efea5ad8e89c367613364b2039c34a51ce5dec720f59db8fd48984b9`）。仓库根目录提供 `install.ps1` / `install.cmd`（Windows）与 `install.sh`（macOS/Linux），自动调用 `System32\curl.exe` / `curl` 核验 `portable/release-pin.json` 中的正式清单摘要完成免 Docker 安装或直接拉起已安装实例。在 `v0.1.2` 本机单人模式下，人类可直接通过系统浏览器打开 `http://127.0.0.1:<端口>` 进入工作台，或双击本机快捷入口 / 运行 `open` 自动拉起服务并打开浏览器。标准公开入口已验收，真实 GUI、特定智能体产品和真实模型推理仍未跑。** 当前正式安装命令、摘要及验收范围见官方在线 [PORTABLE.md](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/PORTABLE.md) 与 [CHANGELOG.md](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/CHANGELOG.md)。包内说明可能停留在构建时状态，以在线说明及精确发行证据为准。
+**适用范围：当前线上已发布正式包为 `v0.1.3`（构建源 `a9d84db7ca30c3201bc9dd872d9b70f551972866`，清单 SHA-256 `eddbb3fc6961ae6660b92e326ad303bbe769c5a8f5afa3fb8bf2816c3d0e5fc5`）。仓库根目录提供 `install.ps1` / `install.cmd`（Windows）与 `install.sh`（macOS/Linux），与标准一行在线命令一样支持首次安装、同版本免重复下载秒开以及已有旧版实例自动停写备份+跨版本平滑升级（失败自动回滚），后台托管进程在 macOS/Linux（双 `fork` + 抗 `SIGHUP` + 关闭继承 FD）与 Windows（三级脱离宿主 Job Object）均与智能体单步命令解耦。在 `v0.1.2+` 本机单人模式下，人类可直接通过系统浏览器打开 `http://127.0.0.1:<端口>` 进入工作台，或双击本机快捷入口 / 运行 `open` 自动拉起服务并打开浏览器。标准公开入口已验收，真实 GUI、特定智能体产品和真实模型推理仍未跑。** 当前正式安装命令、摘要及验收范围见官方在线 [PORTABLE.md](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/PORTABLE.md) 与 [CHANGELOG.md](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/CHANGELOG.md)。包内说明可能停留在构建时状态，以在线说明及精确发行证据为准。
 
 ## 安装与使用入口
 
@@ -13,16 +13,16 @@
 3. 服务启动就绪后：在 `v0.1.2+` 本机单人模式下，人类可直接在本机系统浏览器打开 `http://127.0.0.1:<端口>` 进入工作台，或双击“言及工作台”快捷入口 / 运行 `open` 自动拉起服务并打开浏览器（若用户开启了本地代理，提醒将 `127.0.0.1` 设为直连绕过代理）；若目标环境仍运行旧版 `v0.1.1` 包，则通过本机入口或 `open` 打开系统默认浏览器。
 4. 确认服务状态，并提示用户在系统浏览器确认进入工作台后，完成使用交付。
 
-普通使用者和智能体共用以下 `v0.1.2` 标准便携安装入口。在线和先下载再安装均使用同一正式发行及已核对的清单摘要。
+普通使用者和智能体共用以下 `v0.1.3` 标准便携安装入口。在线和先下载再安装均使用同一正式发行及已核对的清单摘要。
 
 ```sh
 # macOS Apple Silicon / Linux x86_64、ARM64
-curl -fsSL https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.2/get-yanji.sh | sh
+curl -fsSL https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.3/get-yanji.sh | sh
 ```
 
 ```powershell
 # Windows x64 PowerShell 5.1 / 7
-irm https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.2/get-yanji.ps1 | iex
+irm https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.3/get-yanji.ps1 | iex
 ```
 
 也可先下载再安装：从同一正式 Release 取得 `SHA256SUMS`、本系统的 `install-local.sh` / `install-local.ps1` 和对应平台安装包，三者保留原名放在同一目录，无需手动解压。安装器可按本地清单使用同目录的平台包，不会重复下载该大包；仓库 **Code → Download ZIP** 只是源码。具体文件与当前可信摘要见 [标准本地安装步骤](../PORTABLE.md#安装)。进入该目录后，将 `YANJI_RELEASE_MANIFEST`（PowerShell 为 `YanjiReleaseManifest`）设为本地清单路径，`YANJI_RELEASE_SHA256`（PowerShell 为 `YanjiReleaseSha256`）设为从官方说明独立核对的清单摘要，再执行：
@@ -111,9 +111,9 @@ Docker 和传统账号模式继续使用管理员登录。它们不因智能体�
 
 ## 本轮发布验证与待验证项
 
-先前版本源码的 Windows 原生构建、完整冷安装/恢复，以及源码和打包后的入口夹具已通过（[原生验收流 #45665229256](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45665229256/job/139385482871)；v0.1.1 重发见 [#45737825566](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566)）。两轮入口夹具各实际执行 2 项入口文件用例与 4 项已注册快捷方式用例，覆盖中文目录、首次与重复注册、成功与故意失败、完整参数/私有脚本和当前实例绑定；不打开浏览器或用户服务。冷安装另行检查只读 `onboarding`、schema 1、不含凭据、恢复后入口绑定新实例，以及始终要求浏览器确认。
+先前版本源码的 Windows 原生构建、完整冷安装/恢复，以及源码和打包后的入口夹具已通过（[原生验收流 #45665229256](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45665229256/job/139385482871)；v0.1.1 重发见 [#45737825566](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566)；v0.1.2 发行见 [#45768018488](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488)）。两轮入口夹具各实际执行 2 项入口文件用例与 4 项已注册快捷方式用例，覆盖中文目录、首次与重复注册、成功与故意失败、完整参数/私有脚本和当前实例绑定；不打开浏览器或用户服务。冷安装另行检查只读 `onboarding`、schema 1、不含凭据、恢复后入口绑定新实例，以及始终要求浏览器确认。
 
-本轮 `v0.1.2` [发行流 #45768018488](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488) 的 12 项任务全部通过，覆盖双架构测试/审计、四平台原生组包验收、双架构镜像、17 项正式资产发布，以及 macOS/Windows 各两项公开标准安装入口验收（[Mac 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468654)、[Mac 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468642)、[Windows 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468597)、[Windows 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468596)）。构建源为 `20d57bc17f541a3064a7c61b9b65d453a939c9cc`。公开入口使用默认目录和 8000 端口，核对本次构建、只读交付状态、免账号 Cookie、工作区受保护 API，以及拒绝匿名和无 Cookie 绑定的令牌；不扩大为真实 GUI、特定智能体产品或模型推理验收。
+本轮 `v0.1.3` [发行流 #45850087833](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833) 的 12 项任务全部通过，覆盖双架构测试/审计、四平台原生组包验收、双架构镜像、17 项正式资产发布，以及 macOS/Windows 各两项公开标准安装入口验收（[Mac 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833/job/140034075059)、[Mac 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833/job/140034074992)、[Windows 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833/job/140034075043)、[Windows 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833/job/140034074933)）。构建源为 `a9d84db7ca30c3201bc9dd872d9b70f551972866`。公开入口使用默认目录和 8000 端口，核对本次构建、只读交付状态、免账号 Cookie、工作区受保护 API，以及拒绝匿名和无 Cookie 绑定的令牌；不扩大为真实 GUI、特定智能体产品或模型推理验收。
 
 以下真实 GUI 与人工使用项目仍未跑，单独跟踪；正式发布不将这些项目登记为通过，原生自动化也不替代 GUI 验收。自动化按能力和状态测试，不以某一家智能体品牌列“支持”名单。
 

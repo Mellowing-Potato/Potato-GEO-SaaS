@@ -1,8 +1,8 @@
 # 版本变化
 
-## v0.1.3（发行准备，未发布）— 跨平台同入口无感升级、智能体后台保活与工作台视觉/引导升级
+## v0.1.3（2026-11-27，已发布）— 跨平台同入口无感升级、智能体后台保活与工作台视觉/引导升级
 
-目标版本号已更新至 [VERSION](VERSION)（`0.1.3`，尚未打标签发布）；在 `v0.1.3` 四平台正式资产与公开入口验收完成前，线上正式下载入口与 `portable/release-pin.json` 保持已发布的 `v0.1.2`（清单 SHA-256 `a2e8d887efea5ad8e89c367613364b2039c34a51ce5dec720f59db8fd48984b9`）：
+已通过 [GitHub Release v0.1.3](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.3) 正式发布，对应构建源 `a9d84db7ca30c3201bc9dd872d9b70f551972866`，统一 `SHA256SUMS` 摘要为 `eddbb3fc6961ae6660b92e326ad303bbe769c5a8f5afa3fb8bf2816c3d0e5fc5`；`v0.1.2`、`v0.1.1` 与 `v0.1.0` 的历史标签与资产保持不变。
 
 - **根治跨版本重跑安装命令报“覆盖拒绝”问题（macOS / Windows / Linux 全平台）**：普通用户或智能体在已有旧版实例的电脑上运行标准一行安装命令、仓库根 `install.cmd` / `install.ps1` / `install.sh` 或本地 `install-local.sh` / `install-local.ps1` 时，自动检测已初始化的合法言及实例并转入 `Upgrade::run()` 完整安全升级流程（停写自动备份 `.yanji-recovery-*/instance.zip`、切换新版本、执行数据库迁移并校验就绪、异常自动回滚至原版本与原数据），不再报错要求手工拼接 `yanji upgrade --manifest ...`；同版本重跑在线命令亦跳过重复下载大包直接启动。非言及目录、损坏缺库实例及显式冲突参数继续严格拒绝。
 - **根治 macOS / Linux 与 Windows 智能体命令退出后后台服务被回收或挂起问题**：
@@ -13,9 +13,9 @@
 - **URL 导入可读短链直达源站与分析概览改版**：知识库 URL 导入列表展示可读域名与首末路径摘要，点击安全直达原始网页；分析概览升级为 Tremor 风格 KPI 指标卡、双序列 AreaChart（区分主趋势与虚线基线）、Donut + CategoryBar 占比条与 BarList 排行。
 - **Symfony 安全更新**：升级 `symfony/http-foundation`、`symfony/http-kernel`、`symfony/mailer` 与 `symfony/routing` 至 `v8.1.12` 并同步第三方许可声明，`composer audit --locked` 零已知漏洞。
 
-**前序合入与本轮准备已跑：** 合并提交 `7965944`（PR #30）、`dc20606`（PR #29）与 `6d35f49`（PR #31）在 GitHub Actions 已通过双架构完整 PHPUnit（SQLite 1837 项、PostgreSQL 353 项）、原生 Windows x64 便携构建与冷安装验收、双架构 Linux 随包 Python 11 技能渲染验收；本轮发行准备核对 `scripts/checks` 全部 136 项 Python 测试、全量前端 `npm run test:js`、`composer audit --locked`、`npm audit --package-lock-only`、隐私与 C1–C3 检查、`git diff --check`。本地未重跑完整 PHPUnit 与容器测试（交由 PR 与标签 CI 执行）。
+**本轮与正式发行 CI 已跑：** 新增 `PortableCrossVersionUpgradeTest` 与便携单元测试、136 项 `scripts/checks` Python 检查、全量前端 `npm run test:js`、`composer audit --locked`、`npm audit --package-lock-only`、隐私及 C1–C3 检查、`git diff --check`。正式 [发行流 #45850087833](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833) 的 12 项任务全部通过：双架构完整测试与依赖审计（SQLite 与 PostgreSQL/Redis 隔离套件）、四平台原生组包和冷安装验收、双架构 GHCR 镜像、17 项正式资产上传，以及 macOS/Windows 各两项公开标准安装入口验收（[Mac 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833/job/140034075059)、[Mac 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833/job/140034074992)、[Windows 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833/job/140034075043)、[Windows 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833/job/140034074933)）；线上发布的 `SHA256SUMS` 摘要（14 项条目）与纯 7-bit ASCII `get-yanji.ps1`（5753 字节）、`get-yanji.sh`（1317 字节）及 `v0.1.2` 历史清单保留状态已另行下载核对通过。
 
-**未跑 / 待验收：** `v0.1.3` 标签尚未推送，四平台正式资产打包、双架构 GHCR 镜像发布及 macOS/Windows 四项公开标准入口验收待标签流水线执行；真实 Windows / macOS 桌面环境与智能体现场复测、Linux amd64 Docker 完整手工业务流程、网页连接后的 Magpie 模型激活与真实推理仍待实测。
+**未跑 / 待验收：** 真实 Windows / macOS 桌面环境与特定智能体产品现场复测、四平台完整 GUI 人工点击验收、Linux amd64 Docker 完整手工业务流程、网页连接后的 Magpie 模型激活与真实推理、真实外部账号发布仍待实测。
 
 ## v0.1.2（2026-11-26，已发布）— 本机 `127.0.0.1` 零门槛直进与 Windows / 智能体开箱即用修复
 
