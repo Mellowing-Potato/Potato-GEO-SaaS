@@ -1,27 +1,27 @@
 {
   "brand": "言及 / YANJI",
   "version": "1.0.0",
-  "source": "D:/develop/design-specs/yanji/exports",
+  "source": "public/brand/yanji/v1",
   "assets": [
     {
       "file": "yanji-compact.svg",
       "source": "svg/yanji-compact.svg",
-      "sha256": "7a9617fdc5cc1f61e146ff81adec773741881726311b7291d9f28b92f6ffa30b"
+      "sha256": "c1e61225e0009a37d18743f1a8587504631e74bbc3f9599f0a844a21d3e8e76e"
     },
     {
       "file": "yanji-horizontal.svg",
       "source": "svg/yanji-horizontal.svg",
-      "sha256": "65346263b75b08672f55767a9843455dab08ef91a223bc8994b337e9b122c613"
+      "sha256": "c4ed2431d3c98d1541ac6f49db2c6ce874fc6223ed18f9daccef46722109b0b3"
     },
     {
       "file": "yanji-symbol.svg",
       "source": "svg/yanji-symbol.svg",
-      "sha256": "23f04da88b740826736b0a3d92d96de1e8f147faf349ed25bd0903a3480d7125"
+      "sha256": "216cbabd882532c8096ebd824f7671190ce36105e96fde51cd499911740cd5f0"
     },
     {
       "file": "favicon.svg",
       "source": "icons/favicon.svg",
-      "sha256": "79b35373d208f85b6aa6cda39e75ed00aba1169b111412412ff6c6eef3b39299"
+      "sha256": "3e84a3a98fc3a2f585bbb0c58a928336b9ef4161c93b9e1d9e0f2058b5fc394a"
     },
     {
       "file": "favicon.ico",

@@ -3757,6 +3757,7 @@
         if (button.dataset.aikeyAction === "toggle") button.textContent = key?.is_active ? "停用" : "启用";
       });
     });
+    globalThis.GEO?.syncModelConfigUi?.();
   }
 
   function modelConfigurationPayload(form) {

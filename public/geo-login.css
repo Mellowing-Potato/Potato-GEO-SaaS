@@ -1,34 +1,34 @@
-/* 言及登录入口：复用应用令牌与同源 Noto 字体。 */
+/* 言及登录与本机启动入口：复用素白深松应用令牌与同源 Noto 字体。 */
     :root {
       color-scheme: light;
-      --bg: #F7F4ED;
-      --panel: #FFFEF8;
-      --panel-soft: #F8F4F0;
-      --line: #DDD7C8;
-      --line-strong: #B5AD9C;
-      --text: #1D1B1C;
+      --bg: #F8F8F7;
+      --panel: #FFFFFF;
+      --panel-soft: #EFEFED;
+      --line: #DFE1DF;
+      --line-strong: #B8BDB9;
+      --text: #171A18;
       --muted: var(--md-text-muted);
-      --accent: #3F7A61;
-      --accent-hover: #2F684F;
-      --accent-soft: #E1ECE4;
+      --accent: #2D5F4C;
+      --accent-hover: #214738;
+      --accent-soft: #E7F0EC;
       --on-accent: #FFFFFF;
-      --bad: #9E2F2F;
-      --bad-soft: #F9E7E3;
-      --bad-border: #E08A8A;
+      --bad: #B42318;
+      --bad-soft: #FDECEB;
+      --bad-border: #F2C0BC;
       --good: var(--md-success-ink);
-      --good-soft: #E8F5EE;
-      --good-border: #9FD9C2;
-      --input: #FFFEF8;
-      --surface-hover: #F1ECE1;
-      --border-subtle: #E9E2D6;
-      --text-strong: #223E36;
-      --text-secondary: #4A4035;
-      --text-faint: #A49C93;
-      --value: #9A7132;
-      --value-soft: #F0E5CF;
-      --value-border: #D6C18B;
-      --info: #3B4F5C;
-      --info-soft: #E8EEF0;
+      --good-soft: #E7F0EC;
+      --good-border: #BDD4CA;
+      --input: #FFFFFF;
+      --surface-hover: #F2F3F2;
+      --border-subtle: #EAECEB;
+      --text-strong: #171A18;
+      --text-secondary: #484E4A;
+      --text-faint: #A7ADA9;
+      --value: #8C5811;
+      --value-soft: #FBF4E4;
+      --value-border: #E8D2A4;
+      --info: #484E4A;
+      --info-soft: #F8F8F7;
       --resend-duration: 60s;
       --font-sans: var(--md-font-sans), sans-serif;
       --font-mono: var(--md-font-mono), monospace;
@@ -48,7 +48,7 @@
       -webkit-font-smoothing: antialiased;
     }
     .stage { width: min(960px, 100%); display: grid; grid-template-columns: minmax(300px, .92fr) minmax(0, 1fr); align-items: stretch; }
-    .brand-panel { display: flex; flex-direction: column; justify-content: space-between; min-width: 0; padding: 44px 48px; border: 1px solid var(--line); border-right: 0; border-radius: 8px 0 0 8px; background: #F8F3E6; }
+    .brand-panel { display: flex; flex-direction: column; justify-content: space-between; min-width: 0; padding: 44px 48px; border: 1px solid var(--line); border-right: 0; border-radius: 8px 0 0 8px; background: var(--panel-soft); }
     .login-logo { display: block; width: 200px; max-width: 100%; height: auto; margin: 18px 0; }
     .brand-copy { border-top: 1px solid var(--line); padding-top: 32px; }
     .brand-kicker { margin: 0 0 12px; color: var(--accent-hover); font-size: var(--md-fs-xs); font-weight: var(--md-weight-semibold); letter-spacing: .08em; }
@@ -191,4 +191,134 @@
 }
 @media (pointer: coarse) {
     .btn-primary, .btn-code, .tab, .footer button { min-height: 44px; }
+}
+
+/* Local desktop launch & recovery states (Stone-White & Deep-Pine). */
+.launch-steps {
+    list-style: none;
+    margin: 24px 0 0;
+    padding: 20px 0 0;
+    border-top: 1px solid var(--line);
+    display: grid;
+    gap: 12px;
+}
+.launch-steps li {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+}
+.launch-step-ix {
+    font-family: var(--font-mono);
+    font-size: var(--md-fs-xs);
+    font-weight: var(--md-weight-semibold);
+    color: var(--accent);
+    line-height: var(--md-leading-snug);
+    padding-top: 2px;
+}
+.launch-steps strong {
+    display: block;
+    color: var(--text-strong);
+    font-size: var(--md-fs-sm);
+    font-weight: var(--md-weight-medium);
+    line-height: var(--md-leading-snug);
+}
+.launch-steps small {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: var(--md-fs-xs);
+    line-height: var(--md-leading-snug);
+}
+.launch-main {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.launch-status-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+}
+.launch-status-card .status {
+    margin: 0;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+}
+.launch-indicator {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    border: 2px solid var(--line-strong);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: launchSpin .9s linear infinite;
+}
+.launch-status-card:is(.is-error, :has(.status.is-error)) {
+    background: var(--bad-soft);
+    border-color: var(--bad-border);
+}
+.launch-status-card:is(.is-error, :has(.status.is-error)) .status {
+    color: var(--bad);
+}
+.launch-status-card:is(.is-error, :has(.status.is-error)) .launch-indicator {
+    animation: none;
+    border: 0;
+    width: 8px;
+    height: 8px;
+    flex: 0 0 8px;
+    background: var(--bad);
+}
+@keyframes launchSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .launch-indicator { animation: none; } }
+.launch-recovery[hidden] { display: none; }
+.launch-recovery {
+    margin-top: 20px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+    display: grid;
+    gap: 10px;
+}
+.launch-recovery-title {
+    margin: 0;
+    color: var(--text-strong);
+    font-size: var(--md-fs-sm);
+    font-weight: var(--md-weight-semibold);
+}
+.launch-recovery .field-note {
+    margin: 0;
+}
+.launch-cmd-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 10px 8px 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+}
+.launch-cmd-row code {
+    color: var(--text-strong);
+    font-size: var(--md-fs-sm);
+    font-weight: var(--md-weight-medium);
+    overflow-wrap: anywhere;
+}
+.launch-copy-btn {
+    height: 32px;
+    padding: 0 12px;
+}
+@media (max-width: 720px) {
+    .launch-steps { margin-top: 16px; padding-top: 14px; gap: 8px; }
+    .launch-cmd-row { flex-wrap: wrap; }
 }

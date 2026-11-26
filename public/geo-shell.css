@@ -29,7 +29,7 @@ body.geo-app .workspace-topbar.topbar {
   top: 0;
   z-index: 60;
   border: 0;
-  border-bottom: 1px solid var(--md-border-subtle);
+  border-bottom: 1px solid var(--md-border);
   border-radius: 0;
   background: var(--md-surface);
   box-shadow: none;
@@ -144,8 +144,8 @@ body.geo-app .workspace-topbar .topbar-avatar {
   width: 28px;
   height: 28px;
   border-radius: var(--md-radius-pill);
-  background: var(--md-primary-soft);
-  color: var(--md-primary-pressed);
+  background: var(--md-bg-subtle);
+  color: var(--md-text-secondary);
 }
 body.geo-app .workspace-topbar .topbar-avatar svg {
   width: 17px;
@@ -250,9 +250,9 @@ body.geo-app .workspace-sidebar {
   padding: 0;
   overflow: visible;
   border: 0;
-  border-right: 1px solid var(--md-border-subtle);
+  border-right: 1px solid var(--md-border);
   border-radius: 0;
-  background: var(--md-bg-subtle);
+  background: var(--md-bg-page);
   font: var(--md-type-ui);
 }
 body.geo-app .workspace-sidebar .workspace-sidebar-scroll {
@@ -266,33 +266,51 @@ body.geo-app .workspace-sidebar .workspace-sidebar-scroll {
 body.geo-app .workspace-sidebar .workspace-menu {
   display: grid;
   flex: none;
-  gap: var(--md-space-2);
+  gap: 0;
   margin: 0;
   padding: 0;
   overflow: visible;
   font-family: var(--md-font-sans);
 }
 body.geo-app .workspace-sidebar .workspace-menu-section { display: block; min-width: 0; margin: 0; }
+body.geo-app .workspace-sidebar .workspace-menu-section + .workspace-menu-section {
+  margin-top: var(--md-space-3);
+  padding-top: var(--md-space-3);
+  border-top: 1px solid var(--md-border-subtle);
+}
 body.geo-app .workspace-sidebar .workspace-menu-group {
   display: flex;
   align-items: center;
   justify-content: space-between;
   box-sizing: border-box;
   width: 100%;
-  height: 20px;
-  min-height: 20px;
-  padding: 0 var(--md-space-3);
+  height: 30px;
+  min-height: 30px;
+  padding: 0 var(--md-space-2);
   border: 0;
+  border-radius: var(--md-radius-sm);
   background: transparent;
-  color: var(--md-text-group);
-  font: var(--md-weight-medium) var(--md-fs-xs)/var(--md-leading-tight) var(--md-font-sans);
+  color: var(--md-text-strong);
+  font-size: var(--md-fs-sm);
+  font-weight: var(--md-weight-semibold);
+  line-height: var(--md-leading-snug);
   letter-spacing: 0;
   text-transform: none;
   cursor: pointer;
 }
-body.geo-app .workspace-sidebar .workspace-menu-group > span { transition: transform .16s var(--md-ease-gentle); }
+body.geo-app .workspace-sidebar .workspace-menu-group:hover { background: var(--md-surface-hover); }
+body.geo-app .workspace-sidebar .workspace-menu-group > span {
+  color: var(--md-text-muted);
+  font-size: var(--md-fs-xs);
+  transition: transform .16s var(--md-ease-gentle);
+}
 body.geo-app .workspace-sidebar .workspace-menu-group[aria-expanded="false"] > span { transform: rotate(-90deg); }
-body.geo-app .workspace-sidebar .workspace-menu-items { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+body.geo-app .workspace-sidebar .workspace-menu-items { display: grid; gap: var(--md-space-hair); margin: 0; padding: 0; list-style: none; }
+body.geo-app .workspace-sidebar .workspace-menu-group + .workspace-menu-items {
+  margin: var(--md-space-1) 0 0 var(--md-space-3);
+  padding-left: var(--md-space-2);
+  border-left: 1px solid var(--md-border);
+}
 body.geo-app .workspace-sidebar .workspace-menu-items > li { margin: 0; padding: 0; list-style: none; }
 body.geo-app .workspace-sidebar .workspace-menu-link {
   display: flex;
@@ -303,24 +321,33 @@ body.geo-app .workspace-sidebar .workspace-menu-link {
   height: 32px;
   min-height: 32px;
   margin: 0;
-  padding: 0 var(--md-space-3);
+  padding: 0 var(--md-space-2);
   border: 0;
   border-radius: var(--md-radius-sm);
   background: transparent;
   box-shadow: none;
-  color: var(--md-text-secondary);
-  font: var(--md-type-ui);
+  color: var(--md-text-strong);
+  font-size: var(--md-fs-sm);
+  font-weight: var(--md-weight-medium);
+  line-height: var(--md-leading-snug);
   text-decoration: none;
   white-space: nowrap;
   scroll-margin-block: var(--md-space-3);
   cursor: pointer;
 }
+body.geo-app .workspace-sidebar .workspace-menu-group + .workspace-menu-items .workspace-menu-link {
+  height: 28px;
+  min-height: 28px;
+  color: var(--md-text-secondary);
+  font-size: var(--md-fs-compact);
+  font-weight: var(--md-weight-normal);
+}
 body.geo-app .workspace-sidebar .workspace-menu-link::before { display: none; }
 body.geo-app .workspace-sidebar .workspace-menu-link:hover { background: var(--md-surface-hover); }
 body.geo-app .workspace-sidebar .workspace-menu-link[aria-current="page"] {
-  background: var(--md-primary-soft);
-  box-shadow: none;
-  color: var(--md-text-strong);
+  background: var(--md-surface);
+  box-shadow: var(--md-shadow-xs);
+  color: var(--md-primary-hover);
   font-weight: var(--md-weight-medium);
 }
 body.geo-app .workspace-sidebar .workspace-sidebar-bottom {
@@ -383,8 +410,8 @@ body.geo-app .workspace-sidebar .workspace-attention-count {
   display: inline-grid;
   place-items: center;
   margin-left: auto;
-  min-width: 20px;
-  height: 20px;
+  min-width: 18px;
+  height: 18px;
   padding: 0 var(--md-space-1);
   border: 1px solid var(--md-warning-border);
   border-radius: var(--md-radius-pill);
@@ -488,7 +515,7 @@ body.geo-app .workspace-sidebar .project-nav-empty {
 body.geo-app .workspace-sidebar .project-nav-message:empty { display: none; }
 body.geo-app .workspace-sidebar .project-nav-message[data-variant="danger"] { color: var(--md-danger-ink); }
 body.geo-app .workspace-topbar :focus-visible,
-body.geo-app .workspace-sidebar :focus-visible { outline: 2px solid var(--md-primary); outline-offset: -2px; }
+body.geo-app .workspace-sidebar :focus-visible { outline: 0; box-shadow: var(--md-focus-shadow); }
 body.geo-app .workspace-topbar [hidden],
 body.geo-app .workspace-sidebar [hidden] { display: none !important; }
 
@@ -651,9 +678,9 @@ body.geo-app .workspace-create-menu > button:last-child { margin-top: var(--md-s
 body.geo-app .workspace-menu-items > li { position: relative; }
 body.geo-app .workspace-menu-items > li:has(> .workspace-setup:not([hidden])) > .workspace-menu-link { padding-right: 84px; }
 body.geo-app .workspace-setup {
-  position: absolute; right: var(--md-space-2); top: 50%; transform: translateY(-50%);
-  display: inline-flex; align-items: center; height: 22px; padding: 0 var(--md-space-2);
-  border: 1px solid var(--md-primary-border); border-radius: var(--md-radius-pill);
+  position: absolute; right: var(--md-space-1); top: 50%; transform: translateY(-50%);
+  display: inline-flex; align-items: center; height: 20px; padding: 0 var(--md-space-2);
+  border: 1px solid var(--md-primary-border); border-radius: var(--md-radius-xs);
   background: var(--md-surface); color: var(--md-primary-pressed); font-size: var(--md-fs-xs);
   font-weight: var(--md-weight-medium); text-decoration: none; white-space: nowrap;
 }

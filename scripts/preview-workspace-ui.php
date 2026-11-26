@@ -49,17 +49,22 @@ $buildCspMeta = function (array $overrides = []) use ($previewNonce, $previewCsp
 
 $html = view('welcome')->render();
 $html = str_replace('<head>', '<head>'.$buildCspMeta(), $html);
-$html = str_replace('<body class="geo-app">', '<body class="geo-app"><nav class="ui-preview-banner" aria-label="本地样式预览"><strong>本地样式预览 · 示例数据</strong><span>不连接真实服务，不执行任务</span><a href="#projects">项目</a><a href="#skill">诊断与专项功能</a><a href="#content-library">文章表单入口</a><a href="#result/101">报告样板</a></nav><style>.ui-preview-banner{display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:10px 24px;background:#edf3f0;font:var(--md-type-caption)}.ui-preview-banner strong{font-weight:500}.ui-preview-banner a{color:#285b47}</style>', $html);
+$html = str_replace('<body class="geo-app">', '<body class="geo-app"><nav class="ui-preview-banner" aria-label="本地样式预览"><strong>本地样式预览 · 示例数据</strong><span>不连接真实服务，不执行任务</span><a href="#projects">项目</a><a href="#skill">诊断与专项功能</a><a href="#content-library">文章表单入口</a><a href="#result/101">报告样板</a></nav><style>.ui-preview-banner{display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:10px 24px;background:var(--md-primary-soft);font:var(--md-type-caption)}.ui-preview-banner strong{font-weight:500}.ui-preview-banner a{color:var(--md-primary-hover)}</style>', $html);
 if ($includeLeads) $html = str_replace('不连接真实服务，不执行任务</span>', '不连接真实服务，不执行任务</span><a href="#leads">线索（仅预览开启）</a>', $html);
 $fixtureVersion = filemtime(dirname(__DIR__).'/tests/fixtures/ui/workspace-fixtures.js');
 $html = str_replace('<script src="/geo-entry.js', '<script src="/workspace-fixtures.js?v='.$fixtureVersion.'"></script><script src="/geo-entry.js', $html);
 file_put_contents($out.'/index.html', $html);
 $loginHtml = view('login')->render();
 $loginHtml = str_replace('<head>', '<head>'.$buildCspMeta(), $loginHtml);
-$loginHtml = preg_replace('/(<body\b[^>]*>)/i', '$1<div style="position:fixed;z-index:2;top:0;left:0;right:0;padding:6px 16px;background:#e1ece4;color:#223e36;text-align:center">本地登录样板 · 示例界面 · 不连接真实账户</div>', $loginHtml, 1);
+$loginHtml = preg_replace('/(<body\b[^>]*>)/i', '$1<div style="position:fixed;z-index:2;top:0;left:0;right:0;padding:6px 16px;background:var(--md-primary-soft);color:var(--md-primary-hover);text-align:center">本地登录样板 · 示例界面 · 不连接真实账户</div>', $loginHtml, 1);
 if (!is_dir($out.'/login')) mkdir($out.'/login', 0777, true);
 file_put_contents($out.'/login/index.html', $loginHtml);
 copy(dirname(__DIR__).'/public/geo-login.js', $out.'/geo-login.js');
+$localStartHtml = view('local-start')->render();
+$localStartHtml = str_replace('<head>', '<head>'.$buildCspMeta(["connect-src 'none'" => "connect-src 'self'"]), $localStartHtml);
+if (!is_dir($out.'/local-start')) mkdir($out.'/local-start', 0777, true);
+file_put_contents($out.'/local-start/index.html', $localStartHtml);
+copy(dirname(__DIR__).'/public/geo-local-start.js', $out.'/geo-local-start.js');
 // EXEC-10B: the existing CSS glob also includes geo-project-home.css.
 foreach (glob(dirname(__DIR__).'/public/geo-*.css') as $file) copy($file, $out.'/'.basename($file));
 // Brand assets used by the login and main workspace are served from the preview origin.
@@ -78,32 +83,7 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($fontRoot,
     if (!is_dir(dirname($fontDest))) mkdir(dirname($fontDest), 0777, true);
     copy($fontFile->getPathname(), $fontDest);
 }
-copy(dirname(__DIR__).'/public/geo-entry.js', $out.'/geo-entry.js');
-copy(dirname(__DIR__).'/public/geo-page-navigation.js', $out.'/geo-page-navigation.js');
-copy(dirname(__DIR__).'/public/geo-report-editor.js', $out.'/geo-report-editor.js');
-copy(dirname(__DIR__).'/public/geo-entry-mobile-menu.js', $out.'/geo-entry-mobile-menu.js');
-copy(dirname(__DIR__).'/public/geo-entry-workspace-settings.js', $out.'/geo-entry-workspace-settings.js');
-copy(dirname(__DIR__).'/public/geo-entry-url-import-detail.js', $out.'/geo-entry-url-import-detail.js');
-copy(dirname(__DIR__).'/public/geo-points.js', $out.'/geo-points.js');
-copy(dirname(__DIR__).'/public/geo-entry-magpie.js', $out.'/geo-entry-magpie.js');
-copy(dirname(__DIR__).'/public/geo-entry-management.js', $out.'/geo-entry-management.js');
-copy(dirname(__DIR__).'/public/geo-entry-billing.js', $out.'/geo-entry-billing.js');
-copy(dirname(__DIR__).'/public/geo-entry-enterprise-knowledge.js', $out.'/geo-entry-enterprise-knowledge.js');
-copy(dirname(__DIR__).'/public/geo-entry-knowledge-base.js', $out.'/geo-entry-knowledge-base.js');
-copy(dirname(__DIR__).'/public/geo-entry-content-library.js', $out.'/geo-entry-content-library.js');
-copy(dirname(__DIR__).'/public/geo-entry-publishing.js', $out.'/geo-entry-publishing.js');
-copy(dirname(__DIR__).'/public/geo-entry-leads.js', $out.'/geo-entry-leads.js');
-copy(dirname(__DIR__).'/public/geo-entry-lead-export.js', $out.'/geo-entry-lead-export.js');
-copy(dirname(__DIR__).'/public/geo-entry-platform.js', $out.'/geo-entry-platform.js');
-copy(dirname(__DIR__).'/public/geo-entry-skills.js', $out.'/geo-entry-skills.js');
-copy(dirname(__DIR__).'/public/geo-entry-reports.js', $out.'/geo-entry-reports.js');
-copy(dirname(__DIR__).'/public/geo-entry-projects.js', $out.'/geo-entry-projects.js');
-copy(dirname(__DIR__).'/public/geo-entry-project-home.js', $out.'/geo-entry-project-home.js');
-// 计划 §9.5 账户注销（welcome.blade.php 里那一行 <script src="/geo-entry-account.js">）。
-// 漏了这一行，预览页会去请求一个不存在的脚本，静态服务器回 index.html，
-// 浏览器报 "SyntaxError: Unexpected token '<'" —— 指纹里的 JS 异常计数就是这么红的（实测过）。
-copy(dirname(__DIR__).'/public/geo-entry-account.js', $out.'/geo-entry-account.js');
-copy(dirname(__DIR__).'/public/geo-report-reader.js', $out.'/geo-report-reader.js');
+foreach (glob(dirname(__DIR__).'/public/geo-*.js') as $file) copy($file, $out.'/'.basename($file));
 copy(dirname(__DIR__).'/tests/fixtures/ui/workspace-fixtures.js', $out.'/workspace-fixtures.js');
 // Standalone monitoring page: render only an isolated HTML copy, without enabling its route.
 $visibilityHtml = view('visibility')->render();

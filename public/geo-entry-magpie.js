@@ -160,6 +160,7 @@
     actions.toggle.textContent = profile?.enabled ? "停用 Magpie 连接" : "启用 Magpie 连接";
     actions.toggle.disabled = Boolean(busy || hasDraft(editor));
     renderLocalConnectControls();
+    GEO.syncModelConfigUi?.();
   }
 
   function applyProfile(editor, profile) {

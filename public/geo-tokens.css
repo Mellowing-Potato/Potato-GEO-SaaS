@@ -1,70 +1,49 @@
-/* GEO global design tokens — single source of truth.
+/* Yanji GEO global design tokens — single source of truth (Scheme 3: Stone White & Deep Pine).
    Typography: self-hosted OFL fonts (public/fonts/manifest.json), semantic roles below.
-   Palette: zhongguo-traditional-colors/assets/data/harmonies.js, names beside each ink.
-   Page CSS uses these values; geo-typography.css binds shared semantic roles.
-   See docs/ui-review/2026-09-10-global-typography.md for provenance and verification.
+   Palette: 3 neutral surfaces + single neutral ink ramp + Deep Pine primary + 2 restrained alert hues.
+   Legacy semantic token names are preserved as converged values to avoid breaking existing pages or tests.
 */
 :root {
-  --md-bg-page: #F7F4ED; --md-bg-subtle: #F4F0E6;
-  --md-surface: #FFFEF8; --md-surface-soft: #F8F4F0; --md-surface-hover: #F1ECE1;
-  /* Named colors from zhongguo-traditional-colors; roles are shared across pages. */
-  --md-text: #1D1B1C; /* 墨色 656: document text */
-  --md-text-strong: #223E36; /* 苍绿 471: page titles */
-  --md-text-secondary: #424B50; /* 鸦青 554: navigation / secondary controls */
-  --md-text-muted: #5E616D; /* 鱼尾灰: labels / metadata */
-  --md-text-faint: var(--md-text-muted); --md-text-disabled: #B7AEA3;
-  --md-text-heading: #2B333E; /* 青灰 420: section titles / table headers */
-  --md-text-group: #5D3D21; /* 茶褐 113: navigation group labels */
-  --md-border: #DDD7C8; --md-border-strong: #B5AD9C; --md-border-subtle: #E9E2D6;
-  --md-primary: #3F7A61; --md-primary-hover: #2F684F; --md-primary-pressed: #24543F;
-  --md-primary-soft: #E1ECE4; --md-primary-border: #BFD3C5; --md-on-primary: #FFFFFF;
-  --md-focus-ring: rgba(63,122,97,.18);
+  --md-bg-page: #F8F8F7; --md-bg-subtle: #EFEFED;
+  --md-surface: #FFFFFF; --md-surface-soft: #F8F8F7; --md-surface-hover: #F2F3F2;
+  /* Unified neutral ink ramp (WCAG AA >= 5.15:1 across all primary surfaces). */
+  --md-text: #171A18;
+  --md-text-strong: #171A18;
+  --md-text-secondary: #484E4A;
+  --md-text-muted: #5E6560;
+  --md-text-faint: var(--md-text-muted); --md-text-disabled: #A7ADA9;
+  --md-text-heading: #171A18;
+  --md-text-group: #5E6560;
+  --md-border: #DFE1DF; --md-border-strong: #B8BDB9; --md-border-subtle: #EAECEB;
+  --md-primary: #2D5F4C; --md-primary-hover: #214738; --md-primary-pressed: #19382C;
+  --md-primary-soft: #E7F0EC; --md-primary-border: #BDD4CA; --md-on-primary: #FFFFFF;
+  --md-focus-ring: rgba(45,95,76,.16);
   --md-focus-shadow: 0 0 0 3px var(--md-focus-ring);
-  /* SPEC §4 图表序列：AI 爬虫 / 搜索爬虫 / 真人访问。
-     设计校验：明度、彩度、色弱相邻最差 ΔE 10.0、正常视觉区分通过。
-     赭橙对底色对比度 2.71，必须配可见标签或数据表；
-     它不是价值金，金额仍用 --md-value-ink。 */
-  --md-chart-1: #187552; --md-chart-2: #8e6099; --md-chart-3: #d18e46;
-  --md-value: #9A7132; --md-value-soft: #F0E5CF; --md-value-border: #D6C18B;
-
-  /* 价值金的文字色（2026-09-03 新增）。
-     --md-value #9A7132 是填充与大号数字用的品牌金，对纸面 4.35、
-     对自己的软底 #F0E5CF 只有 3.52，小字号一律不达 AA 4.5:1。
-     #83602B 是「只压明度、色相彩度不动」能过全部四种底的最浅值：
-       卡片 5.66 / 纸面 5.20 / 浅面 5.22 / 金软底 4.58
-     规矩：金额文字用 --md-value-ink。
-     唯一例外是 ≥20px 且 700 字重的大号数字展示，可继续用 --md-value
-     （大字门槛是 3:1，实测 4.35 通过）。
-     ⚠️ 18px 加粗不够——WCAG 的加粗大字门槛是 18.66px，拿不准就用 ink。 */
-  --md-value-ink:    #83602B;
-  --md-success: #2C9678; --md-success-soft: #E8F5EE; --md-success-border: #BFE3D2;
-  --md-warning: #986524; --md-warning-soft: #FFF7E5; --md-warning-border: #E4CFA4;
-  --md-danger: #9E2F2F; --md-danger-soft: #F9E7E3; --md-danger-border: #E5B8B0;
-  --md-info: #3B4F5C; --md-info-soft: #E8EEF0; --md-info-border: #C4D2DA;
-
-  /* 软底上的文字一律用 --md-*-ink（2026-09-03 新增，权威源同名段有实算过程）。
-     徽标是 12px 小字、AA 门槛 4.5:1，而 --md-success 放在 --md-success-soft
-     上只有 3.26 —— 「已生成」这个最常见的绿徽标的字是不达标的。
-     success-ink 压暗明度到 #22755E（4.96 ✓），色相彩度不动；
-     另三个主色在自己软底上本来达标，ink 就等于主色，
-     这样作者只需记一条规矩：软底配 ink，不要配主色。
-     ⚠️ --md-success 本身没改，它是填充色（配白字 5.04 达标）。 */
-  --md-success-ink: #22755E; --md-warning-ink: #986524;
-  --md-danger-ink: #9E2F2F;  --md-info-ink: #3B4F5C;
+  /* Chart series: AI crawlers / Search crawlers / Human visits (always paired with visible labels). */
+  --md-chart-1: #2D5F4C; --md-chart-2: #484E4A; --md-chart-3: #8C5811;
+  /* Restrained amber & crimson exception hues; info converges to neutral stone, success unifies with primary. */
+  --md-value: #8C5811; --md-value-soft: #FBF4E4; --md-value-border: #E8D2A4;
+  --md-value-ink: #8C5811;
+  --md-success: #2D5F4C; --md-success-soft: #E7F0EC; --md-success-border: #BDD4CA;
+  --md-warning: #8C5811; --md-warning-soft: #FBF4E4; --md-warning-border: #E8D2A4;
+  --md-danger: #B42318; --md-danger-soft: #FDECEB; --md-danger-border: #F2C0BC;
+  --md-info: #484E4A; --md-info-soft: #F8F8F7; --md-info-border: #DFE1DF;
+  --md-success-ink: #214738; --md-warning-ink: #8C5811;
+  --md-danger-ink: #B42318;  --md-info-ink: #484E4A;
   --md-radius-xs: 4px; --md-radius-sm: 6px; --md-radius-md: 8px;
   --md-radius-pill: 999px;
-  --md-shadow-xs: 0 1px 2px rgba(29,27,28,.04);
-  --md-shadow-sm: 0 8px 24px rgba(29,27,28,.07);
-  --md-shadow-modal: 0 18px 56px rgba(29,27,28,.14);
+  --md-shadow-xs: 0 1px 2px rgba(23,26,24,.05);
+  --md-shadow-sm: 0 4px 16px rgba(23,26,24,.06), 0 1px 2px rgba(23,26,24,.04);
+  --md-shadow-modal: 0 16px 48px rgba(23,26,24,.12);
   --md-font-sans: "GEO Sans";
   --md-font-mono: "GEO Mono", "GEO Sans";
-  --md-type-page: 600 24px/1.4 var(--md-font-sans);
-  --md-type-section: 500 20px/1.5 var(--md-font-sans);
-  --md-type-subheading: 500 16px/1.5 var(--md-font-sans);
-  --md-type-ui: 400 14px/1.6 var(--md-font-sans);
-  --md-type-label: 500 14px/1.6 var(--md-font-sans);
-  --md-type-caption: 400 14px/1.7 var(--md-font-sans);
-  --md-type-body: 400 16px/1.85 var(--md-font-sans);
+  --md-type-page: 600 24px/1.35 var(--md-font-sans);
+  --md-type-section: 600 16px/1.45 var(--md-font-sans);
+  --md-type-subheading: 600 14px/1.45 var(--md-font-sans);
+  --md-type-ui: 400 13px/1.55 var(--md-font-sans);
+  --md-type-label: 500 13px/1.45 var(--md-font-sans);
+  --md-type-caption: 400 12px/1.5 var(--md-font-sans);
+  --md-type-body: 400 15px/1.75 var(--md-font-sans);
 
   /* ══ 应用端固定档位（2026-09-03 新增）══════════════════════════════════
      权威源：design-specs/tokens.css 的同名段，值逐字一致。
@@ -90,7 +69,7 @@
   --md-space-1: 4px;  --md-space-2: 8px;   --md-space-3: 12px; --md-space-4: 16px;
   --md-space-5: 20px; --md-space-6: 24px;  --md-space-8: 32px;
   --md-space-10: 40px; --md-space-12: 48px;
-  --md-fs-xs: 12px; --md-fs-sm: 14px; --md-fs-base: 14px; --md-fs-md: 16px;
+  --md-fs-xs: 12px; --md-fs-compact: 13px; --md-fs-sm: 14px; --md-fs-base: 14px; --md-fs-md: 16px;
   --md-fs-lg: 18px; --md-fs-xl: 20px; --md-fs-2xl: 24px; --md-fs-3xl: 30px;
   --md-weight-normal: 400; --md-weight-medium: 500;
   --md-weight-semibold: 600; --md-weight-bold: 700;
