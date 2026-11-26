@@ -45,7 +45,8 @@ assert.match(shellCss, /\.workspace-menu-group\s*\{[^}]*font-size:\s*var\(--md-f
 assert.match(shellCss, /\.workspace-menu-group \+ \.workspace-menu-items \.workspace-menu-link\s*\{[^}]*font-size:\s*var\(--md-fs-compact\)/s, '2nd-level sidebar items must use compact 13px type smaller than 1st-level');
 
 const entryCss = fs.readFileSync('public/geo-entry.css', 'utf8');
-assert.match(entryCss, /#aikeysPanel\.panel\s*\{[^}]*max-width:\s*820px[^}]*background:\s*transparent/s, '#aikeysPanel must constrain width and avoid outer card nesting');
+assert.match(entryCss, /\.workspace-main > \*\s*\{[^}]*max-width:\s*1440px[^}]*margin-inline:\s*auto/s, 'Workspace main views must expand cleanly to 1440px and center on wide displays');
+assert.match(entryCss, /#aikeysPanel\.panel\s*\{[^}]*max-width:\s*960px[^}]*margin-inline:\s*auto[^}]*background:\s*transparent/s, '#aikeysPanel must center cleanly and avoid outer card nesting');
 
 const legacyHexPattern = /#(3F7A61|223E36|F7F4ED|1E6594|D4A438|6B5B8E)/i;
 for (const file of [

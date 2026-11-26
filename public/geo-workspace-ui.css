@@ -827,6 +827,7 @@ body.geo-app .geo-account-panel[data-workspace-view="personal-settings"] h3 { fo
 #urlImportsPanel hr { margin: 0; border: 0; border-top: 1px solid var(--md-border-subtle); }
 /* EXEC-13 评审：.cl-tbl 原有的 760px 最小宽度随换 md-table 丢了，窄桌面下列被挤、状态徽标折成两行。补回，表格照旧在 .cl-tbl-scroll 里横滚。 */
 #urlImportsPanel .md-table { min-width: 760px; }
+#urlImportForm { max-width: 840px; }
 #urlImportRows .badge { white-space: nowrap; }
 
 /* EXEC-14 A：项目总览只承接页面布局，统计由既有 md-panel / md-stat 呈现。 */

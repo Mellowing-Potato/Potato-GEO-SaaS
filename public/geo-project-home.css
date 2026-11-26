@@ -1,5 +1,5 @@
 /* EXEC-10B: layout and typography for project home; components own their surfaces. */
-#projectDetail { max-width: 1080px; margin-inline: 0; }
+#projectDetail { width: 100%; max-width: 1440px; margin-inline: auto; }
 .project-home { display: grid; gap: var(--md-space-4); }
 .ws-head { display: grid; gap: var(--md-space-4); }
 .ws-head-top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--md-space-4) var(--md-space-6); }

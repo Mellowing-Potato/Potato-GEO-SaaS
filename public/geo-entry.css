@@ -110,8 +110,12 @@ textarea {
 }
 
 .workspace-main > * {
-  max-width: 1080px;
-  margin-inline: 0;
+  max-width: 1440px;
+  margin-inline: auto;
+}
+
+.workspace-main:has(> :is(#aikeysPanel, .geo-account-panel, #accountSecurityPanel, #teamPanel, #sensitiveWordsPanel, #skillPromptsPanel).is-active) > :is(.workspace-view-titlebar, #activeProjectContext, .workspace-load-notice) {
+  max-width: 960px;
 }
 
 .workspace-view-titlebar {
@@ -423,33 +427,39 @@ h2 {
   overflow-wrap: anywhere;
 }
 
-/* ⚠️ 徽标跨视图共用。同上，800 → 700 收进字重四档。 */
+/* ⚠️ 徽标跨视图共用：收敛为紧凑 20px 小圆角微标，与 .md-badge 保持一致质感。 */
 .badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
   background: var(--md-bg-subtle);
-  border: 1px solid transparent;
-  border-radius: var(--md-radius-pill);
+  border: 1px solid var(--md-border);
+  border-radius: var(--md-radius-xs);
   color: var(--md-text-secondary);
   font-size: var(--md-fs-xs);
-  font-weight: var(--md-weight-bold);
-  padding: var(--md-space-2) var(--md-space-3);
+  font-weight: var(--md-weight-medium);
+  line-height: var(--md-leading-tight);
+  padding: 0 var(--md-space-2);
+  white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .badge[data-variant="success"] {
   background: var(--md-success-soft);
-  border-color: rgba(44, 150, 120, 0.18);
-  color: var(--md-success);
+  border-color: var(--md-success-border);
+  color: var(--md-success-ink);
 }
 
 .badge[data-variant="warning"] {
-  background: var(--md-warning-soft);
-  border-color: rgba(152, 101, 36, 0.2);
-  color: var(--md-warning);
+  background: var(--md-surface);
+  border-color: var(--md-warning-border);
+  color: var(--md-warning-ink);
 }
 
 .badge[data-variant="danger"] {
   background: var(--md-danger-soft);
-  border-color: rgba(158, 47, 47, 0.18);
-  color: var(--md-danger);
+  border-color: var(--md-danger-border);
+  color: var(--md-danger-ink);
 }
 
 .skill-upgrade-button {
@@ -595,8 +605,8 @@ h2 {
 }
 
 #aikeysPanel.panel {
-  max-width: 820px;
-  margin-inline: 0;
+  max-width: 960px;
+  margin-inline: auto;
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -609,8 +619,8 @@ h2 {
 #teamPanel,
 #sensitiveWordsPanel,
 #skillPromptsPanel {
-  max-width: 820px;
-  margin-inline: 0;
+  max-width: 960px;
+  margin-inline: auto;
 }
 
 .geo-account-panel {
@@ -2752,9 +2762,9 @@ body.cl-drawer-open .cl-drawer { transform: translateX(0); }
 .cl-toast[data-variant="warning"] { background: var(--md-warning); }
 
 /* 状态 badge 变体（复用既有 .badge 外形，新增语义色） */
-.badge.ok { background: var(--md-success-soft); color: var(--md-success); border-color: rgba(44, 150, 120, 0.18); }
-.badge.wait { background: var(--md-warning-soft); color: var(--md-warning); border-color: rgba(152, 101, 36, 0.2); }
-.badge.fail { background: var(--md-danger-soft); color: var(--md-danger); border-color: rgba(158, 47, 47, 0.18); }
+.badge.ok { background: var(--md-success-soft); color: var(--md-success-ink); border-color: var(--md-success-border); }
+.badge.wait { background: var(--md-surface); color: var(--md-warning-ink); border-color: var(--md-warning-border); }
+.badge.fail { background: var(--md-danger-soft); color: var(--md-danger-ink); border-color: var(--md-danger-border); }
 .badge.neutral { background: var(--md-bg-subtle); color: var(--md-text-muted); border-color: var(--md-border); }
 
 @media (max-width: 960px) {
