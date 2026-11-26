@@ -830,28 +830,20 @@ body.geo-app .geo-account-panel[data-workspace-view="personal-settings"] h3 { fo
 #urlImportsPanel .md-table { min-width: 760px; }
 #urlImportForm { max-width: 840px; }
 #urlImportRows .badge { white-space: nowrap; }
+#urlImportRows .url-import-row { cursor: pointer; }
 #urlImportRows .url-import-source-cell { max-width: 340px; }
-.url-import-source {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--md-space-2);
-  min-width: 0;
-}
-.url-import-trigger {
+.url-import-link {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--md-space-hair);
-  flex: 1 1 auto;
+  max-width: 100%;
   min-width: 0;
   padding: var(--md-space-1) 0;
-  border: 0;
   border-radius: var(--md-radius-xs);
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
+  text-decoration: none;
 }
+.url-import-link.is-static { cursor: default; }
 .url-import-host {
   max-width: 100%;
   overflow: hidden;
@@ -862,7 +854,7 @@ body.geo-app .geo-account-panel[data-workspace-view="personal-settings"] h3 { fo
   line-height: var(--md-leading-snug);
   color: var(--md-text-strong);
 }
-.url-import-trigger:hover .url-import-host {
+a.url-import-link:hover .url-import-host {
   color: var(--md-primary);
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -877,25 +869,26 @@ body.geo-app .geo-account-panel[data-workspace-view="personal-settings"] h3 { fo
   line-height: var(--md-leading-snug);
   color: var(--md-text-muted);
 }
-.url-import-trigger:focus-visible,
-.url-import-ext:focus-visible {
+.url-import-link:focus-visible,
+.url-import-detail-btn:focus-visible {
   outline: 0;
   box-shadow: var(--md-focus-shadow);
 }
-.url-import-ext {
-  flex: 0 0 auto;
-  padding: var(--md-space-1) var(--md-space-2);
+.url-import-detail-btn {
+  padding: var(--md-space-hair) var(--md-space-1);
+  border: 0;
   border-radius: var(--md-radius-xs);
+  background: transparent;
   font-size: var(--md-fs-xs);
   font-weight: var(--md-weight-medium);
   line-height: var(--md-leading-snug);
-  color: var(--md-primary);
-  text-decoration: none;
-  white-space: nowrap;
+  color: var(--md-text-muted);
+  cursor: pointer;
 }
-.url-import-ext:hover {
-  background: var(--md-primary-soft);
-  color: var(--md-primary-hover);
+.url-import-detail-btn:hover {
+  color: var(--md-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .url-import-full-url {
   overflow-wrap: anywhere;

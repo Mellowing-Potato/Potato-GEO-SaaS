@@ -112,6 +112,7 @@
       }
       return;
     }
+    if (event.target.closest("a")) return;
     const trigger = event.target.closest("[data-url-import-detail]");
     if (!trigger) return;
     event.preventDefault();

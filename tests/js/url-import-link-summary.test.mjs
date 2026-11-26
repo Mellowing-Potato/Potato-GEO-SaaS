@@ -105,7 +105,7 @@ for (const bad of ['javascript:alert(1)', 'data:text/html,<script>1</script>', '
   assert.equal(res.safeHref, '', `Unsafe scheme must not produce external href: ${bad}`);
 }
 
-// 5. Render table rows via real loadUrlImports(): domain + decoded path + safe external link + detail trigger.
+// 5. Render table rows via real loadUrlImports(): domain + decoded path IS the direct full-URL anchor (no redundant "原页 ↗").
 const encodedUrl = 'https://example.com/%E7%A4%BA%E4%BE%8B%E6%94%BB%E7%95%A5';
 const unsafeUrl = 'javascript:alert(1)';
 apiResponses.set('/api/v1/url-imports', {
@@ -116,13 +116,25 @@ apiResponses.set('/api/v1/url-imports', {
 });
 await viewLoaders.get('url-imports')();
 const rowsHtml = nodes.urlImportRows.innerHTML;
-assert.match(rowsHtml, /data-url-import-detail="101"/, 'Row must keep detail trigger for Scheme A');
+assert.match(rowsHtml, /<a class="url-import-link" href="https:\/\/example\.com\/%E7%A4%BA%E4%BE%8B%E6%94%BB%E7%95%A5" target="_blank" rel="noopener noreferrer"/, 'Shortened URL summary must link directly to full original URL');
 assert.match(rowsHtml, /<span class="url-import-host">example\.com<\/span>/, 'Row must lead with readable source hostname');
 assert.match(rowsHtml, /<span class="url-import-path">\/示例攻略<\/span>/, 'Row must decode percent-encoded Chinese path');
-assert.match(rowsHtml, /class="url-import-ext" href="https:\/\/example\.com\/%E7%A4%BA%E4%BE%8B%E6%94%BB%E7%95%A5" target="_blank" rel="noopener noreferrer"/, 'Row must provide safe new-tab source link');
+assert.doesNotMatch(rowsHtml, /原页 ↗/, 'Row must not render a redundant external link column');
+assert.match(rowsHtml, /data-url-import-detail="101"/, 'Row and detail trigger must remain available for inline detail');
+assert.match(rowsHtml, /<span class="url-import-link is-static"/, 'Unsafe scheme must render as plain non-clickable text');
 assert.doesNotMatch(rowsHtml, /href="javascript:/i, 'Unsafe scheme must never appear as an href in list rows');
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+// 5b. Clicking the direct <a> link must NOT be intercepted by the row detail handler.
+let linkPrevented = false;
+listeners.get('urlImportRows:click')({
+  preventDefault() { linkPrevented = true; },
+  target: { closest: (sel) => (sel === 'a' ? {} : sel === '[data-url-import-detail]' ? { dataset: { urlImportDetail: '101' } } : null) },
+});
+await flush();
+assert.equal(linkPrevented, false, 'Clicking direct source link must open native anchor without opening detail');
+assert.equal(nodes.urlImportDetail.innerHTML, '', 'Clicking direct source link must not trigger detail fetch');
 
 // 6. Clicking detail renders full URL + safe external link + copy button, and copy works.
 apiResponses.set('/api/v1/url-imports/101', {

@@ -131,26 +131,21 @@
       const summary = summarizeUrlImport(url);
       const title = item.title ? escapeHtml(item.title) : "";
       const failure = item.error_message ? escapeHtml(String(item.error_message)) : "";
-      const detail = ([title, failure].filter(Boolean).join(" · ") || "—") + (item.status === "failed" ? ` <button type="button" class="button ghost small" data-url-import-retry="${escapeHtml(url)}">重新提交此地址</button>` : "");
+      const detail = ([title, failure].filter(Boolean).join(" · ") || "—")
+        + (item.status === "failed" ? ` <button type="button" class="button ghost small" data-url-import-retry="${escapeHtml(url)}">重新提交此地址</button>` : "");
       // 已生成草稿的记录给出回到文章列表的路径（R22：跳进工具要能走回来）。
       const article = item.article_id
         ? ` <a href="#content-library" class="md-link">查看文章 #${escapeHtml(String(item.article_id))}</a>`
         : "";
-      const externalLink = summary.safeHref
-        ? `<a class="url-import-ext" href="${escapeHtml(summary.safeHref)}" target="_blank" rel="noopener noreferrer" title="新标签页打开原网页：${escapeHtml(url)}" aria-label="新标签页打开 ${escapeHtml(summary.host)} 原网页">原页 ↗</a>`
-        : "";
-      return `<tr>
-        <td class="url-import-source-cell">
-          <div class="url-import-source">
-            <button type="button" class="url-import-trigger" data-url-import-detail="${escapeHtml(String(item.id))}" title="${escapeHtml(url)}">
-              <span class="url-import-host">${escapeHtml(summary.host)}</span>
-              ${summary.path ? `<span class="url-import-path">${escapeHtml(summary.path)}</span>` : ""}
-            </button>
-            ${externalLink}
-          </div>
-        </td>
+      const detailAction = ` <button type="button" class="url-import-detail-btn" data-url-import-detail="${escapeHtml(String(item.id))}">详情</button>`;
+      const sourceBody = `<span class="url-import-host">${escapeHtml(summary.host)}</span>${summary.path ? `<span class="url-import-path">${escapeHtml(summary.path)}</span>` : ""}`;
+      const sourceCell = summary.safeHref
+        ? `<a class="url-import-link" href="${escapeHtml(summary.safeHref)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(url)}">${sourceBody}</a>`
+        : `<span class="url-import-link is-static" title="${escapeHtml(url)}">${sourceBody}</span>`;
+      return `<tr class="url-import-row" data-url-import-detail="${escapeHtml(String(item.id))}">
+        <td class="url-import-source-cell">${sourceCell}</td>
         <td>${urlImportStatusBadge(item.status)}</td>
-        <td>${detail}${article}</td>
+        <td>${detail}${article}${detailAction}</td>
         <td>${escapeHtml(formatDate(item.created_at))}</td>
       </tr>`;
     }).join("");
