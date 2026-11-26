@@ -4,7 +4,7 @@
 
 “本机”指用户指定的目标电脑。智能体在云端容器或远程沙箱中能运行命令，不代表已连接用户的电脑；未连接目标环境时，按“无本机执行能力”交付步骤，不能把沙箱里的安装或服务状态当作用户电脑已安装成功。用户明确选择服务器自部署时，以该服务器为目标环境，并保留账号登录流程。
 
-**当前状态：本页新增的结构化交付与稳定双击入口属于源码候选，尚未发布，候选 GUI 验收未跑。源码 `VERSION` 仍为 `0.1.1`，不能仅凭版本号认定公开发行已包含这些能力。** 已发布版的安装命令、摘要和既有验收范围见官方在线 [PORTABLE.md](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/PORTABLE.md) 与 [CHANGELOG.md](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/CHANGELOG.md)；这些历史证据不替代本候选验收。
+**当前状态：`v0.1.1` 同版本修复重发准备中。本页新增的结构化交付与稳定双击入口将通过仓库标准安装入口交付，待正式资产发布后验证。当前正式资产与清单摘要尚未替换，不能仅凭 `VERSION` 为 `0.1.1` 认定下载包已包含这些能力；本轮真实 GUI 未跑。** 已发布版的安装命令、摘要和既有验收范围见官方在线 [PORTABLE.md](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/PORTABLE.md) 与 [CHANGELOG.md](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/CHANGELOG.md)；历史证据与本轮重发验证分别记录。
 
 ## 安装与使用入口
 
@@ -13,7 +13,7 @@
 3. 人类统一从本机稳定入口进入，由它调用该实例的 `open`，在**系统默认浏览器**打开工作台。`open` 会先启动或复用当前实例服务，再执行现有授权打开流程。终端命令是同一机制的入口，不另造授权接口。
 4. 确认服务状态，并完成下文的人类浏览器验收后，才能报告可正常使用。
 
-以下为当前公开正式版 `v0.1.1` 的便携安装入口，不能据此声称已经安装本页新增候选能力：
+普通使用者和智能体共用以下 `v0.1.1` 标准便携安装入口。本轮同版本修复重发沿用这些地址；发布前仍为当前正式资产，发布后须核对新清单并验证新增能力。
 
 ```sh
 # macOS Apple Silicon / Linux x86_64、ARM64
@@ -25,7 +25,7 @@ curl -fsSL https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download
 irm https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.1/get-yanji.ps1 | iex
 ```
 
-离线材料或维护者候选必须使用与该材料配套的安装器、`SHA256SUMS`、平台安装包及从独立可信来源取得的清单摘要。进入材料目录后，将 `YANJI_RELEASE_MANIFEST` 与 `YANJI_RELEASE_SHA256` 设置为该清单路径和可信摘要，再执行：
+也可先下载再安装：从同一正式 Release 取得 `SHA256SUMS`、本系统的 `install-local.sh` / `install-local.ps1` 和对应平台安装包，三者保留原名放在同一目录，无需手动解压。安装器可按本地清单使用同目录的平台包，不会重复下载该大包；仓库 **Code → Download ZIP** 只是源码。具体文件与当前可信摘要见 [标准本地安装步骤](../PORTABLE.md#安装)。进入该目录后，将 `YANJI_RELEASE_MANIFEST`（PowerShell 为 `YanjiReleaseManifest`）设为本地清单路径，`YANJI_RELEASE_SHA256`（PowerShell 为 `YanjiReleaseSha256`）设为从官方说明独立核对的清单摘要，再执行：
 
 ```sh
 sh install-local.sh --manifest "$YANJI_RELEASE_MANIFEST" --manifest-sha256 "$YANJI_RELEASE_SHA256"
@@ -35,9 +35,9 @@ sh install-local.sh --manifest "$YANJI_RELEASE_MANIFEST" --manifest-sha256 "$YAN
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-local.ps1 -Manifest "$YanjiReleaseManifest" -ManifestSha256 "$YanjiReleaseSha256"
 ```
 
-不要将正式版 URL 当作候选下载地址，也不要从未经独立核对的下载文件自行推导“可信摘要”。Docker 安装则在已安装并运行 Docker 的本机，依次执行 `git clone https://github.com/Mellowing-Potato/Potato-GEO-SaaS.git yanji`、`cd yanji`、`bash scripts/install.sh`，由使用者完成管理员登录设置。
+在线和先下载后安装都使用同一正式发行及其配套清单，不另设智能体专用下载渠道；不能混用重发前后的文件或摘要。Docker 安装则在已安装并运行 Docker 的本机，依次执行 `git clone https://github.com/Mellowing-Potato/Potato-GEO-SaaS.git yanji`、`cd yanji`、`bash scripts/install.sh`，由使用者完成管理员登录设置。
 
-当前便携版候选提供以下命令。将 `YANJI_MANAGED_LAUNCHER` 或 PowerShell 的 `YanjiManagedLauncher` 设置为安装器给出的管理入口路径；这些变量不是新的安装参数。
+本轮重发源码提供以下命令，正式下载包中的新增命令待发布后验证。将 `YANJI_MANAGED_LAUNCHER` 或 PowerShell 的 `YanjiManagedLauncher` 设置为安装器给出的管理入口路径；这些变量不是新的安装参数。
 
 ```sh
 "$YANJI_MANAGED_LAUNCHER" status
@@ -51,13 +51,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install-local.ps1 -Manifes
 & $YanjiManagedLauncher open
 ```
 
-`status` 检查服务；`onboarding` 只读取交付信息，不创建入口、不签发浏览器授权，也不打开浏览器。候选中的 `entry` 命令用于显式、幂等地修复当前实例的稳定入口。状态为 `needs_entry_repair` 时，先按 `next_action.command` 执行当前实例的 `entry`，再读 `onboarding`，检查入口是否已修好。不要通过重建实例、删除数据库或清空密钥来修复入口。
+`status` 检查服务；`onboarding` 只读取交付信息，不创建入口、不签发浏览器授权，也不打开浏览器。`entry` 命令用于显式、幂等地修复当前实例的稳定入口。状态为 `needs_entry_repair` 时，先按 `next_action.command` 执行当前实例的 `entry`，再读 `onboarding`，检查入口是否已修好。不要通过重建实例、删除数据库或清空密钥来修复入口。
 
 若 `next_action.action` 为 `repair_installation`，命令数组为空，不执行不存在的入口，也不从路径或状态自行拼出命令。先按当前发行的官方流程检查或修复原安装，保留实例数据与凭据，再重新检查；这也适用于尚未初始化而显示 `not_ready` 的情况。
 
 入口文件有效但 `entry.warnings` 不为空时，可以使用该本机入口；必须如实告知桌面或菜单入口尚未全部创建，可按需执行 `entry` 修复。不能将“已有一个可用入口”写成所有快捷方式均已创建或普通用户 GUI 已验收。
 
-已发布的旧程序没有 `onboarding` 或 `entry` 时，明确说明该能力不可用，使用它已有的 `status`、`open` 和对应版本文档完成可验证的步骤。不要编造 JSON、临时改源码或将未发布候选当作正式版本安装。
+已发布的旧程序没有 `onboarding` 或 `entry` 时，明确说明该能力不可用，使用它已有的 `status`、`open` 和对应版本文档完成可验证的步骤。不要编造 JSON、临时改源码或将尚未发布的源码能力写成正式下载包已有能力。
 
 Docker 和传统账号模式继续使用管理员登录。它们不因智能体安装而切换为免账号实例；本页的本机双击入口约定不扩展为服务器匿名登录。
 
@@ -67,7 +67,7 @@ Docker 和传统账号模式继续使用管理员登录。它们不因智能体�
 
 | 字段 | 含义与处理 |
 | --- | --- |
-| `schema_version` | 本候选为整数 `1`。 |
+| `schema_version` | 本轮重发源码为整数 `1`。 |
 | `product` | 固定为 `yanji`。 |
 | `version` | 当前实际程序版本；它不是 GUI 验收结果。 |
 | `mode` | `desktop` 为本机单人模式，`account` 为账号模式。保留实际模式。 |
@@ -110,9 +110,11 @@ Docker 和传统账号模式继续使用管理员登录。它们不因智能体�
 
 安装验收不触发模型推理、Magpie 探测或真实外部发布。模型和发布配置属于后续使用流程；缺模型 Key 时按真实错误处理，结果未知的模型调用不自动重发。
 
-## 候选验收清单
+## 本轮重发验证与待验证项
 
-以下项目用于验收本候选，不代表已通过；本候选 GUI 流程未跑。自动化要按能力和状态测试，不以某一家智能体品牌列“支持”名单。
+源码的 Windows 原生构建、完整冷安装/恢复，以及源码和打包后的入口夹具已通过（[原生验收流 #45665229256](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45665229256/job/139385482871)）。两轮入口夹具各实际执行 2 项入口文件用例与 4 项已注册快捷方式用例，覆盖中文目录、首次与重复注册、成功与故意失败、完整参数/私有脚本和当前实例绑定；不打开浏览器或用户服务。冷安装另行检查只读 `onboarding`、schema 1、不含凭据、恢复后入口绑定新实例，以及始终要求浏览器确认。
+
+正式资产发布及本轮标准在线入口的真实用户流程尚未完成，发布后继续核对新资产和摘要并验证。以下真实 GUI 与人工使用项目仍未跑，单独跟踪；正式发布时不将这些项目登记为通过，原生自动化也不替代 GUI 验收。自动化按能力和状态测试，不以某一家智能体品牌列“支持”名单。
 
 - Windows 与 macOS 的本机入口可双击；服务已停和已运行两种状态都能进入正确实例。Linux 无桌面环境时明确交付命令入口与待人工状态。
 - 从内置预览打开裸地址、清除浏览器 Cookie、使用失效链接时，保持访问保护并给出真实恢复路径；本机入口重新打开后可访问自己的工作台。
@@ -120,4 +122,4 @@ Docker 和传统账号模式继续使用管理员登录。它们不因智能体�
 - 无 GUI、无法派发浏览器、入口目录不可写、服务未就绪时，JSON 和最终说明都不能声称 GUI 验收完成。重复修复入口不能覆盖其他实例或用户自己的文件。
 - `onboarding` 输出和安装记录不含凭据；不能通过匿名请求、内置预览搬运授权或更换端口绕过实例鉴权。
 
-发布前应分别记录：代码与自动化检查结果、各平台真实 GUI 验收结果、尚未运行的项目。已发布版本的历史测试不能填作本候选结果。
+发布与使用验收分别记录：代码和自动化检查、正式资产与标准入口验证、各平台真实 GUI、尚未运行的项目。真实 GUI 未完成时保留“未跑”边界，不将其记为通过；已发布版本的历史测试不能填作本轮结果。
