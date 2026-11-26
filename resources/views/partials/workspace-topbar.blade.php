@@ -22,7 +22,7 @@
     <div class="topbar-context">
         <div class="topbar-brand">
             <x-yanji-logo variant="compact" :label="config('brand.name')" class="topbar-logo" width="128" height="44" />
-            <span class="topbar-title">工作台</span>
+            <span class="topbar-title">GEO</span>
         </div>
         <span class="topbar-divider" aria-hidden="true"></span>
         <span class="topbar-workspace-id" id="workspaceIdentity" hidden></span>

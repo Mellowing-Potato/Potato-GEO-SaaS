@@ -58,6 +58,9 @@ assert.match(readerCss, /\.workspace-shell:has\(#resultPanel\.is-active\) \.work
 assert.doesNotMatch(readerCss, /grid-template-columns:\s*212px/, 'Report reader must keep the shared 248px sidebar width instead of shifting columns');
 assert.match(readerCss, /\.report-reader > \.report-detail-options \.asset-next-card\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s, 'Report detail options must stack .asset-next-card in a single column so text never crushes beside actions');
 
+const topbarBlade = fs.readFileSync('resources/views/partials/workspace-topbar.blade.php', 'utf8');
+assert.match(topbarBlade, /<span class="topbar-title">GEO<\/span>/, 'Shared topbar brand label beside Yanji logo must read GEO');
+
 const legacyHexPattern = /#(3F7A61|223E36|F7F4ED|1E6594|D4A438|6B5B8E)/i;
 for (const file of [
   'public/geo-tokens.css',
