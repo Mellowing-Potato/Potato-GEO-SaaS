@@ -3,6 +3,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import runpy
 import os
 from pathlib import Path
 import subprocess
@@ -37,6 +38,11 @@ class PublishedMacosOnboardingTest(unittest.TestCase):
         self.enterContext(patch.object(onboarding.sys, 'platform', 'darwin'))
         self.enterContext(patch('pwd.getpwuid', return_value=SimpleNamespace(pw_dir=str(self.home))))
         self.socket = self.enterContext(patch.object(onboarding.socket, 'socket'))
+        self.settle = MagicMock(return_value={'state': 'consumed', 'waited_seconds': 1})
+        self.support = {'wait_for_initial_authorization_settle': self.settle,
+                        'safe_failure_diagnostic': lambda error, stage: runpy.run_path(str(
+                            onboarding.ROOT / 'scripts' / 'public-entry-support.py'))['safe_failure_diagnostic'](error, stage)}
+        self.enterContext(patch.object(onboarding, 'load_public_entry_support', return_value=self.support))
 
     def fixture_installation(self):
         instance = self.base / 'instance'
@@ -177,6 +183,40 @@ class PublishedMacosOnboardingTest(unittest.TestCase):
                 with self.assertRaisesRegex(onboarding.AcceptanceError, 'fixed_release_source_required'):
                     onboarding.preflight(VERSION)
 
+    def dispatch_environment(self):
+        return {'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_REF_TYPE': 'branch',
+                'GITHUB_REF_NAME': 'main', 'GITHUB_REF': 'refs/heads/main',
+                'GITHUB_WORKFLOW_REF': onboarding.REPOSITORY + '/.github/workflows/public-entry-verify.yml@refs/heads/main'}
+
+    def test_dedicated_main_workflow_can_verify_existing_release_without_changing_test_source(self):
+        _, _ = self.fixture_installation()
+        with patch.dict(os.environ, dict(self.dispatch_environment(), GITHUB_SHA='b' * 40)):
+            # Installed data is present here only for read-only receipt validation.
+            with self.assertRaisesRegex(onboarding.AcceptanceError, 'installed_source_differs'):
+                onboarding.check_installed_release(self.base, VERSION)
+            onboarding.check_installed_release(self.base, VERSION, COMMIT)
+
+    def test_dedicated_dispatch_keeps_fresh_default_runner_checks(self):
+        with patch.dict(os.environ, self.dispatch_environment()):
+            self.assertEqual(onboarding.preflight(VERSION, COMMIT), self.base)
+            with self.assertRaisesRegex(onboarding.AcceptanceError, 'fresh_github_hosted_macos_required'):
+                onboarding.preflight(VERSION)
+
+    def test_explicit_release_source_requires_the_exact_main_dispatch_context(self):
+        with self.assertRaisesRegex(onboarding.AcceptanceError, 'fresh_github_hosted_macos_required'):
+            onboarding.preflight(VERSION, COMMIT)
+        for key, value in [('GITHUB_EVENT_NAME', 'push'), ('GITHUB_REF_TYPE', 'tag'),
+                           ('GITHUB_REF_NAME', 'codex/test'), ('GITHUB_REF', 'refs/heads/codex/test'),
+                           ('GITHUB_WORKFLOW_REF', onboarding.REPOSITORY + '/.github/workflows/other.yml@refs/heads/main')]:
+            with self.subTest(key=key), patch.dict(os.environ, self.dispatch_environment()), patch.dict(os.environ, {key: value}):
+                with self.assertRaisesRegex(onboarding.AcceptanceError, 'fresh_github_hosted_macos_required'):
+                    onboarding.preflight(VERSION, COMMIT)
+        for invalid in ('', '../test', 'a' * 39, 'A' * 40):
+            with self.subTest(source=invalid), patch.dict(os.environ, self.dispatch_environment()):
+                with self.assertRaisesRegex(onboarding.AcceptanceError, 'fixed_release_source_required'):
+                    onboarding.preflight(VERSION, invalid)
+        self.socket.assert_not_called()
+
     def test_services_require_explicit_ready_and_all_three_healthy_roles(self):
         record = {'ready': True, 'writes_enabled': True,
                   'services': {role: {'healthy': True} for role in ('web', 'worker', 'scheduler')}}
@@ -203,6 +243,7 @@ class PublishedMacosOnboardingTest(unittest.TestCase):
                  'onboarding_and_check': onboarding_helper}), \
              patch.object(onboarding, 'stop_instance') as stop:
             result = onboarding.run_acceptance(VERSION)
+        self.settle.assert_called_once_with(instance)
         onboarding_helper.assert_called_once_with(instance, 8000)
         authorize.assert_called_once_with(instance, 8000)
         marker_writer.assert_called_once_with(instance / '.portable-acceptance')
@@ -212,6 +253,41 @@ class PublishedMacosOnboardingTest(unittest.TestCase):
         self.assertEqual(result['published_reader_entry'], 'passed')
         self.assertEqual(result['browser_gui'], 'not_verified')
         self.assertNotIn(str(self.home), json.dumps(result))
+
+    def test_initial_browser_settles_before_strict_onboarding_snapshot(self):
+        instance, _ = self.fixture_installation()
+        events = []
+        self.settle.side_effect = lambda _: events.append('settled')
+        helpers = {'onboarding_and_check': lambda *_: events.append('snapshot'),
+                   'write_acceptance_marker': lambda path: path.write_bytes(b'desktop-fixture\n'),
+                   'authorize_and_check': lambda *_: {'user_id': 1, 'tenant_id': 1}}
+        with patch.object(onboarding, 'preflight', return_value=self.base), \
+             patch.object(onboarding, 'run_published_pipeline', return_value={'curl_exit': 0, 'sh_exit': 0}), \
+             patch.object(onboarding, 'check_services'), \
+             patch.object(onboarding, 'load_desktop_helpers', return_value=helpers), \
+             patch.object(onboarding, 'stop_instance'):
+            result = onboarding.run_acceptance(VERSION)
+        self.assertEqual(events, ['settled', 'snapshot'])
+        self.assertTrue(result['initial_authorization_settled'])
+
+    def test_onboarding_assertion_has_a_safe_stage_and_keeps_cleanup(self):
+        self.fixture_installation()
+        secret = 'sk-test-private-diagnostic'
+        helper = MagicMock(side_effect=AssertionError(secret + str(self.home)))
+        with patch.object(onboarding, 'preflight', return_value=self.base), \
+             patch.object(onboarding, 'run_published_pipeline', return_value={'curl_exit': 0, 'sh_exit': 0}), \
+             patch.object(onboarding, 'check_services'), \
+             patch.object(onboarding, 'load_desktop_helpers', return_value={'onboarding_and_check': helper}), \
+             patch.object(onboarding, 'stop_instance') as stop:
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                status = onboarding.main(['--version', VERSION])
+        self.assertEqual(status, 1)
+        record = json.loads(output.getvalue())
+        self.assertEqual(record['stage'], 'onboarding')
+        self.assertNotIn(secret, output.getvalue())
+        self.assertNotIn(str(self.home), output.getvalue())
+        stop.assert_called_once()
 
     def test_interrupted_fixture_is_exactly_unkeyed_empty_and_private(self):
         onboarding.prepare_interrupted_fixture(self.base)
