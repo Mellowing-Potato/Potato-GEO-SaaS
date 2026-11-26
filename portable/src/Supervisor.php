@@ -129,17 +129,44 @@ final class Supervisor
                     $this->instance->environment(),
                 );
             } else {
-                $pid = pcntl_fork();
-                if ($pid < 0) {
+                $pair = @stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, 0);
+                if ($pair === false) {
+                    throw new RuntimeException('无法创建实例托管器启动通道。');
+                }
+                $first = pcntl_fork();
+                if ($first < 0) {
+                    fclose($pair[0]);
+                    fclose($pair[1]);
                     throw new RuntimeException('无法启动实例托管器。');
                 }
-                if ($pid === 0) {
+                if ($first === 0) {
+                    fclose($pair[0]);
                     if (posix_setsid() < 0) {
                         exit(1);
                     }
+                    pcntl_signal(SIGHUP, SIG_IGN);
+                    $grandchild = pcntl_fork();
+                    if ($grandchild < 0) {
+                        exit(1);
+                    }
+                    if ($grandchild > 0) {
+                        @fwrite($pair[1], $grandchild."\n");
+                        fclose($pair[1]);
+                        exit(0);
+                    }
+                    fclose($pair[1]);
                     $this->execLogged([$release.'/runtime/bin/php', $release.'/app/portable/yanji.php',
-                        '__supervise', '--instance', $this->instance->root], 'manager');
+                        '__supervise', '--instance', $this->instance->root], 'manager', closeExtraFds: true);
                 }
+                fclose($pair[1]);
+                stream_set_timeout($pair[0], 5);
+                $reportedPid = trim((string) @fgets($pair[0], 64));
+                fclose($pair[0]);
+                pcntl_waitpid($first, $firstExit);
+                if (!preg_match('/\A\d+\z/', $reportedPid) || (int) $reportedPid <= 0) {
+                    throw new RuntimeException('无法启动实例托管器。');
+                }
+                $pid = (int) $reportedPid;
             }
         }
         $started = microtime(true);
@@ -152,10 +179,7 @@ final class Supervisor
                 return $status;
             }
             if (isset($pid)) {
-                $exited = Platform::isWindows()
-                    ? !Platform::isProcessAlive($pid)
-                    : (pcntl_waitpid($pid, $exit, WNOHANG) === $pid);
-                if ($exited) {
+                if (!Platform::isProcessAlive($pid)) {
                     throw new RuntimeException('后台服务启动失败，本次子进程已收回。请运行 yanji doctor。');
                 }
             }
@@ -237,11 +261,26 @@ final class Supervisor
     private const DRAIN_SECONDS = 570;
 
     /** Replacing the process avoids inherited terminal streams and shell interpolation of arguments. */
-    private function execLogged(array $argv, string $role, array $extraEnv = []): never
+    private function execLogged(array $argv, string $role, array $extraEnv = [], bool $closeExtraFds = false): never
     {
         $log = $this->instance->root.'/logs/'.$role.'.log';
-        chdir($this->instance->release().'/app');
-        pcntl_exec('/bin/sh', ['-c', 'exec </dev/null >>"$1" 2>&1; shift; exec "$@"', 'yanji', $log, ...$argv],
+        $release = $this->instance->release();
+        chdir($release.'/app');
+        if ($closeExtraFds) {
+            $bundledPy = $release.'/runtime/python/bin/python3';
+            $pyClose = is_executable($bundledPy) ? $bundledPy : (is_executable('/usr/bin/python3') ? '/usr/bin/python3' : null);
+            if ($pyClose !== null) {
+                $script = 'exec </dev/null >>"$1" 2>&1 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; '
+                    .'py="$2"; shift 2; exec "$py" -I -S -c "import os,sys; os.closerange(3, 4096); os.execv(sys.argv[1], sys.argv[1:])" "$@"';
+                pcntl_exec('/bin/sh', ['-c', $script, 'yanji', $log, $pyClose, ...$argv],
+                    $extraEnv + $this->instance->environment());
+                exit(126);
+            }
+            $script = 'exec </dev/null >>"$1" 2>&1 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; shift; exec "$@"';
+        } else {
+            $script = 'exec </dev/null >>"$1" 2>&1; shift; exec "$@"';
+        }
+        pcntl_exec('/bin/sh', ['-c', $script, 'yanji', $log, ...$argv],
             $extraEnv + $this->instance->environment());
         exit(126);
     }

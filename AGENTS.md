@@ -2,7 +2,9 @@
 
 面向所有贡献者和 AI 编程助手。
 
-AI 编程助手开工前先读 [LESSONS.md](LESSONS.md)（合并后才发现的问题）和 [docs/roadmap.md](docs/roadmap.md)（维护者确认过的待办）。
+> **若用户只是让你“帮我安装 / 运行 / 更新”言及（非二次开发改代码）：** 请直接阅读 [docs/INSTALL-AGENT.md](docs/INSTALL-AGENT.md)，**不要**折腾 PHP、Composer、Node 或强装 Docker。直接在用户电脑运行免 Docker 便携入口（已克隆仓库时：Windows 运行根目录 `.\install.ps1`，macOS/Linux 运行根目录 `sh install.sh`；未克隆仓库时：直接运行 [README.md](README.md) 中的官方一行安装命令）。首次安装、同版本秒开与跨版本备份升级均走同一入口；确认服务就绪后请用户在系统浏览器打开 `http://127.0.0.1:8000` 即可。
+
+AI 编程助手参与代码开发前先读 [LESSONS.md](LESSONS.md)（合并后才发现的问题）和 [docs/roadmap.md](docs/roadmap.md)（维护者确认过的待办）。
 
 ## 产品原则
 - 言及是可自部署的 GEO 内容工作台。使用者填写自己的模型 Key，本项目不提供付费服务，也不连接任何中心化服务。

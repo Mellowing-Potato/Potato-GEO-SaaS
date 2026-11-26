@@ -444,18 +444,30 @@ public static class YanjiDetacher {
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool CloseHandle(IntPtr hObject);
 
-    public static int Launch(string exe, string cmdLine, string cwd) {
+    public static int TryLaunch(string exe, string cmdLine, string cwd, uint flags) {
         var si = new STARTUPINFO();
         si.cb = Marshal.SizeOf(typeof(STARTUPINFO));
         PROCESS_INFORMATION pi;
         var sb = new StringBuilder(cmdLine);
-        bool ok = CreateProcessW(exe, sb, IntPtr.Zero, IntPtr.Zero, false, 0x08000200u, IntPtr.Zero, cwd, ref si, out pi);
+        bool ok = CreateProcessW(exe, sb, IntPtr.Zero, IntPtr.Zero, false, flags, IntPtr.Zero, cwd, ref si, out pi);
         if (!ok) {
-            throw new Win32Exception(Marshal.GetLastWin32Error());
+            return 0;
         }
         int pid = pi.dwProcessId;
         CloseHandle(pi.hThread);
         CloseHandle(pi.hProcess);
+        return pid;
+    }
+
+    public static int TryLaunchBreakaway(string exe, string cmdLine, string cwd) {
+        return TryLaunch(exe, cmdLine, cwd, 0x09000200u);
+    }
+
+    public static int LaunchStandard(string exe, string cmdLine, string cwd) {
+        int pid = TryLaunch(exe, cmdLine, cwd, 0x08000200u);
+        if (pid <= 0) {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
         return pid;
     }
 }
@@ -476,7 +488,32 @@ $quoted = foreach ($s in $all) {
     }
 }
 $cmdLine = ($quoted -join ' ')
-$pidOut = [YanjiDetacher]::Launch($env:YANJI_DETACH_EXE, $cmdLine, $env:YANJI_DETACH_CWD)
+# Tier 1: break away from caller Job Object natively (CREATE_BREAKAWAY_FROM_JOB | CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP).
+$pidOut = [YanjiDetacher]::TryLaunchBreakaway($env:YANJI_DETACH_EXE, $cmdLine, $env:YANJI_DETACH_CWD)
+# Tier 2: if caller Job Object forbids breakaway (common in AI agent sandboxes with KILL_ON_JOB_CLOSE), spawn outside the job via WMI Win32_Process.
+if ($pidOut -le 0) {
+    try {
+        $startup = ([wmiclass]'Win32_ProcessStartup').CreateInstance()
+        $startup.ShowWindow = 0
+        $envPairs = New-Object System.Collections.Generic.List[string]
+        foreach ($entry in [Environment]::GetEnvironmentVariables().GetEnumerator()) {
+            $k = [string]$entry.Key
+            if ($k -match '^[A-Za-z_][A-Za-z0-9_]*$' -and $k -notmatch '^YANJI_DETACH_') {
+                $envPairs.Add("$k=$([string]$entry.Value)")
+            }
+        }
+        $startup.EnvironmentVariables = $envPairs.ToArray()
+        $procClass = [wmiclass]'Win32_Process'
+        $wmiRes = $procClass.Create($cmdLine, $env:YANJI_DETACH_CWD, $startup)
+        if ($null -ne $wmiRes -and [int]$wmiRes.ReturnValue -eq 0 -and [int]$wmiRes.ProcessId -gt 0) {
+            $pidOut = [int]$wmiRes.ProcessId
+        }
+    } catch {}
+}
+# Tier 3: fallback to standard detached CreateProcessW when both breakaway and WMI are unavailable.
+if ($pidOut -le 0) {
+    $pidOut = [YanjiDetacher]::LaunchStandard($env:YANJI_DETACH_EXE, $cmdLine, $env:YANJI_DETACH_CWD)
+}
 [System.IO.File]::WriteAllText($env:YANJI_DETACH_PIDFILE, "$pidOut")
 PS;
         $pidFile = dirname($stderrLog).'/.spawn-pid-'.bin2hex(random_bytes(8));

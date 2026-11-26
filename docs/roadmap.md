@@ -32,6 +32,8 @@
 
 ## 等待维护者实测
 
+- [ ] **macOS / Windows / Linux 跨版本同入口无感升级与智能体后台保活（源码已修复，待汇合发版与桌面实测）**：针对用户从旧版重跑安装入口报“实例已有其他程序版本”及智能体工具退出后后台服务被宿主回收/管道阻塞问题，已在全平台便携安装器与 `yanji.php` 实现合法已有实例自动备份+迁移升级与失败回滚、同版本在线重跑免重下大包秒开、macOS/Linux 双 `fork` 抗 `SIGHUP` + 关闭继承管道 FD、Windows `CREATE_BREAKAWAY_FROM_JOB` + WMI `Win32_Process` 三级脱离宿主 Job Object，并在 `AGENTS.md` / `README` 补充用户仅发仓库链接时的极简智能体安装指引。待与界面改动汇合打包发布并在真实 macOS / Windows 桌面与智能体环境复测确认后关闭。
+
 - [ ] **Windows 与通用智能体开箱即用修复（v0.1.2 已发布，剩余桌面实测见下）**：针对真实 Windows 用户经智能体安装反馈的中文 PowerShell 5.1（GBK）无 BOM 解析失败、本地代理 `.NET` 下载卡住、沙箱快捷方式创建失败及一次性启动票据被顶替/失效无法进入工作台问题，已将便携本机单人模式升级为 `127.0.0.1` 同源直连免票据进入（保留仅回环监听、`Origin`/`Host`/`Sec-Fetch-Site` 防跨站、外部反代拒绝与 `proxy_detected` 指引、Cookie+Token 鉴权及账号模式），将 `get-yanji.ps1` 改为纯 7-bit ASCII + `System32\curl.exe` 优先下载，加固 OneDrive/无桌面外壳快捷方式回退，并在仓库根目录新增 `install.ps1` / `install.cmd` / `install.sh` 一键入口。构建源 `20d57bc17f541a3064a7c61b9b65d453a939c9cc`，清单 SHA-256 `a2e8d887efea5ad8e89c367613364b2039c34a51ce5dec720f59db8fd48984b9`；[发行流 #45768018488](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488) 的 12 项任务全部通过（含 macOS/Windows 各两项公开标准安装入口验收），`portable/release-pin.json` 与文档摘要已切换至 `v0.1.2`。不因正式发布或自动化 CI 通过而勾选本项，待真实 Windows 桌面及智能体环境复测确认后关闭。
 
 - [ ] **通用智能体安装与本机打开入口（v0.1.1 已同版本重发，剩余实测见下）**：普通使用者和智能体共用仓库标准在线入口或先下载正式文件后本地安装。本轮构建源 `6f797567dd18833412f1a6e0ff4c139129106949`；[发行流 #45737825566](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566) 的 12 项任务全部成功，包括 macOS/Windows 各 fresh 与 interrupted 两项公开标准命令验收，核对默认路径/端口、本次构建、只读交付状态与受保护会话/API。保留初始化/服务/入口/浏览器确认的区分、既有账号、私有授权和工作区隔离。真实 Windows/macOS 双击、特定智能体产品的系统浏览器交付、不同浏览器/内置预览、无 GUI、多实例和升级恢复的人工使用体验仍未跑；不因正式发布或原生 CI 通过而勾选本项，不以智能体品牌列已支持名单。

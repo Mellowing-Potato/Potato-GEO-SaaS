@@ -141,6 +141,47 @@ class WindowsBootstrapAndRootInstallersTest(unittest.TestCase):
             self.assertNotEqual(bad.returncode, 0)
             self.assertFalse(marker.exists())
 
+            # Older initialized release at the default instance must automatically receive --upgrade instead of failing overwrite.
+            old_rel_dir = base / 'program/releases' / ('1' * 64)
+            old_rel_dir.mkdir(parents=True)
+            (inst_dir / 'current').unlink()
+            (inst_dir / 'current').symlink_to(old_rel_dir)
+            fake_stage_dir = work / 'upgrade-feed'
+            fake_stage_dir.mkdir()
+            fake_installer = fake_stage_dir / 'install-local.sh'
+            captured_args = work / 'upgrade-args.txt'
+            fake_installer.write_text(
+                f'#!/bin/sh\nprintf "%s\\n" "$@" > "{captured_args}"\n',
+                encoding='utf-8',
+            )
+            fake_installer.chmod(0o700)
+            fake_installer_sha = hashlib.sha256(fake_installer.read_bytes()).hexdigest()
+            (fake_stage_dir / pkg_name).write_bytes(b'placeholder')
+            up_sums = fake_stage_dir / 'SHA256SUMS'
+            up_sums.write_bytes(
+                f'{fake_installer_sha}  install-local.sh\n{pkg_sha}  {pkg_name}\n'.encode('ascii')
+            )
+            up_sums_sha = hashlib.sha256(up_sums.read_bytes()).hexdigest()
+            up_res = subprocess.run(
+                ['/bin/sh', str(ROOT / 'install.sh'), '--manifest', str(up_sums), '--manifest-sha256', up_sums_sha, '--no-browser'],
+                env=env, capture_output=True, text=True, timeout=15,
+            )
+            self.assertEqual(up_res.returncode, 0, up_res.stderr)
+            self.assertIn('自动备份并平滑升级', up_res.stderr)
+            forwarded_lines = captured_args.read_text(encoding='utf-8').splitlines()
+            self.assertIn('--upgrade', forwarded_lines)
+            self.assertIn('--no-browser', forwarded_lines)
+
+    def test_windows_detacher_and_root_installer_auto_upgrade_contracts(self):
+        platform_php = (ROOT / 'portable/src/Platform.php').read_text(encoding='utf-8')
+        # Verify 3-tier breakaway from strict AI-agent Windows Job Objects (KILL_ON_JOB_CLOSE):
+        self.assertIn('0x09000200u', platform_php, 'Tier 1 must attempt CREATE_BREAKAWAY_FROM_JOB')
+        self.assertIn('Win32_Process', platform_php, 'Tier 2 must escape non-breakaway Job Objects via WMI Win32_Process')
+        self.assertIn('0x08000200u', platform_php, 'Tier 3 must retain standard detached CreateProcessW fallback')
+
+        root_ps1 = (ROOT / 'install.ps1').read_text(encoding='ascii')
+        self.assertIn('$Upgrade = [switch]::Present', root_ps1)
+
 
 if __name__ == '__main__':
     unittest.main()

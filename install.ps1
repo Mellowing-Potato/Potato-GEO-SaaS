@@ -190,18 +190,22 @@ try {
     $pkgSha = Get-ManifestEntry $sumsFile $pkgName
     $installerSha = Get-ManifestEntry $sumsFile 'install-local.ps1'
 
-    # Fast path: if this exact verified release is already initialized at the target instance, start and open directly.
+    # Fast path: if this exact verified release is already initialized at the target instance, start and open directly;
+    # if an older verified release is initialized, automatically switch to safe backup-and-upgrade mode.
     $managedCmd = Join-Path $targetInstance 'yanji.cmd'
     $initMarker = Join-Path $targetInstance '.portable-initialized'
     $ptrFile = Join-Path $targetInstance 'current-release.txt'
-    if (-not $Upgrade -and $Port -le 0 -and (Test-Path -LiteralPath $managedCmd -PathType Leaf) -and (Test-Path -LiteralPath $initMarker -PathType Leaf) -and (Test-Path -LiteralPath $ptrFile -PathType Leaf)) {
+    if (-not $Upgrade -and -not $ProgramHome -and -not $Instance -and $Port -le 0 -and (Test-Path -LiteralPath $managedCmd -PathType Leaf) -and (Test-Path -LiteralPath $initMarker -PathType Leaf) -and (Test-Path -LiteralPath $ptrFile -PathType Leaf)) {
         $currentRel = [System.IO.File]::ReadAllText($ptrFile, [System.Text.Encoding]::UTF8).Trim()
         $expectedRel = Join-Path (Join-Path $targetProgram 'releases') $pkgSha
-        if ($currentRel -and [System.IO.Path]::GetFullPath($currentRel).TrimEnd('\') -ieq [System.IO.Path]::GetFullPath($expectedRel).TrimEnd('\')) {
+        if ($currentRel -and (Test-Path -LiteralPath $expectedRel -PathType Container) -and [System.IO.Path]::GetFullPath($currentRel).TrimEnd('\') -ieq [System.IO.Path]::GetFullPath($expectedRel).TrimEnd('\')) {
             Step '\u68c0\u6d4b\u5230\u5df2\u5b89\u88c5\u5f53\u524d\u7248\u672c\uff0c\u6b63\u5728\u76f4\u63a5\u542f\u52a8\u8a00\u53ca\u5de5\u4f5c\u53f0...'
             $openArgs = if ($NoBrowser) { @('start', '--no-browser') } else { @('open') }
             & cmd.exe /d /s /c "`"$managedCmd`" $($openArgs -join ' ')"
             exit $LASTEXITCODE
+        } elseif ($currentRel -and (Test-Path -LiteralPath $currentRel -PathType Container)) {
+            Step '\u68c0\u6d4b\u5230\u5df2\u6709\u65e7\u7248\u8a00\u53ca\u5b9e\u4f8b\uff0c\u6b63\u5728\u81ea\u52a8\u5907\u4efd\u5e76\u5e73\u6ed1\u5347\u7ea7\u81f3\u65b0\u7248\u672c...'
+            $Upgrade = [switch]::Present
         }
     }
 

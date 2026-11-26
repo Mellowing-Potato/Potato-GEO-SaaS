@@ -46,6 +46,48 @@ final class Installation
         Instance::atomicFile($i->root.'/php.ini', $ini);
     }
 
+    public static function shouldUpgradeExisting(
+        Instance $i,
+        string $candidateRelease,
+        ?int $requestedPort = null,
+        ?string $email = null,
+        ?string $passwordFile = null,
+    ): bool {
+        if ($email !== null || $passwordFile !== null) {
+            return false;
+        }
+        foreach (['.env', 'database', 'database/database.sqlite', 'instance.json', 'php.ini'] as $name) {
+            if (is_link($i->root.'/'.$name)) {
+                return false;
+            }
+        }
+        if ($requestedPort !== null && (!is_file($i->root.'/instance.json') || $i->port() !== $requestedPort)) {
+            return false;
+        }
+        if (is_file($i->root.'/run/upgrade-hold')) {
+            return true;
+        }
+        if (!$i->hasReleasePointer()) {
+            return false;
+        }
+        try {
+            $installed = $i->release();
+        } catch (RuntimeException) {
+            return false;
+        }
+        if ($installed === Platform::normalize($candidateRelease)) {
+            return false;
+        }
+        $db = $i->root.'/database/database.sqlite';
+        $envPath = $i->root.'/.env';
+        $initialized = $i->root.'/.portable-initialized';
+        if (!is_file($envPath) || !is_file($db) || filesize($db) === 0) {
+            return false;
+        }
+        $keyed = preg_match('/^APP_KEY=[^\r\n]+$/m', (string) file_get_contents($envPath)) === 1;
+        return $keyed || is_file($initialized);
+    }
+
     public function install(string $release, int $port, ?string $email, ?string $passwordFile, ?string $python): void
     {
         $release = Platform::normalize($release);

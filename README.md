@@ -2,7 +2,7 @@
 
 **简体中文** | [English](README.en.md) · 最新正式版：[v0.1.2](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2) · 许可：[Apache-2.0](LICENSE) · [免 Docker 便携版](PORTABLE.md) · [Docker 部署](INSTALL.md) · [常见问题 FAQ](#常见问题-faq)
 
-> **v0.1.2 已正式发布（开箱即用升级）。** 便携本机单人模式现支持在本机浏览器直接打开 `http://127.0.0.1:8000` 进入工作台（无需一次性启动票据，遇本地代理误转发自动提示直连排障），修复中文 Windows PowerShell 5.1（GBK）引导脚本解析与系统 `curl.exe` 代理下载优先级，并在仓库根目录新增 `install.cmd` / `install.ps1` / `install.sh` 免 Docker 一键入口。标准公开入口自动化已通过，真实桌面 GUI 待验证边界见 [已验证与待验证](#已验证与待验证) 与 [更新日志](CHANGELOG.md)。
+> **v0.1.2 已正式发布（开箱即用升级）。** 便携本机单人模式现支持在本机浏览器直接打开 `http://127.0.0.1:8000` 进入工作台（无需一次性启动票据，遇本地代理误转发自动提示直连排障），修复中文 Windows PowerShell 5.1（GBK）引导脚本解析与系统 `curl.exe` 代理下载优先级，并在仓库根目录提供 `install.cmd` / `install.ps1` / `install.sh` 免 Docker 一键入口（`main` 分支源码已完成 macOS / Windows / Linux 跨版本同入口无感升级与智能体后台进程脱离修复，待与界面更新汇合后随下一正式版打包发布）。详见 [已验证与待验证](#已验证与待验证) 与 [更新日志](CHANGELOG.md)。
 
 **言及（Yanji GEO-SaaS）** 是一款可自部署的开源 **GEO（Generative Engine Optimization，生成式引擎优化 / AI 搜索优化）项目管理与内容交付工作台**，面向 GEO 代运营个人、小团队与品牌市场人员。支持 **macOS Apple Silicon / Windows x64 / Linux 免 Docker 一键运行** 与 **Docker 自部署**，自带模型 Key（BYOK）、无订阅抽成，在独立隔离工作区中串联客户资料、1024 维向量知识库、11 项 GEO 技能报告与内容生成、中文平台草稿助手以及豆包 AI 搜索可见性监测。
 
@@ -75,20 +75,17 @@ bash scripts/install.sh
 
 脚本会交互创建首个管理员并启动 `web`、`worker`、`scheduler` 与 `postgres` 四个容器服务。镜像与备份恢复、升级和代理 DNS 排障见 [INSTALL.md](INSTALL.md) 与 [v0.1.2 Release](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2)。
 
-### 方式三：克隆仓库一键运行 / 交给 AI 编程助手自动安装
+### 方式三：交给 AI 智能体安装 / 克隆仓库一键运行
 
-如果你已经克隆或下载了本仓库，无需预装 Docker，直接在仓库根目录运行一键入口即可自动拉取已校验 `v0.1.2` 便携包并启动工作台（已安装同版本时直接秒开，不重复下载）：
-
-- **Windows（双击或 PowerShell）：** 双击仓库根目录的 `install.cmd`，或在 PowerShell 运行 `.\install.ps1`
-- **macOS / Linux：** 运行 `sh install.sh`（如需 Docker 部署可传 `sh install.sh --docker`）
-
-统一安装与交付要求见 [通用智能体安装协议](docs/INSTALL-AGENT.md)。`v0.1.2` 正式包已支持本机回环同源直开 `http://127.0.0.1:8000` 进入工作台（无需一次性票据；如开启本地代理请将 `127.0.0.1` 设为直连），同时保留双击快捷方式与 `yanji open` 自动拉起服务。
-
-可以直接复制下面这句话发给你的 AI 助手（无论命令行或智能体代理均适用）：
+- **直接发给 AI 智能体（如 WorkBuddy、Claude Code、Cursor 等）：** 小白用户无需输入复杂指令，直接把仓库链接发给智能体即可：
 
 ```text
-请先读 docs/INSTALL-AGENT.md，帮我在本机免 Docker 安装并启动言及（Windows 可直接运行仓库根目录 .\install.ps1，macOS/Linux 运行 sh install.sh；也可使用 README 中的一行安装命令），确认服务就绪后把工作台访问地址告诉我。仓库地址是 https://github.com/Mellowing-Potato/Potato-GEO-SaaS
+帮我安装 https://github.com/Mellowing-Potato/Potato-GEO-SaaS
 ```
+
+> **致 AI 智能体：** 收到“帮我安装 / 启动 / 更新”请求时，请遵循 [AGENTS.md](AGENTS.md) 与 [docs/INSTALL-AGENT.md](docs/INSTALL-AGENT.md)，优先使用上方免 Docker 一行命令，或克隆后直接运行根目录 `.\install.ps1`（Windows）/ `sh install.sh`（macOS/Linux），无需配置 Docker、PHP 或 Node 开发环境。
+
+- **已下载或克隆本仓库：** 直接双击根目录 `install.cmd`（Windows PowerShell 运行 `.\install.ps1`），或 macOS / Linux 运行 `sh install.sh`（Docker 部署传 `sh install.sh --docker`）。已安装同版本时直接秒开，已有旧版本时仓库根脚本会自动备份并平滑升级（一行在线命令的自动升级与后台进程脱离随下一正式版二进制包生效），保留全部项目、数据库与模型 Key。
 
 ---
 
