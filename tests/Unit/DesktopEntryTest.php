@@ -214,6 +214,7 @@ final class DesktopEntryTest extends TestCase
         self::assertSame([], $result['warnings']);
         foreach ($this->powerShellCalls as [$script, $variables]) {
             self::assertStringContainsString('[YanjiPortableShellLink]::Create($env:YANJI_ENTRY_SHORTCUT, $env:YANJI_ENTRY_TARGET, $env:YANJI_ENTRY_ARGUMENTS, $env:YANJI_ENTRY_MARKER, $env:YANJI_ENTRY_WORKING_DIRECTORY)', $script);
+            self::assertStringContainsString('[YanjiPortableShellLink]::Read($env:YANJI_ENTRY_SHORTCUT)', $script);
             self::assertStringContainsString('Guid("000214F9-0000-0000-C000-000000000046")', $script);
             self::assertStringContainsString('InterfaceType(ComInterfaceType.InterfaceIsIUnknown)', $script);
             self::assertStringContainsString('void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string arguments)', $script);
@@ -484,5 +485,38 @@ final class DesktopEntryTest extends TestCase
         $value = str_replace('\\\\', '\\', $match[1]);
         $argument = preg_replace_callback('/\\\\([\\\\"`$])/', static fn (array $part): string => $part[1], $value);
         self::assertSame($instance->root.'/yanji', str_replace('%%', '%', $argument));
+    }
+
+    public function test_windows_shortcut_publish_helper_refuses_overwrite_and_uses_non_replacing_move_fallback(): void
+    {
+        $method = new \ReflectionMethod(DesktopEntry::class, 'publishWindowsShortcut');
+        $existing = $this->directory.'/existing.lnk';
+        $temp = $this->directory.'/missing-source.lnk';
+        Instance::atomicFile($existing, 'preserved-shortcut');
+        $called = false;
+        self::assertFalse($method->invoke(null, $temp, $existing, static function () use (&$called): array {
+            $called = true;
+            return ['code' => 0, 'stdout' => ''];
+        }));
+        self::assertFalse($called, 'Existing shortcut must never invoke move fallback.');
+        self::assertSame('preserved-shortcut', file_get_contents($existing));
+
+        $sourceFile = $this->directory.'/temp-source.lnk';
+        $targetFile = $this->directory.'/moved-target.lnk';
+        Instance::atomicFile($sourceFile, 'shortcut-bytes');
+        // Pass a missing path to @link first? No: simulate @link failing by passing a source path moved only inside runner:
+        unlink($sourceFile);
+        $capturedScript = '';
+        $capturedVars = [];
+        $moved = $method->invoke(null, $sourceFile, $targetFile, static function (string $script, array $vars) use (&$capturedScript, &$capturedVars, $targetFile): array {
+            $capturedScript = $script;
+            $capturedVars = $vars;
+            Instance::atomicFile($targetFile, 'moved-bytes');
+            return ['code' => 0, 'stdout' => ''];
+        });
+        self::assertTrue($moved);
+        self::assertSame('[IO.File]::Move($env:YANJI_ENTRY_TEMP, $env:YANJI_ENTRY_DEST)', $capturedScript);
+        self::assertSame(str_replace('/', '\\', $sourceFile), $capturedVars['YANJI_ENTRY_TEMP']);
+        self::assertSame(str_replace('/', '\\', $targetFile), $capturedVars['YANJI_ENTRY_DEST']);
     }
 }

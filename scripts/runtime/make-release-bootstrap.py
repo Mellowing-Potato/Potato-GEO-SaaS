@@ -24,6 +24,24 @@ def parse_sums(path: Path) -> dict[str, str]:
     return entries
 
 
+def ps_unicode_literal(text: str) -> str:
+    """Encode non-ASCII characters as \\uXXXX so get-yanji.ps1 stays 100% 7-bit ASCII.
+
+    Windows PowerShell 5.1 decodes octet-stream responses without charset (irm | iex)
+    and BOM-less .ps1 files (-File) using legacy single-byte or DBCS codepages such as
+    GBK (CP936) and Windows-1252, which corrupt raw UTF-8 multibyte bytes into smart
+    quotes or swallowed delimiters. Pure 7-bit ASCII parses identically in every locale.
+    """
+    out = []
+    for ch in text:
+        code = ord(ch)
+        if 0x20 <= code <= 0x7E and ch not in ("'", '\\'):
+            out.append(ch)
+        else:
+            out.append(f'\\u{code:04x}')
+    return ''.join(out)
+
+
 def generate(base_url: str, sums_path: Path, output_dir: Path) -> dict[str, str]:
     base_url = base_url.rstrip('/')
     if not base_url.startswith('https://'):
@@ -79,6 +97,14 @@ fi
         result['get-yanji.sh'] = sha256_file(sh_out)
 
     if has_ps1:
+        msg_fetch = ps_unicode_literal('正在获取并校验言及安装脚本...')
+        msg_https = ps_unicode_literal('远端安装脚本与重定向仅接受 HTTPS。')
+        msg_noloc = ps_unicode_literal('远端重定向缺少目标地址。')
+        msg_status = ps_unicode_literal('远端下载返回异常状态码：')
+        msg_hops = ps_unicode_literal('远端下载重定向次数过多。')
+        msg_sha = ps_unicode_literal('安装脚本 SHA-256 校验失败。')
+        msg_exit_prefix = ps_unicode_literal('安装脚本返回失败（退出码 ')
+        msg_exit_suffix = ps_unicode_literal('）。')
         ps1_script = f'''#Requires -Version 5.1
 & {{
     $ErrorActionPreference = 'Stop'
@@ -86,51 +112,79 @@ fi
     $BaseUrl = '{base_url}'
     $ManifestSha256 = '{sums_sha}'
     $InstallerSha256 = '{entries["install-local.ps1"]}'
+    function Msg([string]$Escaped) {{ return [regex]::Unescape($Escaped) }}
+    function Apply-WebProxy($Request) {{
+        foreach ($name in @('HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY', 'all_proxy')) {{
+            $val = [Environment]::GetEnvironmentVariable($name)
+            if ($val -and $val -match '^https?://') {{
+                $Request.Proxy = [System.Net.WebProxy]::new($val)
+                return
+            }}
+        }}
+        $sysProxy = [System.Net.WebRequest]::GetSystemWebProxy()
+        if ($null -ne $sysProxy) {{
+            $sysProxy.Credentials = [System.Net.CredentialCache]::DefaultCredentials
+            $Request.Proxy = $sysProxy
+        }}
+    }}
     $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("yanji-get-" + [Guid]::NewGuid().ToString("N").Substring(0, 12))
     New-Item -ItemType Directory -Force -Path $tmp | Out-Null
     try {{
-        [Console]::Error.WriteLine('正在获取并校验言及安装脚本...')
+        [Console]::Error.WriteLine((Msg '{msg_fetch}'))
         $installer = Join-Path $tmp 'install-local.ps1'
         $current = "$BaseUrl/install-local.ps1"
+        if ($current -notmatch '^https://') {{ throw (Msg '{msg_https}') }}
         $downloaded = $false
-        for ($hops = 0; $hops -lt 10; $hops++) {{
-            if ($current -notmatch '^https://') {{ throw '远端安装脚本与重定向仅接受 HTTPS。' }}
-            $req = [System.Net.HttpWebRequest]::Create($current)
-            $req.AllowAutoRedirect = $false
-            $req.Timeout = 30000
-            $req.ReadWriteTimeout = 60000
-            $req.UserAgent = 'Yanji-Bootstrap/1.0'
-            $resp = $null
-            try {{
-                $resp = $req.GetResponse()
-            }} catch [System.Net.WebException] {{
-                if ($_.Exception.Response -and ([int]$_.Exception.Response.StatusCode -in 301, 302, 303, 307, 308)) {{
-                    $resp = $_.Exception.Response
-                }} else {{
-                    throw
-                }}
-            }}
-            try {{
-                $code = [int]$resp.StatusCode
-                if ($code -in 301, 302, 303, 307, 308) {{
-                    $loc = $resp.Headers['Location']
-                    if (-not $loc) {{ throw '远端重定向缺少目标地址。' }}
-                    $current = ([System.Uri]::new([System.Uri]::new($current), $loc)).AbsoluteUri
-                    continue
-                }}
-                if ($code -ne 200) {{
-                    throw "远端下载返回异常状态码：$code"
-                }}
-                $inStream = $resp.GetResponseStream()
-                $outStream = [System.IO.File]::Create($installer)
-                try {{ $inStream.CopyTo($outStream) }} finally {{ $outStream.Dispose(); $inStream.Dispose() }}
+        $sysCurl = if ($env:SystemRoot) {{ Join-Path $env:SystemRoot 'System32\\curl.exe' }} else {{ '' }}
+        if ($sysCurl -and (Test-Path -LiteralPath $sysCurl -PathType Leaf)) {{
+            & $sysCurl --fail --silent --show-error --location --tlsv1.2 --connect-timeout 20 --max-redirs 10 --retry 2 --retry-delay 1 --proto '=https' --proto-redir '=https' --user-agent 'Yanji-Bootstrap/1.0' --output $installer $current
+            if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $installer -PathType Leaf)) {{
                 $downloaded = $true
-                break
-            }} finally {{
-                $resp.Dispose()
+            }} else {{
+                Remove-Item -LiteralPath $installer -Force -ErrorAction SilentlyContinue
             }}
         }}
-        if (-not $downloaded) {{ throw '远端下载重定向次数过多。' }}
+        if (-not $downloaded) {{
+            for ($hops = 0; $hops -lt 10; $hops++) {{
+                if ($current -notmatch '^https://') {{ throw (Msg '{msg_https}') }}
+                $req = [System.Net.HttpWebRequest]::Create($current)
+                Apply-WebProxy $req
+                $req.AllowAutoRedirect = $false
+                $req.Timeout = 30000
+                $req.ReadWriteTimeout = 60000
+                $req.UserAgent = 'Yanji-Bootstrap/1.0'
+                $resp = $null
+                try {{
+                    $resp = $req.GetResponse()
+                }} catch [System.Net.WebException] {{
+                    if ($_.Exception.Response -and ([int]$_.Exception.Response.StatusCode -in 301, 302, 303, 307, 308)) {{
+                        $resp = $_.Exception.Response
+                    }} else {{
+                        throw
+                    }}
+                }}
+                try {{
+                    $code = [int]$resp.StatusCode
+                    if ($code -in 301, 302, 303, 307, 308) {{
+                        $loc = $resp.Headers['Location']
+                        if (-not $loc) {{ throw (Msg '{msg_noloc}') }}
+                        $current = ([System.Uri]::new([System.Uri]::new($current), $loc)).AbsoluteUri
+                        continue
+                    }}
+                    if ($code -ne 200) {{
+                        throw ((Msg '{msg_status}') + $code)
+                    }}
+                    $inStream = $resp.GetResponseStream()
+                    $outStream = [System.IO.File]::Create($installer)
+                    try {{ $inStream.CopyTo($outStream) }} finally {{ $outStream.Dispose(); $inStream.Dispose() }}
+                    $downloaded = $true
+                    break
+                }} finally {{
+                    if ($null -ne $resp) {{ $resp.Dispose() }}
+                }}
+            }}
+        }}
+        if (-not $downloaded) {{ throw (Msg '{msg_hops}') }}
         $sha = [System.Security.Cryptography.SHA256]::Create()
         $fs = [System.IO.File]::OpenRead($installer)
         try {{
@@ -140,12 +194,12 @@ fi
             $sha.Dispose()
         }}
         if ($actual -ne $InstallerSha256) {{
-            throw '安装脚本 SHA-256 校验失败。'
+            throw (Msg '{msg_sha}')
         }}
         $psHost = if ($PSVersionTable.PSEdition -eq 'Core') {{ 'pwsh' }} else {{ 'powershell.exe' }}
         & $psHost -NoProfile -ExecutionPolicy Bypass -File $installer -Manifest "$BaseUrl/SHA256SUMS" -ManifestSha256 $ManifestSha256 @args
         if ($LASTEXITCODE -ne 0) {{
-            throw "安装脚本返回失败（退出码 $LASTEXITCODE）。"
+            throw ((Msg '{msg_exit_prefix}') + $LASTEXITCODE + (Msg '{msg_exit_suffix}'))
         }}
     }} finally {{
         if (Test-Path -LiteralPath $tmp) {{
@@ -154,8 +208,10 @@ fi
     }}
 }}
 '''
+        if any(ord(ch) >= 128 for ch in ps1_script):
+            raise ValueError('Generated get-yanji.ps1 must remain pure 7-bit ASCII')
         ps1_out = output_dir / 'get-yanji.ps1'
-        ps1_out.write_text(ps1_script, encoding='utf-8', newline='\r\n')
+        ps1_out.write_text(ps1_script, encoding='ascii', newline='\r\n')
         result['get-yanji.ps1'] = sha256_file(ps1_out)
 
     return result
@@ -166,10 +222,9 @@ def main() -> None:
     parser.add_argument('--base-url', required=True)
     parser.add_argument('--sums', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
-    args = parser.parse_args()
-    result = generate(args.base_url, args.sums, args.output)
-    for k, v in result.items():
-        print(f'{k}: {v}')
+    info = generate(parser.parse_args().base_url, parser.parse_args().sums, parser.parse_args().output)
+    for k, v in info.items():
+        print(f'{k}={v}')
 
 
 if __name__ == '__main__':
