@@ -82,9 +82,13 @@ final class PortableDesktopAccess
     public static function exchange(Request $request): JsonResponse
     {
         self::assertLocalRequest($request);
-        $ticket = $request->json('ticket');
+        $payload = $request->json()->all();
+        if (! array_key_exists('ticket', $payload)) {
+            return self::issueDirectLoopbackSession($request);
+        }
+        $ticket = $payload['ticket'];
         abort_unless(is_string($ticket) && preg_match('/\A[a-f0-9]{64}\z/D', $ticket) === 1,
-            403, '本机启动授权无效或已过期，请重新运行启动命令。');
+            403, '本机启动授权无效或已过期，请重新打开工作台。');
 
         try {
             return self::withTicketFile(function ($file) use ($ticket, $request): JsonResponse {
@@ -94,7 +98,7 @@ final class PortableDesktopAccess
                     && $record['expires_at'] <= now()->getTimestamp() + self::LIFETIME_SECONDS
                     && is_string($record['fingerprint'] ?? null)
                     && hash_equals($record['fingerprint'], hash('sha256', $ticket)),
-                    403, '本机启动授权无效或已过期，请重新运行启动命令。');
+                    403, '本机启动授权无效或已过期，请重新打开工作台。');
                 return DB::transaction(function () use ($file, $record, $request): JsonResponse {
                     // Account creation also locks instance_settings. Keep identity validation and issuance together.
                     DB::table('instance_settings')->where('id', 1)->lockForUpdate()->first();
@@ -102,29 +106,68 @@ final class PortableDesktopAccess
                     abort_unless((int) ($record['user_id'] ?? 0) === (int) $user->id
                         && (int) ($record['tenant_id'] ?? 0) === (int) $user->tenant_id
                         && is_string($record['binding'] ?? null) && hash_equals($record['binding'], self::binding($user)),
-                        403, '本机启动授权与当前工作区不符，请重新运行启动命令。');
+                        403, '本机启动授权与当前工作区不符，请重新打开工作台。');
                     // Consume under the file lock before issuing a session. A failed response cannot replay it.
                     self::writeRecord($file, '');
 
-                    return LocalSession::issue($user, $request);
+                    return self::issueOrReuseOwnerSession($user, $request);
                 })
                     ->header('Cache-Control', 'no-store, private')->header('Pragma', 'no-cache');
             });
         } catch (RuntimeException) {
-            abort(403, '本机启动授权不可用，请重新运行启动命令。');
+            abort(403, '本机启动授权不可用，请重新打开工作台。');
         }
+    }
+
+    private static function issueDirectLoopbackSession(Request $request): JsonResponse
+    {
+        try {
+            self::privateRunDirectory();
+            return DB::transaction(function () use ($request): JsonResponse {
+                DB::table('instance_settings')->where('id', 1)->lockForUpdate()->first();
+                $user = self::singleOwner(true);
+                self::binding($user);
+
+                return self::issueOrReuseOwnerSession($user, $request);
+            })->header('Cache-Control', 'no-store, private')->header('Pragma', 'no-cache');
+        } catch (RuntimeException) {
+            abort(403, '本机工作台会话暂不可用，请检查实例状态后重试。');
+        }
+    }
+
+    private static function issueOrReuseOwnerSession(User $user, Request $request): JsonResponse
+    {
+        $existingCookie = LocalSession::valueFromRequest($request);
+        if ($existingCookie !== '') {
+            $active = DB::table('local_browser_sessions')
+                ->where('fingerprint', hash('sha256', $existingCookie))
+                ->where('user_id', $user->id)
+                ->where('expires_at', '>', now())
+                ->exists();
+            if ($active) {
+                return LocalSession::issue($user, $request, $existingCookie);
+            }
+        }
+
+        return LocalSession::issue($user, $request);
     }
 
     public static function assertLocalRequest(Request $request): void
     {
         abort_unless(self::enabled(), 404);
         $origin = rtrim((string) config('app.url'), '/');
+        $fetchSite = strtolower(trim((string) $request->headers->get('Sec-Fetch-Site', '')));
         abort_unless($request->isJson() && $request->headers->get('Origin') === $origin
+            && ($fetchSite === '' || $fetchSite === 'same-origin')
             && $request->server('REMOTE_ADDR') === '127.0.0.1'
-            && $request->getSchemeAndHttpHost() === $origin, 403, '请通过本机启动器打开工作台。');
+            && $request->getSchemeAndHttpHost() === $origin, 403, '请通过本机地址直接打开工作台。');
         foreach ($request->headers->keys() as $name) {
-            abort_if($name === 'forwarded' || str_starts_with($name, 'x-forwarded-') || $name === 'x-real-ip',
-                403, '请直接访问本机工作台。');
+            if ($name === 'forwarded' || str_starts_with($name, 'x-forwarded-') || $name === 'x-real-ip') {
+                abort(response()->json([
+                    'message' => '检测到代理转发了本机地址（127.0.0.1），请在代理软件中绕过本地地址或关闭浏览器代理插件后重试。',
+                    'error_code' => 'proxy_detected',
+                ], 403));
+            }
         }
     }
 

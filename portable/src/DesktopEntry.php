@@ -64,7 +64,8 @@ final class DesktopEntry
                         } else {
                             $temporary = $directory.'/.yanji-entry-'.bin2hex(random_bytes(12)).'.lnk';
                             if (!self::windowsShortcut($instance, $file, $temporary, false, $powerShell)
-                                || !self::regular($temporary) || !@link($temporary, $path)) {
+                                || !self::regular($temporary)
+                                || !self::publishWindowsShortcut($temporary, $path, $powerShell)) {
                                 $result['warnings'][] = 'shortcut_failed';
                                 continue;
                             }
@@ -215,6 +216,22 @@ PS;
         }
     }
 
+    /** Publish a Windows .lnk without overwriting; falls back to non-replacing File.Move on OneDrive folders. */
+    private static function publishWindowsShortcut(string $temporary, string $path, ?callable $runner): bool
+    {
+        if (@link($temporary, $path)) {
+            return true;
+        }
+        if (file_exists($path) || is_link($path)) {
+            return false;
+        }
+        $record = self::powerShell('[IO.File]::Move($env:YANJI_ENTRY_TEMP, $env:YANJI_ENTRY_DEST)', [
+            'YANJI_ENTRY_TEMP' => str_replace('/', '\\', $temporary),
+            'YANJI_ENTRY_DEST' => str_replace('/', '\\', $path),
+        ], $runner);
+        return $record['code'] === 0 && $record['stdout'] === '' && self::regular($path);
+    }
+
     private static function folder(mixed $path): ?string
     {
         if (!is_string($path) || !Platform::isAbsolute($path) || preg_match('/[\x00-\x1f]/', $path)) {
@@ -253,30 +270,8 @@ PS;
         }
         $script = <<<'PS'
 $ErrorActionPreference = 'Stop'
-function Open-SavedLinkItem {
-    $application = New-Object -ComObject Shell.Application
-    $folder = $application.NameSpace([IO.Path]::GetDirectoryName($env:YANJI_ENTRY_SHORTCUT))
-    if ($null -eq $folder) { throw 'Shortcut folder is unavailable.' }
-    $item = $folder.ParseName([IO.Path]::GetFileName($env:YANJI_ENTRY_SHORTCUT))
-    if ($null -eq $item) { throw 'Shortcut item is unavailable.' }
-    return $item
-}
-function Read-FullLinkArguments {
-    $item = Open-SavedLinkItem
-    $arguments = $item.ExtendedProperty('System.Link.Arguments')
-    if ($arguments -isnot [string]) { throw 'Shortcut arguments are unavailable.' }
-    return $arguments
-}
-if ($env:YANJI_ENTRY_INSPECT -eq '1') {
-    $link = (Open-SavedLinkItem).GetLink
-    if ($null -eq $link) { throw 'Shortcut reader is unavailable.' }
-    $fullArguments = Read-FullLinkArguments
-    $current = $link.Path -ceq $env:YANJI_ENTRY_TARGET -and $fullArguments -ceq $env:YANJI_ENTRY_ARGUMENTS -and $link.WorkingDirectory -ceq $env:YANJI_ENTRY_WORKING_DIRECTORY
-    $legacy = $link.Path -ceq $env:YANJI_ENTRY_FILE -and $fullArguments -ceq '' -and $link.WorkingDirectory -ceq $env:YANJI_ENTRY_DIRECTORY
-    if ($link.Description -cne $env:YANJI_ENTRY_MARKER -or -not ($current -or $legacy)) { exit 3 }
-} else {
-    # IShellLinkW and IPersistFile use Unicode for both properties and the destination filename.
-    Add-Type -TypeDefinition @'
+# IShellLinkW and IPersistFile use Unicode for both properties and the destination filename.
+Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
@@ -314,12 +309,66 @@ public static class YanjiPortableShellLink {
             ((IPersistFile)value).Save(file, false);
         } finally { Marshal.FinalReleaseComObject(value); }
     }
+    public static string[] Read(string file) {
+        object value = Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("00021401-0000-0000-C000-000000000046")));
+        try {
+            ((IPersistFile)value).Load(file, 0);
+            var link = (YanjiIShellLinkW)value;
+            var path = new StringBuilder(4096);
+            var arguments = new StringBuilder(4096);
+            var description = new StringBuilder(4096);
+            var directory = new StringBuilder(4096);
+            link.GetPath(path, path.Capacity, IntPtr.Zero, 0);
+            link.GetArguments(arguments, arguments.Capacity);
+            link.GetDescription(description, description.Capacity);
+            link.GetWorkingDirectory(directory, directory.Capacity);
+            return new string[] { path.ToString(), arguments.ToString(), description.ToString(), directory.ToString() };
+        } finally { Marshal.FinalReleaseComObject(value); }
+    }
 }
 '@
+function Open-SavedLinkItem {
+    $application = New-Object -ComObject Shell.Application
+    $folder = $application.NameSpace([IO.Path]::GetDirectoryName($env:YANJI_ENTRY_SHORTCUT))
+    if ($null -eq $folder) { throw 'Shortcut folder is unavailable.' }
+    $item = $folder.ParseName([IO.Path]::GetFileName($env:YANJI_ENTRY_SHORTCUT))
+    if ($null -eq $item) { throw 'Shortcut item is unavailable.' }
+    return $item
+}
+function Read-FullLinkArguments {
+    $item = Open-SavedLinkItem
+    $arguments = $item.ExtendedProperty('System.Link.Arguments')
+    if ($arguments -isnot [string]) { throw 'Shortcut arguments are unavailable.' }
+    return $arguments
+}
+if ($env:YANJI_ENTRY_INSPECT -eq '1') {
+    $link = $null
+    $fullArguments = ''
+    try {
+        $link = (Open-SavedLinkItem).GetLink
+        if ($null -eq $link) { throw 'Shortcut reader is unavailable.' }
+        $fullArguments = Read-FullLinkArguments
+    } catch {
+        $raw = [YanjiPortableShellLink]::Read($env:YANJI_ENTRY_SHORTCUT)
+        $link = [PSCustomObject]@{ Path = $raw[0]; Description = $raw[2]; WorkingDirectory = $raw[3] }
+        $fullArguments = $raw[1]
+    }
+    $current = $link.Path -ceq $env:YANJI_ENTRY_TARGET -and $fullArguments -ceq $env:YANJI_ENTRY_ARGUMENTS -and $link.WorkingDirectory -ceq $env:YANJI_ENTRY_WORKING_DIRECTORY
+    $legacy = $link.Path -ceq $env:YANJI_ENTRY_FILE -and $fullArguments -ceq '' -and $link.WorkingDirectory -ceq $env:YANJI_ENTRY_DIRECTORY
+    if ($link.Description -cne $env:YANJI_ENTRY_MARKER -or -not ($current -or $legacy)) { exit 3 }
+} else {
     [YanjiPortableShellLink]::Create($env:YANJI_ENTRY_SHORTCUT, $env:YANJI_ENTRY_TARGET, $env:YANJI_ENTRY_ARGUMENTS, $env:YANJI_ENTRY_MARKER, $env:YANJI_ENTRY_WORKING_DIRECTORY)
-    $link = (Open-SavedLinkItem).GetLink
-    if ($null -eq $link) { throw 'Shortcut reader is unavailable.' }
-    $fullArguments = Read-FullLinkArguments
+    $link = $null
+    $fullArguments = ''
+    try {
+        $link = (Open-SavedLinkItem).GetLink
+        if ($null -eq $link) { throw 'Shortcut reader is unavailable.' }
+        $fullArguments = Read-FullLinkArguments
+    } catch {
+        $raw = [YanjiPortableShellLink]::Read($env:YANJI_ENTRY_SHORTCUT)
+        $link = [PSCustomObject]@{ Path = $raw[0]; Description = $raw[2]; WorkingDirectory = $raw[3] }
+        $fullArguments = $raw[1]
+    }
     if ($link.Path -cne $env:YANJI_ENTRY_TARGET -or $fullArguments -cne $env:YANJI_ENTRY_ARGUMENTS -or $link.Description -cne $env:YANJI_ENTRY_MARKER -or $link.WorkingDirectory -cne $env:YANJI_ENTRY_WORKING_DIRECTORY) { exit 3 }
 }
 PS;

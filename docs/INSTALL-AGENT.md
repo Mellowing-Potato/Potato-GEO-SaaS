@@ -4,14 +4,14 @@
 
 “本机”指用户指定的目标电脑。智能体在云端容器或远程沙箱中能运行命令，不代表已连接用户的电脑；未连接目标环境时，按“无本机执行能力”交付步骤，不能把沙箱里的安装或服务状态当作用户电脑已安装成功。用户明确选择服务器自部署时，以该服务器为目标环境，并保留账号登录流程。
 
-**适用范围：本页适用于已正式重发的 `v0.1.1` 通用智能体与本机入口修复。普通使用者和智能体共用下方标准安装入口；版本号相同时仍须核对本轮发行清单与构建源，不能混用重发前后的文件。标准公开入口已验收，真实 GUI、特定智能体产品和真实模型推理仍未跑。** 当前正式安装命令、摘要及验收范围见官方在线 [PORTABLE.md](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/PORTABLE.md) 与 [CHANGELOG.md](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/CHANGELOG.md)。包内说明可能停留在构建时状态，以在线说明及精确发行证据为准。
+**适用范围：当前线上已发布正式包为 `v0.1.1`；源码正准备 `v0.1.2`（未发布）。仓库根目录新增 `install.ps1` / `install.cmd`（Windows）与 `install.sh`（macOS/Linux），自动调用 `System32\curl.exe` / `curl` 核验 `portable/release-pin.json` 中的正式清单摘要完成免 Docker 安装或直接拉起已安装实例。`v0.1.2` 正式包发布后，本机单人模式可直接通过系统浏览器打开 `http://127.0.0.1:<端口>` 进入工作台；在此之前安装的 `v0.1.1` 正式包仍通过 `yanji open` 或双击本机入口进入。标准公开入口已验收，真实 GUI、特定智能体产品和真实模型推理仍未跑。** 当前正式安装命令、摘要及验收范围见官方在线 [PORTABLE.md](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/PORTABLE.md) 与 [CHANGELOG.md](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/CHANGELOG.md)。包内说明可能停留在构建时状态，以在线说明及精确发行证据为准。
 
 ## 安装与使用入口
 
-1. 按操作系统和使用者需求，使用 [官方便携安装](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/PORTABLE.md#安装) 或 [Docker 安装](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/INSTALL.md)。沿用发行的 HTTPS、清单摘要与包内文件校验，不换成智能体自制的免鉴权安装方式。
-2. 保留安装器给出的当前实例管理入口。便携实例的 `yanji` / `yanji.cmd` 路径用于后续检查和打开；不要假定它已加入 `PATH`，也不要假定实例目录、端口或工作区 ID。
-3. 人类统一从本机稳定入口进入，由它调用该实例的 `open`，在**系统默认浏览器**打开工作台。`open` 会先启动或复用当前实例服务，再执行现有授权打开流程。终端命令是同一机制的入口，不另造授权接口。
-4. 确认服务状态，并完成下文的人类浏览器验收后，才能报告可正常使用。
+1. 按操作系统和使用者需求，优先使用免 Docker 便携安装：若已克隆仓库，可直接执行仓库根目录 `.\install.ps1`（Windows）或 `sh install.sh`（macOS/Linux）；若未克隆仓库，直接执行下方标准一行安装命令，或按 [Docker 安装](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/blob/main/INSTALL.md) 部署容器。全程沿用发行的 HTTPS、清单摘要与包内文件校验，不换成智能体自制的免鉴权安装方式。
+2. 保留安装器给出的当前实例管理入口。便携实例的 `yanji` / `yanji.cmd` 路径用于后续检查和启停；不要假定它已加入 `PATH`，也不要假定实例目录、端口或工作区 ID。
+3. 服务启动就绪后：在 `v0.1.2+` 本机单人模式下，人类可直接在本机系统浏览器打开 `http://127.0.0.1:<端口>` 进入工作台，或双击“言及工作台”快捷入口 / 运行 `open` 自动拉起服务并打开浏览器（若用户开启了本地代理，提醒将 `127.0.0.1` 设为直连绕过代理）；在 `v0.1.1` 包中则通过本机入口或 `open` 打开系统默认浏览器。
+4. 确认服务状态，并提示用户在系统浏览器确认进入工作台后，完成使用交付。
 
 普通使用者和智能体共用以下 `v0.1.1` 标准便携安装入口。在线和先下载再安装均使用同一正式发行及已核对的清单摘要。
 

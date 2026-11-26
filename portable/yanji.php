@@ -68,7 +68,7 @@ function runPortable(array $args): int
         $services->start();
         echo "恢复完成 http://127.0.0.1:".$i->port()."\n";
         if (!DesktopLauncher::open($i, automatic: true, noBrowser: isset($options['no-browser']))) {
-            echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+            echo "未能自动拉起浏览器，请直接在浏览器打开 http://127.0.0.1:".$i->port()."（或在图形桌面运行 open）。\n";
         }
         return 0;
     }
@@ -176,7 +176,7 @@ function runPortable(array $args): int
                 $services->start();
                 echo "已就绪 http://127.0.0.1:".$port."  管理命令 ".Platform::nativePath($i->root.'/'.Platform::launcherName())."\n";
                 if (!DesktopLauncher::open($i, automatic: true, noBrowser: isset($options['no-browser']))) {
-                    echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+                    echo "未能自动拉起浏览器，请直接在浏览器打开 http://127.0.0.1:".$port."（或在图形桌面运行 open）。\n";
                 }
                 break;
             case '__upgrade':
@@ -186,7 +186,7 @@ function runPortable(array $args): int
                 Upgrade::run($i, $release, $services);
                 prepareDesktopEntry($i);
                 if (!DesktopLauncher::open($i, automatic: true, noBrowser: isset($options['no-browser']))) {
-                    echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+                    echo "未能自动拉起浏览器，请直接在浏览器打开 http://127.0.0.1:".$i->port()."（或在图形桌面运行 open）。\n";
                 }
                 break;
             case 'entry':
@@ -203,7 +203,7 @@ function runPortable(array $args): int
                 $services->start();
                 echo "已就绪 http://127.0.0.1:".$i->port()."\n";
                 if (!DesktopLauncher::open($i, automatic: $command !== 'open', noBrowser: isset($options['no-browser']))) {
-                    echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+                    echo "未能自动拉起浏览器，请直接在浏览器打开 http://127.0.0.1:".$i->port()."（或在图形桌面运行 open）。\n";
                 }
                 break;
             case 'stop':
@@ -213,7 +213,7 @@ function runPortable(array $args): int
                 $services->stop();
                 $services->start();
                 if (!DesktopLauncher::open($i, automatic: true, noBrowser: isset($options['no-browser']))) {
-                    echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+                    echo "未能自动拉起浏览器，请直接在浏览器打开 http://127.0.0.1:".$i->port()."（或在图形桌面运行 open）。\n";
                 }
                 break;
             case 'backup':
@@ -260,7 +260,7 @@ function prepareDesktopEntry(Instance $instance): void
     if ($entry['file'] === null) {
         throw new RuntimeException('未能创建本机打开入口，请检查安装目录的权限或重名文件后重试。');
     }
-    echo '日常使用请双击“'.$entry['name'].'”打开工作台。'."\n";
+    echo '日常使用可直接打开 http://127.0.0.1:'.$instance->port().' ，或双击“'.$entry['name'].'”自动启动并打开工作台。'."\n";
     if ($entry['warnings']) {
         echo '桌面或菜单入口未能全部创建，已保留本机双击入口：'.Platform::nativePath((string) $entry['file'])."\n";
     }

@@ -265,6 +265,71 @@ final class PortableDesktopAccessTest extends TestCase
         $this->assertFalse(PortableDesktopAccess::enabled());
     }
 
+    public function test_direct_loopback_same_origin_browser_request_establishes_and_reuses_owner_session(): void
+    {
+        $first = $this->postJson($this->origin.'/api/v1/auth/local-start', [], [
+            'Origin' => $this->origin,
+            'Sec-Fetch-Site' => 'same-origin',
+        ])->assertOk()->assertCookie('geo_session_desktop_fixture');
+        $first->assertJsonPath('user.id', $this->owner->id)->assertJsonPath('tenant.id', $this->owner->tenant_id);
+        $this->assertStringContainsString('no-store', (string) $first->headers->get('Cache-Control'));
+        $cookie = collect($first->headers->getCookies())->first(fn ($c) => $c->getName() === LocalSession::cookieName());
+        $this->assertNotNull($cookie);
+        $this->assertTrue($cookie->isHttpOnly());
+        $this->assertDatabaseCount('local_browser_sessions', 1);
+
+        // Opening the loopback workbench again in the same browser reuses its active session row.
+        $second = $this->withHeader('Cookie', LocalSession::cookieName().'='.$cookie->getValue())
+            ->postJson($this->origin.'/api/v1/auth/local-start', [], ['Origin' => $this->origin])
+            ->assertOk();
+        $this->assertDatabaseCount('local_browser_sessions', 1);
+
+        app('auth')->forgetGuards();
+        $this->withToken($second->json('token'))->withHeader('Cookie', LocalSession::cookieName().'='.$cookie->getValue());
+        $this->getJson($this->origin.'/api/v1/me')->assertOk()->assertJsonPath('id', $this->owner->id);
+        Http::assertNothingSent();
+    }
+
+    #[DataProvider('invalidRequestProvider')]
+    public function test_direct_loopback_entry_rejects_non_local_cross_origin_and_proxied_requests(
+        array $server,
+        array $headers,
+        ?string $url = null,
+    ): void {
+        $response = $this->withServerVariables($server)->postJson(
+            ($url ?? $this->origin).'/api/v1/auth/local-start',
+            [],
+            [...['Origin' => $this->origin], ...$headers],
+        )->assertForbidden();
+        if (isset($headers['X-Forwarded-For']) || isset($headers['Forwarded'])) {
+            $response->assertJsonPath('error_code', 'proxy_detected');
+        }
+        $this->assertDatabaseCount('local_browser_sessions', 0);
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_direct_loopback_entry_rejects_cross_site_fetch_metadata_server_mode_and_multi_user(): void
+    {
+        foreach (['cross-site', 'same-site', 'none'] as $site) {
+            $this->postJson($this->origin.'/api/v1/auth/local-start', [], [
+                'Origin' => $this->origin,
+                'Sec-Fetch-Site' => $site,
+            ])->assertForbidden();
+        }
+        $this->postJson($this->origin.'/api/v1/auth/local-start', [], [
+            'Origin' => $this->origin,
+            'X-Real-Ip' => '127.0.0.1',
+        ])->assertForbidden()->assertJsonPath('error_code', 'proxy_detected');
+        $this->assertDatabaseCount('local_browser_sessions', 0);
+
+        app(LocalAccounts::class)->create('second@example.com', 'test-other-password', '另一个工作区', 'platform_admin');
+        $this->postJson($this->origin.'/api/v1/auth/local-start', [], ['Origin' => $this->origin])->assertForbidden();
+        $this->assertDatabaseCount('local_browser_sessions', 0);
+
+        config(['instance.desktop_mode' => false]);
+        $this->postJson($this->origin.'/api/v1/auth/local-start', [], ['Origin' => $this->origin])->assertNotFound();
+    }
+
     private function launch(): string
     {
         $output = $this->root.'/run/browser-launch-'.bin2hex(random_bytes(8)).'.json';
