@@ -2,7 +2,7 @@
 
 **简体中文** | [English](README.en.md) · 最新正式版：[v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1) · 许可：[Apache-2.0](LICENSE) · [免 Docker 便携版](PORTABLE.md) · [Docker 部署](INSTALL.md) · [常见问题 FAQ](#常见问题-faq)
 
-> **v0.1.1 同版本修复重发准备中。** 本轮将通用智能体交付状态、本机打开入口与 Windows Unicode 快捷方式修复更新到同一标准安装入口；正式资产发布后再验证该入口。当前已发布资产和下方清单摘要保持不变，源码及原生 CI 通过不等于本轮正式重发已完成。
+> **v0.1.1 同版本修复重发已完成。** 通用智能体交付状态、本机打开入口与 Windows Unicode 快捷方式修复已更新到下方标准安装入口；版本和下载地址不变。正式资产与公开标准安装入口已按本轮发行流验证，真实 GUI 仍未跑。
 
 **言及（Yanji GEO-SaaS）** 是一款可自部署的开源 **GEO（Generative Engine Optimization，生成式引擎优化 / AI 搜索优化）项目管理与内容交付工作台**，面向 GEO 代运营个人、小团队与品牌市场人员。支持 **macOS Apple Silicon / Windows x64 / Linux 免 Docker 一键运行** 与 **Docker 自部署**，自带模型 Key（BYOK）、无订阅抽成，在独立隔离工作区中串联客户资料、1024 维向量知识库、11 项 GEO 技能报告与内容生成、中文平台草稿助手以及豆包 AI 搜索可见性监测。
 
@@ -45,7 +45,7 @@
 
 ### 方式一：免 Docker 一键便携安装（推荐，开箱即用）
 
-无需提前安装 Docker、PHP 或 Python。引导脚本仅允许 HTTPS，自动校验当前正式资产的 `SHA256SUMS` 固定摘要（`51e92778fce0c1c2caae9cdf72c650b055623e8c57f1897dddc34ded18b8230a`）及包内全部文件哈希，并提供 `yanji` / `yanji.cmd` 管理命令（启动、停止、状态、体检 `doctor`、备份、恢复、升级）。本轮重发的新资产与摘要须在发布后核对。
+无需提前安装 Docker、PHP 或 Python。引导脚本仅允许 HTTPS，自动校验当前正式资产的 `SHA256SUMS` 固定摘要（`85a34baa058f0957c74915962c40db4f72d2fd28fd76d14a072e7d4e5294ddda`）及包内全部文件哈希，并提供 `yanji` / `yanji.cmd` 管理命令（启动、停止、状态、体检 `doctor`、备份、恢复、升级）。请使用本轮正式清单摘要，不混用旧版文件。
 
 **macOS（Apple Silicon M1–M4）与 Linux（x86_64 / ARM64）：**
 
@@ -77,7 +77,7 @@ bash scripts/install.sh
 
 ### 方式三：交给 AI 编程助手自动安装
 
-统一安装与交付要求见 [通用智能体安装协议](docs/INSTALL-AGENT.md)。普通使用者和智能体共用上方标准安装入口，也可先下载同一正式发行的安装文件，再按 [标准本地安装步骤](PORTABLE.md#安装) 执行。新增的结构化交付与双击入口正在准备 `v0.1.1` 同版本修复重发，待正式资产发布后验证；本轮真实 GUI 未跑。智能体应通过当前实例入口在系统默认浏览器确认工作台；仅打开裸地址或看到服务就绪不能宣称该实例已可正常使用。
+统一安装与交付要求见 [通用智能体安装协议](docs/INSTALL-AGENT.md)。普通使用者和智能体共用上方标准安装入口，也可先下载同一正式发行的安装文件，再按 [标准本地安装步骤](PORTABLE.md#安装) 执行。本轮 `v0.1.1` 同版本修复重发已包含结构化交付与本机入口，标准公开命令验收通过；真实 GUI 未跑。智能体应通过当前实例入口在系统默认浏览器确认工作台；仅打开裸地址或看到服务就绪不能宣称该实例已可正常使用。
 
 可以直接复制下面这句话发给你的 AI 编程助手（支持按需选择免 Docker 便携版或 Docker 版）：
 
@@ -215,7 +215,7 @@ bash scripts/install.sh
 
 ## 已验证与待验证
 
-- **本轮通用智能体与本机入口修复：** `v0.1.1` 同版本修复重发准备中，正式资产与标准在线入口的本轮真实用户流程未跑，待正式资产发布后验证。源码的 Windows 原生构建、冷安装/恢复，以及中文目录中的首次/重复注册、入口文件与已注册快捷方式执行已通过（[原生验收流 #45665229256](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45665229256/job/139385482871)）；这些自动化不替代用户电脑的真实 GUI、浏览器交付或模型推理验收。
+- **本轮 v0.1.1 通用智能体与本机入口修复重发：** 本轮 [发行流 #45737825566](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566) 的 12 项任务全部通过，覆盖双架构测试/审计、四平台原生组包验收、双架构镜像、正式资产发布，以及 macOS/Windows 各两项公开标准安装入口验收（[Mac 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649102537)、[Mac 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649099554)、[Windows 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649101890)、[Windows 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649100868)）。构建源为 `6f797567dd18833412f1a6e0ff4c139129106949`。公开入口使用默认目录和 8000 端口，核对本次构建、只读交付状态、免账号 Cookie、工作区受保护 API，以及拒绝匿名和无 Cookie 绑定的令牌；不扩大为真实 GUI、特定智能体产品或模型推理验收。 先前源码的 Windows 中文目录、首次/重复注册与真实已注册快捷方式执行证据保留于 [原生验收流 #45665229256](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45665229256/job/139385482871)。
 
 - **2026-11-25 v0.1.1 安装修复重发（历史）：** 10 项发行任务全部成功，覆盖双架构测试/审计、四平台便携构建、Docker 镜像发布、资产发布和两场 Mac 公开入口验收（[该次修复重发流 #45594562303](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303)）。该次 Mac 标准公开入口分别验收：fresh 全新安装：通过；使用公开标准 `curl ... | sh`、默认目录和 8000 端口，服务就绪，已核对免账号 Cookie、工作区受保护 API 及拒绝匿名/无绑定令牌（[任务日志](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303/job/139153283994)）；interrupted 中断安装：通过；使用公开标准 `curl ... | sh`、默认目录和 8000 端口，服务就绪，已核对免账号 Cookie、工作区受保护 API 及拒绝匿名/无绑定令牌（[任务日志](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303/job/139153284005)）。入口证据仅含默认目录和端口、标准命令、工作台 Cookie 与受保护 API；不扩大为完整 GUI 或 Magpie 真实推理验收。 旧版安装在账号提示前中断、尚未生成实例密钥且默认数据库为空时，安装器会检查原配置与初始化/绑定状态，符合条件后接续本机免账号初始化；已有账号和数据保留。 v0.1.1 首次发行的八项任务成功和本地包验收属于历史记录，没有覆盖当时读者经生成引导脚本走 HTTPS 下载的入口，不能当作该入口成功证据。
 

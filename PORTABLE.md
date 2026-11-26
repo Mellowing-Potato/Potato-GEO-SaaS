@@ -1,14 +1,14 @@
 # 本机运行言及（免 Docker 便携版）
 
-> **v0.1.1 同版本修复重发准备中。** 本轮将通用智能体交付与本机入口修复更新到仓库标准安装入口，正式资产发布后再验证该入口。版本和标准下载地址不变，当前正式清单摘要暂不变；尚未将源码或原生 CI 通过登记为正式重发完成。
+> **v0.1.1 同版本修复重发已完成。** 通用智能体交付与本机入口修复已通过仓库标准安装入口交付。版本和下载地址不变；请使用下方本轮正式清单摘要。公开标准命令验收与真实 GUI 验收分别记录。
 
 > **2026-11-25 安装文件修复重发（历史）**：修复 macOS UTF-8 Shell 的远程下载变量边界；下载地址仍为 v0.1.1，使用下方标准 `curl ... | sh` 命令。旧版安装在账号提示前中断、尚未生成实例密钥且默认数据库为空时，安装器会检查原配置与初始化/绑定状态，符合条件后接续本机免账号初始化；已有账号和数据保留。 该次替换安装文件、清单及对应引导脚本，并将发布标签对齐修复源码；请使用新摘要，首次发行的旧摘要不适用于重发资产。v0.1.0 资产保持不变。该次完整 CI：10 项发行任务全部成功，覆盖双架构测试/审计、四平台便携构建、Docker 镜像发布、资产发布和两场 Mac 公开入口验收（[该次修复重发流 #45594562303](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303)）。该次 Mac 标准公开入口分别验收：fresh 全新安装：通过；使用公开标准 `curl ... | sh`、默认目录和 8000 端口，服务就绪，已核对免账号 Cookie、工作区受保护 API 及拒绝匿名/无绑定令牌（[任务日志](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303/job/139153283994)）；interrupted 中断安装：通过；使用公开标准 `curl ... | sh`、默认目录和 8000 端口，服务就绪，已核对免账号 Cookie、工作区受保护 API 及拒绝匿名/无绑定令牌（[任务日志](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303/job/139153284005)）。入口证据仅含默认目录和端口、标准命令、工作台 Cookie 与受保护 API；不扩大为完整 GUI 或 Magpie 真实推理验收。 v0.1.1 首次发行的八项任务成功和本地包验收属于历史记录，没有覆盖当时读者经生成引导脚本走 HTTPS 下载的入口，不能当作该入口成功证据。
 
 免 Docker 便携包使用与 Docker 部署相同的 Laravel 应用、生产 Composer 依赖、已构建网页与锁定技能资产，并随包内置独立 **Python 3.12.16** 与开源报告字体（DejaVu Sans、Noto Serif CJK），普通用户无需预先安装 Docker、PHP 或 Python。程序与实例数据分离存放；安装完成时由本机启动器在系统浏览器打开工作台，日常使用 `yanji open` 再次打开。直接在新的浏览器会话或智能体内置预览中输入本地地址，不会自动获得访问会话。支持第三方模型直连与可选本机 [Magpie](https://github.com/yetone/magpie)。
 
-普通使用者和智能体采用相同的标准安装入口和本机打开方式，交付要求见 [通用智能体安装协议](docs/INSTALL-AGENT.md)。新增的稳定双击入口、`entry` 和 `onboarding` 正在准备 `v0.1.1` 同版本修复重发，待正式资产发布后验证；当前仅凭版本号不能认定下载包已包含这些新增能力。本轮真实 GUI 验收未跑。
+普通使用者和智能体采用相同的标准安装入口和本机打开方式，交付要求见 [通用智能体安装协议](docs/INSTALL-AGENT.md)。本轮 `v0.1.1` 修复重发已包含稳定本机入口、`entry` 和 `onboarding`。公开标准安装入口已验证，真实 GUI 和特定智能体产品的实际交付仍未跑。
 
-> 当前已发布的 `v0.1.1` 资产、统一 `SHA256SUMS`（`51e92778fce0c1c2caae9cdf72c650b055623e8c57f1897dddc34ded18b8230a`）、平台便携安装包、对应源码/重链接材料及固定摘要引导脚本见 [GitHub Release v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1)。本轮重发尚未替换这些正式资产，新资产与摘要须在发布后核对。
+> 本轮 `v0.1.1` 正式资产、统一 `SHA256SUMS`（`85a34baa058f0957c74915962c40db4f72d2fd28fd76d14a072e7d4e5294ddda`）、平台便携安装包、对应源码/重链接材料及固定摘要引导脚本见 [GitHub Release v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1)。构建源为 `6f797567dd18833412f1a6e0ff4c139129106949`。
 
 > **v0.1.1 本机单人模式**：全新便携实例无需邮箱、密码或手动登录，由本机启动器授权打开工作台；`yanji open` 可再次打开。保留独立工作区、正常会话鉴权和仅本机回环访问。已有账号实例或显式账号模式保留原登录方式，不覆盖账号与数据。维护者已确认 Apple Silicon Mac 候选安装、更新和免登录体验；v0.1.1 首次发行的历史证据：8 个任务全部通过：双架构完整测试与审计、四平台组包和原生验收、双架构镜像及 17 项发行资产上传（[发行流 #45572085735](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45572085735)）。
 
@@ -18,7 +18,9 @@
 
 下表及首次 v0.1.1 发行流均为历史验收，不作为旧 Mac 远程入口已通过的证据；2026-11-25 安装修复重发 CI：10 项发行任务全部成功，覆盖双架构测试/审计、四平台便携构建、Docker 镜像发布、资产发布和两场 Mac 公开入口验收（[该次修复重发流 #45594562303](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303)）。四平台完整 GUI、Windows 桌面与 Linux amd64 Docker 手工业务流程仍待验收。
 
-本轮重发的源码在 Windows 原生 CI 通过构建、完整冷安装与恢复；源码及打包后的入口夹具分别通过 2 项入口文件执行和 4 项已注册快捷方式执行，覆盖中文目录、首次与重复注册、完整参数和私有脚本的当前实例绑定（[原生验收流 #45665229256](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45665229256/job/139385482871)）。入口夹具仅运行临时假启动器，不打开浏览器或用户服务；本轮正式标准在线入口与真实 GUI 未跑，待正式资产发布后继续验证。
+本轮重发的源码在 Windows 原生 CI 通过构建、完整冷安装与恢复；源码及打包后的入口夹具分别通过 2 项入口文件执行和 4 项已注册快捷方式执行，覆盖中文目录、首次与重复注册、完整参数和私有脚本的当前实例绑定（[原生验收流 #45665229256](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45665229256/job/139385482871)）。入口夹具仅运行临时假启动器，不打开浏览器或用户服务；本轮正式公开入口另经下述发行流验收，真实 GUI 仍未跑。
+
+本轮 [发行流 #45737825566](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566) 的 12 项任务全部通过，覆盖双架构测试/审计、四平台原生组包验收、双架构镜像、正式资产发布，以及 macOS/Windows 各两项公开标准安装入口验收（[Mac 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649102537)、[Mac 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649099554)、[Windows 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649101890)、[Windows 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649100868)）。构建源为 `6f797567dd18833412f1a6e0ff4c139129106949`。公开入口使用默认目录和 8000 端口，核对本次构建、只读交付状态、免账号 Cookie、工作区受保护 API，以及拒绝匿名和无 Cookie 绑定的令牌；不扩大为真实 GUI、特定智能体产品或模型推理验收。
 
 | 平台 | 运行时与随包资产 | 当前验证状态 |
 | --- | --- | --- |
@@ -54,19 +56,19 @@ irm "https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.
 
 从同一 [GitHub Release v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1) 下载三个文件，放在同一目录并保留原文件名：`SHA256SUMS`、当前系统的 `install-local.sh`（macOS/Linux）或 `install-local.ps1`（Windows），以及对应平台的 `yanji-<平台>.tar.gz`（Windows 为 `yanji-windows-x86_64.zip`）。无需手动解压安装包；安装器会根据本地清单找到同目录的平台包并校验，不会再下载该大包。也可由可信文件渠道完整转发这三个正式资产；只转发 GitHub 链接仍需从 GitHub 下载。仓库的 **Code → Download ZIP** 是源码，不能代替 Release 中的便携安装包。
 
-进入下载目录，使用当前正式清单摘要执行下方标准安装命令。本轮重发后须使用经核对的新摘要，不能混用不同发行材料，也不能从未经独立核对的下载文件自行推导“可信摘要”。
+进入下载目录，使用本轮正式清单摘要执行下方标准安装命令。不能混用重发前后的文件或摘要，也不能从未经独立核对的下载文件自行推导“可信摘要”。
 
 **macOS / Linux：**
 
 ```sh
-sh ./install-local.sh --manifest ./SHA256SUMS --manifest-sha256 51e92778fce0c1c2caae9cdf72c650b055623e8c57f1897dddc34ded18b8230a
+sh ./install-local.sh --manifest ./SHA256SUMS --manifest-sha256 85a34baa058f0957c74915962c40db4f72d2fd28fd76d14a072e7d4e5294ddda
 ```
 
 **Windows（PowerShell）：**
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-local.ps1 `
-  -Manifest .\SHA256SUMS -ManifestSha256 51e92778fce0c1c2caae9cdf72c650b055623e8c57f1897dddc34ded18b8230a
+  -Manifest .\SHA256SUMS -ManifestSha256 85a34baa058f0957c74915962c40db4f72d2fd28fd76d14a072e7d4e5294ddda
 ```
 
 - 随包已内置 Python 3.12.16 与开源字体，**默认无需传 `--python-bin` / `-PythonBin`**；仅在需要覆写为自定义解释器时才传该参数。
@@ -191,4 +193,4 @@ python3 scripts/runtime/merge-release-dir.py \
   --output "$UNIFIED_RELEASE_DIR"
 ```
 
-本轮准备中的正式发行工作流 `.github/workflows/release.yml` 要求全量 `Tests` 与四平台原生构建、组包和验收全部成功，才能合并统一 `SHA256SUMS`、生成引导脚本并上传正式资产；Unix 运行时清单 `YANJI_UNIX_RUNTIME_MANIFEST_URL` / `YANJI_UNIX_RUNTIME_MANIFEST_SHA256` 必须配置并通过校验，缺失时明确失败，不跳过 Unix 平台后只发布 Windows 包。工作流还发布双架构 GHCR Docker 镜像，并在正式资产上传后安排 macOS 和 Windows 的公开标准命令验收，各覆盖全新安装与旧版空配置中断后的接续安装，检查本次构建身份、交付状态和受保护会话/API。此处描述工作流要求；本轮正式发行和这些公开入口任务尚未跑，且公开入口自动化不替代真实 GUI 人工点击验收。
+正式发行工作流 `.github/workflows/release.yml` 要求全量 `Tests` 与四平台原生构建、组包和验收全部成功，才能合并统一 `SHA256SUMS`、生成引导脚本并上传正式资产；Unix 运行时清单 `YANJI_UNIX_RUNTIME_MANIFEST_URL` / `YANJI_UNIX_RUNTIME_MANIFEST_SHA256` 必须配置并通过校验，缺失时明确失败，不跳过 Unix 平台后只发布 Windows 包。工作流还发布双架构 GHCR Docker 镜像，并在正式资产上传后安排 macOS 和 Windows 的公开标准命令验收，各覆盖全新安装与旧版空配置中断后的接续安装，检查本次构建身份、交付状态和受保护会话/API。本轮 12 项发行任务通过，见 [发行流 #45737825566](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566)；公开入口自动化不替代真实 GUI 人工点击验收。
