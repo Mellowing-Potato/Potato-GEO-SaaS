@@ -1,4 +1,6 @@
 """Fake-clock public-entry observation tests; no installer, browser, services or network."""
+import ctypes
+import errno
 import importlib.util
 import json
 import os
@@ -9,7 +11,7 @@ import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -132,6 +134,44 @@ class PublicEntrySupportTest(unittest.TestCase):
         with self.assertRaisesRegex(support.PublicEntrySupportError,'timed_out'):
             support.wait_for_initial_authorization_settle(FakePath('example-instance'))
         self.assertEqual(self.clock.elapsed,125)
+
+    def test_initial_identified_lock_conflict_retries_then_observes_stable_consumption(self):
+        calls = 0
+        def read(_instance):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise support.PublicEntrySupportError('initial_authorization_read_locked',(1,2),1)
+            return (1,2),b'',2
+        self.reader.side_effect = read
+        self.assertEqual(support.wait_for_initial_authorization_settle(FakePath('example-instance')),
+                         {'state':'consumed','waited_seconds':2})
+        self.assertEqual(self.clock.elapsed,1.25)
+
+    def test_initial_busy_reads_share_the_overall_budget_and_reject_replacement(self):
+        self.reader.side_effect = support.PublicEntrySupportError('initial_authorization_read_locked',(1,2),1)
+        with self.assertRaisesRegex(support.PublicEntrySupportError,'read_locked'):
+            support.wait_for_initial_authorization_settle(FakePath('example-instance'))
+        self.assertEqual(self.clock.elapsed,125)
+        for changed in [((1,3),b'',2),((1,2),ticket(fingerprint='c'*64),2)]:
+            with self.subTest(changed_identity=changed[0],nonempty=bool(changed[1])):
+                self.clock.elapsed,self.clock.wall = 0,1000
+                self.reader.side_effect = [support.PublicEntrySupportError('initial_authorization_read_locked',(1,2),1),changed]
+                with self.assertRaisesRegex(support.PublicEntrySupportError,'replaced'):
+                    support.wait_for_initial_authorization_settle(FakePath('example-instance'))
+
+    def test_missing_access_denied_untrusted_or_unidentified_busy_reads_are_not_retried(self):
+        for code in ('initial_authorization_missing','initial_authorization_read_denied',
+                     'initial_authorization_path_untrusted','initial_authorization_not_private',
+                     'initial_authorization_read_error','initial_authorization_read_locked'):
+            with self.subTest(code=code):
+                self.reader.reset_mock()
+                self.reader.side_effect = support.PublicEntrySupportError(code)
+                with self.assertRaises(support.PublicEntrySupportError) as caught:
+                    support.wait_for_initial_authorization_settle(FakePath('example-instance'))
+                self.assertEqual(caught.exception.code,code)
+                self.assertEqual(self.reader.call_count,1)
+                self.assertEqual(self.clock.elapsed,0)
 
     def test_invalid_duplicate_oversized_expiry_or_non_integer_fields_are_never_settled(self):
         invalid = [b'not JSON', b'{}', b'[]', b' ', ticket(expires=1121), ticket(expires=True),
@@ -266,22 +306,126 @@ class PublicEntryTicketFileTest(unittest.TestCase):
 
     def test_missing_directory_link_and_oversized_file_are_refused(self):
         self.path.unlink()
-        with self.assertRaisesRegex(support.PublicEntrySupportError,'unavailable'):
+        with self.assertRaisesRegex(support.PublicEntrySupportError,'initial_authorization_missing$'):
             support._read_ticket(self.instance)
         self.path.mkdir()
-        with self.assertRaisesRegex(support.PublicEntrySupportError,'unavailable'):
+        with self.assertRaisesRegex(support.PublicEntrySupportError,'initial_authorization_path_untrusted$'):
             support._read_ticket(self.instance)
         self.path.rmdir()
         self.path.write_bytes(b'x'*(support.MAX_TICKET_BYTES+1))
         self.path.chmod(0o600)
-        with self.assertRaisesRegex(support.PublicEntrySupportError,'unavailable'):
+        with self.assertRaisesRegex(support.PublicEntrySupportError,'initial_authorization_too_large$'):
             support._read_ticket(self.instance)
         self.path.unlink()
         target = self.instance / 'other-file'
         target.write_bytes(ticket())
         self.path.symlink_to(target)
-        with self.assertRaisesRegex(support.PublicEntrySupportError,'unavailable'):
+        with self.assertRaisesRegex(support.PublicEntrySupportError,'initial_authorization_path_untrusted$'):
             support._read_ticket(self.instance)
+
+    def test_private_permissions_and_access_denied_remain_fail_closed_with_distinct_codes(self):
+        fake = SimpleNamespace(st_mode=stat.S_IFREG|0o644,st_size=10,st_uid=1000)
+        with patch.object(support.os,'name','posix'),patch.object(support.os,'geteuid',return_value=1000,create=True):
+            with self.assertRaisesRegex(support.PublicEntrySupportError,'initial_authorization_not_private$'):
+                support._assert_private_regular(fake)
+            fake.st_mode,fake.st_uid = stat.S_IFREG|0o600,1001
+            with self.assertRaisesRegex(support.PublicEntrySupportError,'initial_authorization_not_private$'):
+                support._assert_private_regular(fake)
+        with patch.object(support.os,'open',side_effect=PermissionError(errno.EACCES,'sk-test-private-path')):
+            with self.assertRaises(support.PublicEntrySupportError) as caught:
+                support._read_ticket(self.instance)
+        self.assertEqual(caught.exception.code,'initial_authorization_read_denied')
+
+    def test_read_occurs_only_under_shared_lock_and_invalid_schema_still_fails(self):
+        from contextlib import contextmanager
+        locked = False
+        actual_read = support.os.read
+        @contextmanager
+        def lock(_descriptor):
+            nonlocal locked
+            locked = True
+            try:
+                yield
+            finally:
+                locked = False
+        def read(descriptor,count):
+            self.assertTrue(locked)
+            return actual_read(descriptor,count)
+        with patch.object(support,'_shared_lock',lock),patch.object(support.os,'read',side_effect=read):
+            self.assertEqual(support._read_ticket(self.instance)[1],ticket())
+            self.path.write_bytes(b'{"unexpected":"sk-test-private-value"}')
+            with self.assertRaisesRegex(support.PublicEntrySupportError,'initial_authorization_invalid$'):
+                support._read_ticket(self.instance)
+        self.assertFalse(locked)
+
+    def test_exclusive_writer_conflicts_with_reader_then_shared_read_preserves_bytes(self):
+        descriptor = os.open(self.path,os.O_RDWR)
+        if support.sys.platform == 'win32':
+            kernel,handle,offset = support._windows_lock_api(),support._windows_handle(descriptor),support._OVERLAPPED()
+            self.assertTrue(kernel.LockFileEx(handle,3,0,0xFFFFFFFF,0xFFFFFFFF,ctypes.byref(offset)))
+            unlock = lambda:kernel.UnlockFileEx(handle,0,0xFFFFFFFF,0xFFFFFFFF,ctypes.byref(offset))
+        else:
+            import fcntl
+            fcntl.flock(descriptor,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            unlock = lambda:fcntl.flock(descriptor,fcntl.LOCK_UN)
+        try:
+            with self.assertRaises(support.PublicEntrySupportError) as caught:
+                support._read_ticket(self.instance)
+            self.assertEqual(caught.exception.code,'initial_authorization_read_locked')
+            self.assertEqual(caught.exception.identity,(os.fstat(descriptor).st_dev,os.fstat(descriptor).st_ino))
+        finally:
+            unlock()
+            os.close(descriptor)
+        self.assertEqual(support._read_ticket(self.instance)[1],ticket())
+        self.assertEqual(self.path.read_bytes(),ticket())
+
+    def test_os_errors_distinguish_known_lock_conflicts_from_denials_and_other_failures(self):
+        cases = [(5,errno.EACCES,'read_denied'),(32,errno.EACCES,'read_locked'),
+                 (33,errno.EACCES,'read_locked'),(2,errno.ENOENT,'missing'),(87,errno.EINVAL,'read_error')]
+        for native,number,code in cases:
+            error = OSError(number,'sk-test-never-output')
+            error.winerror = native
+            self.assertEqual(support._read_error(error).code,'initial_authorization_'+code)
+        denied = PermissionError(errno.EACCES,'sk-test-never-output')
+        self.assertEqual(support._read_error(denied,locking=True).code,'initial_authorization_read_denied')
+        busy = BlockingIOError(errno.EAGAIN,'sk-test-never-output')
+        self.assertEqual(support._read_error(busy,locking=True).code,'initial_authorization_read_locked')
+        self.assertEqual(support._read_error(busy,locking=False).code,'initial_authorization_read_error')
+
+    def test_windows_shared_lock_uses_fixed_width_abi_full_php_range_and_nonblocking_flag(self):
+        kernel = SimpleNamespace(LockFileEx=Mock(return_value=1),UnlockFileEx=Mock(return_value=1))
+        with patch.object(support.ctypes,'WinDLL',return_value=kernel,create=True):
+            self.assertIs(support._windows_lock_api(),kernel)
+        self.assertEqual(kernel.LockFileEx.argtypes,[ctypes.c_void_p,ctypes.c_uint32,ctypes.c_uint32,
+            ctypes.c_uint32,ctypes.c_uint32,ctypes.POINTER(support._OVERLAPPED)])
+        self.assertEqual(kernel.LockFileEx.restype,ctypes.c_int32)
+        self.assertEqual(ctypes.sizeof(support._OVERLAPPED),32 if ctypes.sizeof(ctypes.c_void_p)==8 else 20)
+        with patch.object(support.sys,'platform','win32'),patch.object(support,'_windows_lock_api',return_value=kernel), \
+                patch.object(support,'_windows_handle',return_value=0x100000001):
+            with support._shared_lock(17):
+                self.assertEqual(kernel.UnlockFileEx.call_count,0)
+        args = kernel.LockFileEx.call_args.args
+        self.assertEqual(args[:5],(0x100000001,1,0,0xFFFFFFFF,0xFFFFFFFF))
+        self.assertEqual(args[5]._obj.Offset,0)
+        self.assertEqual(args[5]._obj.OffsetHigh,0)
+        self.assertIsNone(args[5]._obj.hEvent)
+        self.assertEqual(kernel.UnlockFileEx.call_args.args[:4],(0x100000001,0,0xFFFFFFFF,0xFFFFFFFF))
+        self.assertIs(kernel.UnlockFileEx.call_args.args[4]._obj,args[5]._obj)
+
+    def test_windows_lock_failure_never_reads_or_unlocks_an_unacquired_lock(self):
+        for native,code in ((32,'read_locked'),(33,'read_locked'),(5,'read_denied'),(87,'read_error')):
+            kernel = SimpleNamespace(LockFileEx=Mock(return_value=0),UnlockFileEx=Mock(return_value=1))
+            with self.subTest(native=native),patch.object(support.sys,'platform','win32'), \
+                    patch.object(support,'_windows_lock_api',return_value=kernel), \
+                    patch.object(support,'_windows_handle',return_value=31), \
+                    patch.object(support.ctypes,'get_last_error',return_value=native,create=True), \
+                    patch.object(support.os,'read') as read:
+                with self.assertRaises(support.PublicEntrySupportError) as caught:
+                    support._read_ticket(self.instance)
+                self.assertEqual(caught.exception.code,'initial_authorization_'+code)
+                self.assertIsNotNone(caught.exception.identity)
+                read.assert_not_called()
+                kernel.UnlockFileEx.assert_not_called()
 
     def test_reparse_point_and_descriptor_identity_mismatch_are_refused(self):
         fake = SimpleNamespace(st_mode=stat.S_IFREG|0o600,st_file_attributes=0x400)
