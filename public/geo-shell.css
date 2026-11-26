@@ -29,7 +29,7 @@ body.geo-app .workspace-topbar.topbar {
   top: 0;
   z-index: 60;
   border: 0;
-  border-bottom: 1px solid var(--md-border-subtle);
+  border-bottom: 1px solid var(--md-border);
   border-radius: 0;
   background: var(--md-surface);
   box-shadow: none;
@@ -250,9 +250,9 @@ body.geo-app .workspace-sidebar {
   padding: 0;
   overflow: visible;
   border: 0;
-  border-right: 1px solid var(--md-border-subtle);
+  border-right: 1px solid var(--md-border);
   border-radius: 0;
-  background: var(--md-bg-subtle);
+  background: var(--md-bg-page);
   font: var(--md-type-ui);
 }
 body.geo-app .workspace-sidebar .workspace-sidebar-scroll {

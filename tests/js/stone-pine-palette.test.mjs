@@ -53,7 +53,9 @@ assert.match(typographyCss, /#resultPageBody :is\(\.report-metric-note,\s*\.repo
 assert.doesNotMatch(typographyCss, /#resultPageBody :is\([^)]*\.report-metric-note[^)]*\)[^{]*\{[^}]*--md-type-body/s, 'Report metric notes must not inherit full 15px body prose styling');
 
 const readerCss = fs.readFileSync('public/geo-report-reader.css', 'utf8');
-assert.match(readerCss, /\.report-reader\s*\{[^}]*max-width:\s*1160px[^}]*margin-inline:\s*auto/s, 'Report reader must stay proportionally centered on wide displays');
+assert.match(readerCss, /\.report-reader\s*\{[^}]*max-width:\s*1160px[^}]*margin-inline:\s*auto[^}]*background:\s*transparent[^}]*border:\s*0/s, 'Report reader must render as a seamless centered reading surface without a redundant outer box border');
+assert.match(readerCss, /\.workspace-shell:has\(#resultPanel\.is-active\) \.workspace-main\s*\{[^}]*background:\s*var\(--md-surface\)/s, 'Report reader main surface must be continuous white paper without a trapped gutter strip');
+assert.doesNotMatch(readerCss, /grid-template-columns:\s*212px/, 'Report reader must keep the shared 248px sidebar width instead of shifting columns');
 assert.match(readerCss, /\.report-reader > \.report-detail-options \.asset-next-card\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s, 'Report detail options must stack .asset-next-card in a single column so text never crushes beside actions');
 
 const legacyHexPattern = /#(3F7A61|223E36|F7F4ED|1E6594|D4A438|6B5B8E)/i;
