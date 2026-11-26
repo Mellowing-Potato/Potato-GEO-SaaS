@@ -1,17 +1,17 @@
 # 版本变化
 
-## v0.1.2（发行准备，未发布）— 本机 `127.0.0.1` 零门槛直进与 Windows / 智能体开箱即用修复
+## v0.1.2（2026-11-26，已发布）— 本机 `127.0.0.1` 零门槛直进与 Windows / 智能体开箱即用修复
 
-目标版本为 `v0.1.2`，源码版本号已更新为 `0.1.2`；发行流水线与正式资产尚未生成。当前已发布的线上正式版本仍为 `v0.1.1`（清单 SHA-256 `85a34baa058f0957c74915962c40db4f72d2fd28fd76d14a072e7d4e5294ddda`），其标签、资产和摘要保持不变，直至 `v0.1.2` 正式资产发布后再切换固定下载入口。
+已通过 [GitHub Release v0.1.2](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2) 正式发布，对应构建源 `20d57bc17f541a3064a7c61b9b65d453a939c9cc`，统一 `SHA256SUMS` 摘要为 `a2e8d887efea5ad8e89c367613364b2039c34a51ce5dec720f59db8fd48984b9`；`v0.1.1` 与 `v0.1.0` 的历史标签与资产保持不变。
 
 - **本机单人模式直接打开本地地址即进工作台**：便携单人实例（仅监听 `127.0.0.1`）不再要求必须持有未消费的一次性启动票据才能进入；直接在本机任意浏览器访问 `http://127.0.0.1:<端口>`，或遇到旧启动票据被后续 `open` 顶替/消费时，前端与后端均自动建立或复用唯一本机工作区会话。完整保留仅回环监听、`Origin` / `Host` / `Sec-Fetch-Site` 同源防跨站校验、拒绝外部反代转发、Cookie+Token 绑定及 Docker/账号模式登录。
 - **本机代理误转发明确排障指引**：当本机代理软件或浏览器插件转发 `127.0.0.1` 并注入 `Forwarded` / `X-Forwarded-*` / `X-Real-Ip` 头时，服务端继续严格拒绝（403）并返回 `proxy_detected` 错误码，页面直接提示将 `127.0.0.1` 设为直连/绕过本地地址，不再误报“授权链接已过期或已使用”。
 - **修复中文 Windows PowerShell 5.1（GBK）引导解析与代理下载**：`make-release-bootstrap.py` 生成的 `get-yanji.ps1` 改为纯 7-bit ASCII 源码配合 `\uXXXX` 运行时解码，彻底消除无 BOM 脚本在中文 GBK（CP936）及 `irm | iex` 单字节编码下的引号吞噬解析报错；`get-yanji.ps1`、`scripts/install-local.ps1` 与新增根脚本均优先调用系统内置 `System32\curl.exe`（强制 `=https`）并在 `.NET` 回退路径自动接入 `HTTPS_PROXY` 环境变量及系统代理。
 - **加固 Windows 快捷方式注册与新增仓库根目录一键入口**：`DesktopEntry` 在无交互桌面外壳（`Shell.Application` 不可用）时自动回退至进程内 `IPersistFile::Load` 核验快捷方式，并在 OneDrive 桌面等不支持 NTFS 硬链接的目录回退至不覆盖已有文件的 `[IO.File]::Move`。仓库根目录新增 `install.ps1`、`install.cmd` 与 `install.sh`（读取 `portable/release-pin.json` 固定摘要，已安装同版本时免重复下载直接启动并打开工作台），方便克隆仓库的普通用户与通用智能体开箱执行。
 
-**本轮已跑：** PHP 相关单元与 Feature 用例（含直接回环建会话、会话复用、`Sec-Fetch-Site` 防跨站、反代拦截码、路由鉴权守门、快捷方式回退与安装引导）、全量前端 `npm run test:js`、全部 `scripts/checks` Python 检查（含新增 GBK/CP1252 引号回退对照、纯 ASCII 断言、`curl.exe` HTTPS 参数与根安装器复用/防篡改测试）、PHP/Shell/Python 语法检查、隐私及 C1–C3 检查、`git diff --check`。
+**本轮与正式发行 CI 已跑：** 本地全量 PHPUnit 共运行 1833 项（1832 项通过、1 项因平台条件跳过，共 13777 项断言，并将新增回归置于旧代码上确认失败）、全量前端 `npm run test:js` 与 `npm run build`、135 项 `scripts/checks` Python 检查（含新增 GBK/CP1252 引号回退对照、纯 ASCII 断言、`curl.exe` HTTPS 参数与根安装器复用/防篡改测试）、隐私及 C1–C3 检查、`git diff --check`。正式 [发行流 #45768018488](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488) 的 12 项任务全部通过：双架构完整测试与依赖审计、四平台原生组包和验收、双架构 GHCR 镜像、17 项正式资产上传，以及 macOS/Windows 各两项公开标准安装入口验收（[Mac 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468654)、[Mac 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468642)、[Windows 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468597)、[Windows 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468596)）；线上发布的 `SHA256SUMS` 摘要与纯 7-bit ASCII `get-yanji.ps1`（5753 字节）另行下载核对通过。
 
-**未跑 / 待验收：** `v0.1.2` 正式发行 CI 与四平台重新组包尚未执行；真实 Windows 中文桌面环境（含代理与智能体代理安装）手工复核、Linux amd64 Docker 完整手工业务流程、网页连接后的 Magpie 模型激活与真实推理仍待实测。
+**未跑 / 待验收：** 真实 Windows 中文桌面环境（含代理与智能体代理安装）手工点击复核、四平台完整 GUI 人工验收、Linux amd64 Docker 完整手工业务流程、网页连接后的 Magpie 模型激活与真实推理、真实外部账号发布仍待实测。
 
 ## v0.1.1 通用智能体安装与本机打开（同版本修复重发，已发布）
 

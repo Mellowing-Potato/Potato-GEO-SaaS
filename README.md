@@ -1,12 +1,12 @@
 # 言及 Yanji GEO-SaaS — 开源自部署 GEO（生成式引擎优化）项目工作台
 
-**简体中文** | [English](README.en.md) · 最新正式版：[v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1) · 许可：[Apache-2.0](LICENSE) · [免 Docker 便携版](PORTABLE.md) · [Docker 部署](INSTALL.md) · [常见问题 FAQ](#常见问题-faq)
+**简体中文** | [English](README.en.md) · 最新正式版：[v0.1.2](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2) · 许可：[Apache-2.0](LICENSE) · [免 Docker 便携版](PORTABLE.md) · [Docker 部署](INSTALL.md) · [常见问题 FAQ](#常见问题-faq)
 
-> **v0.1.1 已正式发布；v0.1.2 开箱即用修复准备中（未发布）。** 当前线上正式下载包仍为 `v0.1.1`；源码已准备好 `v0.1.2`（本机单人模式直接打开 `http://127.0.0.1:8000` 即可进入工作台、修复中文 Windows PowerShell 5.1 GBK 解析与代理下载、仓库根目录新增 `install.cmd` / `install.ps1` / `install.sh` 一键入口），待维护者推送 `v0.1.2` 标签完成构建后更新固定摘要。详见 [更新日志](CHANGELOG.md)。
+> **v0.1.2 已正式发布（开箱即用升级）。** 便携本机单人模式现支持在本机浏览器直接打开 `http://127.0.0.1:8000` 进入工作台（无需一次性启动票据，遇本地代理误转发自动提示直连排障），修复中文 Windows PowerShell 5.1（GBK）引导脚本解析与系统 `curl.exe` 代理下载优先级，并在仓库根目录新增 `install.cmd` / `install.ps1` / `install.sh` 免 Docker 一键入口。标准公开入口自动化已通过，真实桌面 GUI 待验证边界见 [已验证与待验证](#已验证与待验证) 与 [更新日志](CHANGELOG.md)。
 
 **言及（Yanji GEO-SaaS）** 是一款可自部署的开源 **GEO（Generative Engine Optimization，生成式引擎优化 / AI 搜索优化）项目管理与内容交付工作台**，面向 GEO 代运营个人、小团队与品牌市场人员。支持 **macOS Apple Silicon / Windows x64 / Linux 免 Docker 一键运行** 与 **Docker 自部署**，自带模型 Key（BYOK）、无订阅抽成，在独立隔离工作区中串联客户资料、1024 维向量知识库、11 项 GEO 技能报告与内容生成、中文平台草稿助手以及豆包 AI 搜索可见性监测。
 
-> **目录**：[核心能力与六阶段工作流](#核心能力与六阶段工作流) · [快速安装（v0.1.1）](#快速安装v011) · [三分钟上手流程](#三分钟上手流程) · [界面预览](#界面预览) · [能力与边界](#能力与边界) · [言及与 GEOFlow 的区别](#言及与-geoflow-的区别) · [渠道支持](#渠道支持) · [常见问题 FAQ](#常见问题-faq) · [已验证与待验证](#已验证与待验证) · [许可与来源](#许可来源与品牌)
+> **目录**：[核心能力与六阶段工作流](#核心能力与六阶段工作流) · [快速安装（v0.1.2）](#快速安装v012) · [三分钟上手流程](#三分钟上手流程) · [界面预览](#界面预览) · [能力与边界](#能力与边界) · [言及与 GEOFlow 的区别](#言及与-geoflow-的区别) · [渠道支持](#渠道支持) · [常见问题 FAQ](#常见问题-faq) · [已验证与待验证](#已验证与待验证) · [许可与来源](#许可来源与品牌)
 
 ---
 
@@ -39,29 +39,29 @@
 
 ---
 
-## 快速安装（v0.1.1）
+## 快速安装（v0.1.2）
 
-**v0.1.1 已正式发布**：全部平台安装包、校验清单、对应源码及 Docker 镜像说明见 [GitHub Release v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1)，版本变更见 [更新日志](CHANGELOG.md)。
+**v0.1.2 已正式发布**：全部平台安装包、校验清单、对应源码及 Docker 镜像说明见 [GitHub Release v0.1.2](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2)，版本变更见 [更新日志](CHANGELOG.md)。
 
 ### 方式一：免 Docker 一键便携安装（推荐，开箱即用）
 
-无需提前安装 Docker、PHP 或 Python。引导脚本仅允许 HTTPS，自动校验当前正式资产的 `SHA256SUMS` 固定摘要（`85a34baa058f0957c74915962c40db4f72d2fd28fd76d14a072e7d4e5294ddda`）及包内全部文件哈希，并提供 `yanji` / `yanji.cmd` 管理命令（启动、停止、状态、体检 `doctor`、备份、恢复、升级）。请使用本轮正式清单摘要，不混用旧版文件。
+无需提前安装 Docker、PHP 或 Python。引导脚本仅允许 HTTPS，自动校验当前正式资产的 `SHA256SUMS` 固定摘要（`a2e8d887efea5ad8e89c367613364b2039c34a51ce5dec720f59db8fd48984b9`）及包内全部文件哈希，并提供 `yanji` / `yanji.cmd` 管理命令（启动、停止、状态、体检 `doctor`、备份、恢复、升级）。请使用本轮正式清单摘要，不混用旧版文件。
 
 **macOS（Apple Silicon M1–M4）与 Linux（x86_64 / ARM64）：**
 
 ```sh
-curl -fsSL https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.1/get-yanji.sh | sh
+curl -fsSL https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.2/get-yanji.sh | sh
 ```
 
 **Windows 10 / 11（64 位 PowerShell 5.1+）：**
 
 ```powershell
-irm https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.1/get-yanji.ps1 | iex
+irm https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.2/get-yanji.ps1 | iex
 ```
 
-> 首次安装会依次显示下载、校验、初始化和服务启动进度；服务首次就绪可能等待约一分钟。全新便携实例无需邮箱和密码，完成后自动打开工作台；也可使用 `yanji open` 再次打开。离线安装和日常命令见 [PORTABLE.md](PORTABLE.md)。Intel Mac（`macos-x64`）请使用 Docker。
+> 首次安装会依次显示下载、校验、初始化和服务启动进度；服务首次就绪可能等待约一分钟。全新便携实例无需邮箱和密码，完成后自动打开工作台；日常可直接在本机浏览器访问 `http://127.0.0.1:8000`（若开启本地代理请将 `127.0.0.1` 设为直连），也可双击桌面“言及工作台”入口或运行 `yanji open` 自动拉起服务并打开。离线安装和日常命令见 [PORTABLE.md](PORTABLE.md)。Intel Mac（`macos-x64`）请使用 Docker。
 
-> **便携版使用方式：** 新建实例由本机启动器授权打开工作台；已有账号实例或显式账号模式保留原登录方式。维护者已确认 Mac 候选包的安装、更新、免登录工作台和本机 Magpie 服务检测与目录读取。Magpie 模型激活与真实推理未跑；检测到服务和目录不等于已切换模型来源。
+> **便携版使用方式：** 本机单人模式仅监听 `127.0.0.1`，校验回环同源与 Cookie+Token 绑定后直接进入工作台；已有账号实例或显式账号模式保留原登录方式。维护者已确认 Mac 候选包的安装、更新、免登录工作台和本机 Magpie 服务检测与目录读取。Magpie 模型激活与真实推理未跑；检测到服务和目录不等于已切换模型来源。
 
 ### 方式二：Docker 自部署
 
@@ -73,16 +73,16 @@ cd yanji
 bash scripts/install.sh
 ```
 
-脚本会交互创建首个管理员并启动 `web`、`worker`、`scheduler` 与 `postgres` 四个容器服务。镜像与备份恢复、升级和代理 DNS 排障见 [INSTALL.md](INSTALL.md) 与 [v0.1.1 Release](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1)。
+脚本会交互创建首个管理员并启动 `web`、`worker`、`scheduler` 与 `postgres` 四个容器服务。镜像与备份恢复、升级和代理 DNS 排障见 [INSTALL.md](INSTALL.md) 与 [v0.1.2 Release](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2)。
 
 ### 方式三：克隆仓库一键运行 / 交给 AI 编程助手自动安装
 
-如果你已经克隆或下载了本仓库，无需预装 Docker，直接在仓库根目录运行一键入口即可自动拉取已校验便携包并启动工作台（已安装同版本时直接秒开，不重复下载）：
+如果你已经克隆或下载了本仓库，无需预装 Docker，直接在仓库根目录运行一键入口即可自动拉取已校验 `v0.1.2` 便携包并启动工作台（已安装同版本时直接秒开，不重复下载）：
 
 - **Windows（双击或 PowerShell）：** 双击仓库根目录的 `install.cmd`，或在 PowerShell 运行 `.\install.ps1`
 - **macOS / Linux：** 运行 `sh install.sh`（如需 Docker 部署可传 `sh install.sh --docker`）
 
-统一安装与交付要求见 [通用智能体安装协议](docs/INSTALL-AGENT.md)。`v0.1.2` 源码已支持本机回环同源直开 `http://127.0.0.1:8000` 进入工作台（正式包待 `v0.1.2` 发布后生效；当前已发布 `v0.1.1` 包仍可通过 `yanji open` 或本机入口打开）。
+统一安装与交付要求见 [通用智能体安装协议](docs/INSTALL-AGENT.md)。`v0.1.2` 正式包已支持本机回环同源直开 `http://127.0.0.1:8000` 进入工作台（无需一次性票据；如开启本地代理请将 `127.0.0.1` 设为直连），同时保留双击快捷方式与 `yanji open` 自动拉起服务。
 
 可以直接复制下面这句话发给你的 AI 助手（无论命令行或智能体代理均适用）：
 
@@ -94,7 +94,7 @@ bash scripts/install.sh
 
 ## 三分钟上手流程
 
-便携版安装完成后会自动打开工作台，以后可用 `yanji open` 再次进入；Docker（默认 `http://localhost:8000`）或传统账号模式仍使用初始化时设置的管理员账号登录。进入后按顺序配置：
+便携版安装完成后会自动打开工作台，后续服务运行中可直接在本机浏览器打开 `http://127.0.0.1:8000`，或通过桌面快捷方式 / `yanji open` 拉起服务并进入；Docker（默认 `http://localhost:8000`）或传统账号模式仍使用初始化时设置的管理员账号登录。进入后按顺序配置：
 
 1. **配置文本模型（必填）**：进入「模型配置」，填写供应商模型名、Base URL 和 API Key，测试后保存；也可先启动同机 [Magpie](https://github.com/yetone/magpie)，在本机单人版点击「连接本机 Magpie」，从目录选择模型、保存，再点击「设为文本模型」。视觉模型单独选择支持图片输入的模型；第三方直连配置会保留。
 2. **按需配置向量、视觉与监测模型**：
@@ -220,7 +220,9 @@ bash scripts/install.sh
 
 ## 已验证与待验证
 
-- **本轮 v0.1.1 通用智能体与本机入口修复重发：** 本轮 [发行流 #45737825566](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566) 的 12 项任务全部通过，覆盖双架构测试/审计、四平台原生组包验收、双架构镜像、正式资产发布，以及 macOS/Windows 各两项公开标准安装入口验收（[Mac 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649102537)、[Mac 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649099554)、[Windows 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649101890)、[Windows 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649100868)）。构建源为 `6f797567dd18833412f1a6e0ff4c139129106949`。公开入口使用默认目录和 8000 端口，核对本次构建、只读交付状态、免账号 Cookie、工作区受保护 API，以及拒绝匿名和无 Cookie 绑定的令牌；不扩大为真实 GUI、特定智能体产品或模型推理验收。 先前源码的 Windows 中文目录、首次/重复注册与真实已注册快捷方式执行证据保留于 [原生验收流 #45665229256](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45665229256/job/139385482871)。
+- **本轮 v0.1.2 开箱即用正式发布（2026-11-26）：** 构建源为 `20d57bc17f541a3064a7c61b9b65d453a939c9cc`，统一 `SHA256SUMS` 摘要为 `a2e8d887efea5ad8e89c367613364b2039c34a51ce5dec720f59db8fd48984b9`。[发行流 #45768018488](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488) 的 12 项任务全部通过，覆盖双架构完整测试/审计、四平台原生组包验收、双架构 Docker 镜像、17 项正式资产上传，以及 macOS/Windows 各两项公开标准安装入口验收（[Mac 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468654)、[Mac 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468642)、[Windows 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468597)、[Windows 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468596)），并已核对线上发布的 `get-yanji.ps1` 为纯 7-bit ASCII、本机回环同源直连建立会话及防跨站/反代拒绝。公开入口自动化验收不扩大为真实 Windows/macOS 桌面 GUI 手工点击、特定智能体产品现场交付或真实模型推理验收。
+
+- **v0.1.1 通用智能体与本机入口修复重发（历史）：** [发行流 #45737825566](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566) 的 12 项任务全部通过，覆盖双架构测试/审计、四平台原生组包验收、双架构镜像、正式资产发布，以及 macOS/Windows 各两项公开标准安装入口验收（[Mac 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649102537)、[Mac 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649099554)、[Windows 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649101890)、[Windows 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649100868)）。构建源为 `6f797567dd18833412f1a6e0ff4c139129106949`。公开入口使用默认目录和 8000 端口，核对构建、只读交付状态、免账号 Cookie、工作区受保护 API，以及拒绝匿名和无 Cookie 绑定的令牌；不扩大为真实 GUI、特定智能体产品或模型推理验收。 先前源码的 Windows 中文目录、首次/重复注册与真实已注册快捷方式执行证据保留于 [原生验收流 #45665229256](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45665229256/job/139385482871)。
 
 - **2026-11-25 v0.1.1 安装修复重发（历史）：** 10 项发行任务全部成功，覆盖双架构测试/审计、四平台便携构建、Docker 镜像发布、资产发布和两场 Mac 公开入口验收（[该次修复重发流 #45594562303](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303)）。该次 Mac 标准公开入口分别验收：fresh 全新安装：通过；使用公开标准 `curl ... | sh`、默认目录和 8000 端口，服务就绪，已核对免账号 Cookie、工作区受保护 API 及拒绝匿名/无绑定令牌（[任务日志](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303/job/139153283994)）；interrupted 中断安装：通过；使用公开标准 `curl ... | sh`、默认目录和 8000 端口，服务就绪，已核对免账号 Cookie、工作区受保护 API 及拒绝匿名/无绑定令牌（[任务日志](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303/job/139153284005)）。入口证据仅含默认目录和端口、标准命令、工作台 Cookie 与受保护 API；不扩大为完整 GUI 或 Magpie 真实推理验收。 旧版安装在账号提示前中断、尚未生成实例密钥且默认数据库为空时，安装器会检查原配置与初始化/绑定状态，符合条件后接续本机免账号初始化；已有账号和数据保留。 v0.1.1 首次发行的八项任务成功和本地包验收属于历史记录，没有覆盖当时读者经生成引导脚本走 HTTPS 下载的入口，不能当作该入口成功证据。
 
@@ -239,7 +241,7 @@ bash scripts/install.sh
 
 ## 许可、来源与品牌
 
-言及项目代码采用 [Apache-2.0](LICENSE)。第三方代码、依赖、字体和技能保留各自许可，见 [NOTICE](NOTICE) 与 [第三方声明](THIRD_PARTY_NOTICES.md)。各平台便携运行时的对应源码和重链接材料随 [GitHub Release v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1) 公开分发。
+言及项目代码采用 [Apache-2.0](LICENSE)。第三方代码、依赖、字体和技能保留各自许可，见 [NOTICE](NOTICE) 与 [第三方声明](THIRD_PARTY_NOTICES.md)。各平台便携运行时的对应源码和重链接材料随 [GitHub Release v0.1.2](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2) 公开分发。
 
 GEOFlow 移植来源包括早期提交 `7a8f6ff2643222cadbfb9b2bbb4252284df6ea72` 和 v2.3.0（`97119662325b1d6d88ff6a3f390567bcfa91eedd`），这些历史版本为 Apache-2.0。技能资产锁定 `136eb92c90946ea56ec63f912d5025bcbc884f39`，使用 MIT。未来引入上游更新时必须重新核对其许可。
 
