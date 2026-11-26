@@ -23,18 +23,18 @@
         </section>
         <main>
             <h1>打开工作台</h1>
-            <p class="intro">从桌面或应用菜单的“言及工作台”本机入口打开，无需填写邮箱和密码。</p>
+            <p class="intro">直接在本机浏览器打开工作台地址，或从桌面及应用菜单的“言及工作台”入口进入，无需填写邮箱和密码。</p>
             <p class="status" id="localStartMessage" role="status" aria-live="polite">正在打开你的本机工作台…</p>
             <div id="localStartHelp" hidden>
-                <p>请从桌面或应用菜单的“言及工作台”本机入口打开，在系统浏览器中使用。没有快捷方式时，可按安装完成时显示的位置找到本机入口并双击。</p>
-                <p class="field-note">不同浏览器或应用窗口的访问状态可能分开保存。如果当前浏览器已打开过工作台，可以重新检查。</p>
-                <button class="btn-primary" id="localStartCheck" type="button" disabled>重新检查当前浏览器</button>
+                <p>请确认直接通过本机回环地址（<code>127.0.0.1</code>）在系统浏览器中访问。若电脑开启了网络代理或浏览器代理插件，请将 <code>127.0.0.1</code> 设为直连（绕过本地地址）后再试。</p>
+                <p class="field-note">不同浏览器或隐私窗口的会话分开保存；点击下方按钮即可在当前浏览器直接进入工作台。</p>
+                <button class="btn-primary" id="localStartCheck" type="button" disabled>重新进入工作台</button>
                 <details class="footer">
                     <summary>高级排障（可选）</summary>
-                    <p class="field-note">熟悉命令行的用户也可使用安装时显示的管理命令运行 <code>yanji open</code>，重新从本机入口打开。</p>
+                    <p class="field-note">如服务尚未启动，可双击安装完成时生成的“言及工作台”本机入口，或使用管理命令运行 <code>yanji open</code> 自动拉起服务。</p>
                 </details>
             </div>
-            <noscript><p class="status">请启用系统浏览器的 JavaScript，再从桌面或应用菜单的“言及工作台”本机入口打开。没有快捷方式时，可按安装完成时显示的位置找到本机入口并双击。</p></noscript>
+            <noscript><p class="status">请启用系统浏览器的 JavaScript，再重新打开本机工作台地址或双击桌面“言及工作台”入口。</p></noscript>
         </main>
         <div class="eco-note">{{ config('brand.name') }} · 本机工作台</div>
     </div>

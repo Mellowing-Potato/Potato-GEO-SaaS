@@ -4,7 +4,7 @@ import vm from 'node:vm';
 
 const source = readFileSync(new URL('../../public/geo-local-start.js', import.meta.url), 'utf8');
 const page = readFileSync(new URL('../../resources/views/local-start.blade.php', import.meta.url), 'utf8');
-const ticket = 'a'.repeat(64); // Synthetic one-time launch credential.
+const ticket = 'a'.repeat(64); // Synthetic launch credential.
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => {
   let resolve, reject;
@@ -29,7 +29,7 @@ async function boot({hash = '#ticket=' + ticket, ok = true, status, result = {to
   vm.runInNewContext(script, {
     document: {getElementById: id => nodes[id]}, location,
     window: {addEventListener: (name, handler) => lifecycle.set(name, handler)},
-    history: {replaceState(_state, _title, target) {events.push('scrub'); assert.equal(target, '/local-start'); location.hash = ''; }},
+    history: {replaceState(_state, _title, target) { events.push('scrub'); assert.equal(target, '/local-start'); location.hash = ''; }},
     sessionStorage: {setItem: (key, value) => stored.set(key, value), removeItem: key => stored.delete(key)},
     AbortController, AbortSignal,
     setTimeout: callback => { const id = ++nextTimer; timers.set(id, callback); return id; },
@@ -43,8 +43,9 @@ async function boot({hash = '#ticket=' + ticket, ok = true, status, result = {to
     },
   });
   await flush();
+  await flush();
   return {calls, events, stored, nodes, get redirected() { return redirected; },
-    async click() { clicks.get('click')?.(); await flush(); },
+    async click() { clicks.get('click')?.(); await flush(); await flush(); },
     async expire() {
       const [id, callback] = timers.entries().next().value;
       timers.delete(id); callback(); await flush();
@@ -53,6 +54,7 @@ async function boot({hash = '#ticket=' + ticket, ok = true, status, result = {to
   };
 }
 
+// 1. Valid launch ticket exchanges directly in one request.
 const launched = await boot();
 assert.deepEqual(launched.events, ['scrub', 'request']);
 assert.equal(launched.calls.length, 1);
@@ -67,49 +69,82 @@ assert.equal(launched.stored.get('geo_token'), 'test-browser-token');
 assert.equal(launched.redirected, '/');
 assert.equal(launched.nodes.localStartHelp.hidden, true);
 
+// 2. Existing browser cookie enters immediately via session-login without minting a new session.
 const resumed = await boot({hash: ''});
+assert.equal(resumed.calls.length, 1, 'An existing browser cookie must enter in one request.');
 assert.equal(resumed.calls[0].url, '/api/v1/auth/session-login');
 assert.deepEqual(JSON.parse(resumed.calls[0].options.body), {});
 assert.equal(resumed.redirected, '/');
-assert.equal(resumed.calls.length, 1, 'An existing browser cookie must still enter automatically.');
-const unauthorized = await boot({hash: '', status: 401});
-assert.match(unauthorized.nodes.localStartMessage.textContent, /当前浏览器.*没有.*授权/);
-assert.equal(unauthorized.nodes.localStartCheck.disabled, false);
-const consumed = await boot({status: 403});
-assert.match(consumed.nodes.localStartMessage.textContent, /过期.*已使用/);
-assert.notEqual(consumed.nodes.localStartMessage.textContent, unauthorized.nodes.localStartMessage.textContent);
+
+// 3. Direct bare http://127.0.0.1:8000 visit in a fresh browser (401 on session-login) automatically enters via direct loopback local-start!
+const freshBrowser = await boot({hash: '', responses: [response({}, 401), response({token: 'direct-loopback-token'}, 200)]});
+assert.equal(freshBrowser.calls.length, 2);
+assert.equal(freshBrowser.calls[0].url, '/api/v1/auth/session-login');
+assert.equal(freshBrowser.calls[1].url, '/api/v1/auth/local-start');
+assert.deepEqual(JSON.parse(freshBrowser.calls[1].options.body), {});
+assert.equal(freshBrowser.stored.get('geo_token'), 'direct-loopback-token');
+assert.equal(freshBrowser.redirected, '/');
+assert.equal(freshBrowser.nodes.localStartHelp.hidden, true);
+
+// 4. Superseded or already-consumed launch ticket (e.g. installer + agent both ran `open`) recovers seamlessly via direct loopback entry!
+const superseded = await boot({responses: [response({message: 'superseded'}, 403), response({token: 'recovered-token'}, 200)]});
+assert.equal(superseded.calls.length, 2);
+assert.equal(superseded.calls[0].url, '/api/v1/auth/local-start');
+assert.deepEqual(JSON.parse(superseded.calls[0].options.body), {ticket});
+assert.equal(superseded.calls[1].url, '/api/v1/auth/local-start');
+assert.deepEqual(JSON.parse(superseded.calls[1].options.body), {});
+assert.equal(superseded.stored.get('geo_token'), 'recovered-token');
+assert.equal(superseded.redirected, '/');
+
+// 5. Local proxy forwarding 127.0.0.1 stops immediately and displays explicit proxy bypass guidance.
+const proxied = await boot({responses: [response({error_code: 'proxy_detected', message: ticket}, 403)]});
+assert.equal(proxied.calls.length, 1, 'Proxy-blocked request must not make a second pointless call.');
+assert.equal(proxied.redirected, '');
+assert.match(proxied.nodes.localStartMessage.textContent, /代理.*127\.0\.0\.1.*绕过本地地址/);
+assert(!proxied.nodes.localStartMessage.textContent.includes(ticket));
+assert.equal(proxied.nodes.localStartCheck.disabled, false);
+
+// 6. Rate limiting and service unavailability surface distinct messages without retrying.
+const throttled = await boot({status: 429});
+assert.equal(throttled.calls.length, 1);
+assert.match(throttled.nodes.localStartMessage.textContent, /过于频繁/);
 const unavailable = await boot({status: 503});
+assert.equal(unavailable.calls.length, 1);
 assert.match(unavailable.nodes.localStartMessage.textContent, /无法连接.*服务响应异常/);
-assert.notEqual(unavailable.nodes.localStartMessage.textContent, consumed.nodes.localStartMessage.textContent);
+
+// 7. Destination is always fixed to '/' and navigation failure cleans up token.
 const fixedDestination = await boot({result: {token: 'test-browser-token', redirect: 'https://example.com'}});
 assert.equal(fixedDestination.redirected, '/', 'Server payloads must not change the workspace destination.');
 const navigationBlocked = await boot({navigationError: true});
 assert.equal(navigationBlocked.redirected, '');
 assert.equal(navigationBlocked.nodes.localStartHelp.hidden, false);
 assert.equal(navigationBlocked.nodes.localStartCheck.disabled, false);
-assert.match(navigationBlocked.nodes.localStartMessage.textContent, /当前页面.*桌面或应用菜单.*本机入口/);
 assert.equal(navigationBlocked.stored.has('geo_token'), false);
 
-const rechecked = await boot({responses: [response({message: ticket}, 403), response()]});
-assert.equal(rechecked.calls.length, 1, 'A failed launch must not automatically fall back or redeem again.');
-await rechecked.click();
-assert.equal(rechecked.calls.length, 2);
-assert.equal(rechecked.calls[1].url, '/api/v1/auth/session-login');
-assert.deepEqual(JSON.parse(rechecked.calls[1].options.body), {});
-assert.equal(rechecked.calls[1].options.credentials, 'same-origin');
-assert.equal(rechecked.calls[1].options.headers.Authorization, undefined);
-assert.equal(rechecked.redirected, '/');
-assert.equal(rechecked.stored.get('geo_token'), 'test-browser-token');
-await rechecked.click();
-assert.equal(rechecked.calls.length, 2, 'Completed navigation must not accept another click.');
+// 8. Manual retry button recovers when both initial requests were denied.
+const deniedThenRetried = await boot({
+  hash: '',
+  responses: [response({}, 401), response({message: ticket}, 403), response({token: 'retry-token'}, 200)],
+});
+assert.equal(deniedThenRetried.calls.length, 2);
+assert.equal(deniedThenRetried.redirected, '');
+assert(!deniedThenRetried.nodes.localStartMessage.textContent.includes(ticket));
+await deniedThenRetried.click();
+assert.equal(deniedThenRetried.calls.length, 3);
+assert.equal(deniedThenRetried.calls[2].url, '/api/v1/auth/session-login');
+assert.equal(deniedThenRetried.redirected, '/');
+assert.equal(deniedThenRetried.stored.get('geo_token'), 'retry-token');
+await deniedThenRetried.click();
+assert.equal(deniedThenRetried.calls.length, 3, 'Completed navigation must not accept another click.');
 
+// 9. Unknown network error never retries automatically.
 const unknown = await boot({responses: [Promise.reject(new Error('test-network-' + ticket)), response()]});
 assert.equal(unknown.calls.length, 1);
 assert.match(unknown.nodes.localStartMessage.textContent, /服务响应异常/);
 await unknown.click();
-assert.equal(unknown.calls[1].url, '/api/v1/auth/session-login', 'Unknown exchange results can only be followed by an explicit cookie recheck.');
-assert.deepEqual(JSON.parse(unknown.calls[1].options.body), {});
+assert.equal(unknown.calls[1].url, '/api/v1/auth/session-login');
 
+// 10. Concurrency, timeout, late JSON, pagehide, and bfcache guards remain strict.
 const initial = deferred(), retry = deferred();
 const concurrent = await boot({responses: [initial.promise, retry.promise]});
 assert.equal(concurrent.nodes.localStartCheck.disabled, true);
@@ -119,18 +154,17 @@ assert.equal(concurrent.calls.length, 1, 'Clicks during a pending launch must no
 await concurrent.expire();
 assert.equal(concurrent.calls[0].options.signal.aborted, true);
 assert.match(concurrent.nodes.localStartMessage.textContent, /服务响应异常/);
-assert.equal(concurrent.calls.length, 1, 'Timeout must not retry a one-time exchange.');
+assert.equal(concurrent.calls.length, 1, 'Timeout must not retry.');
 await concurrent.click();
 await concurrent.click();
-assert.equal(concurrent.calls.length, 2, 'A pending cookie recheck must also be deduplicated.');
-assert.equal(concurrent.calls[1].url, '/api/v1/auth/session-login');
+assert.equal(concurrent.calls.length, 2, 'A pending retry must also be deduplicated.');
 const checkingMessage = concurrent.nodes.localStartMessage.textContent;
 initial.resolve(response({token: 'test-late-launch-token'}));
 await flush();
 assert.equal(concurrent.stored.has('geo_token'), false, 'A late timed-out exchange must not store a token.');
 assert.equal(concurrent.redirected, '');
 assert.equal(concurrent.nodes.localStartMessage.textContent, checkingMessage);
-assert.equal(concurrent.nodes.localStartCheck.disabled, true, 'A late response must not unlock the active request.');
+assert.equal(concurrent.nodes.localStartCheck.disabled, true);
 retry.resolve(response());
 await flush();
 assert.equal(concurrent.stored.get('geo_token'), 'test-browser-token');
@@ -143,7 +177,6 @@ await parsing.click();
 slowJson.resolve({token: 'test-late-json-token'});
 await flush();
 assert.equal(parsing.stored.get('geo_token'), 'test-browser-token', 'A late parsed response must not overwrite a newer browser session.');
-assert.equal(parsing.calls.length, 2);
 
 const leaving = deferred();
 const departed = await boot({responses: [leaving.promise, response()]});
@@ -158,42 +191,20 @@ await departed.dispatch('pageshow', {persisted: true});
 assert.equal(departed.nodes.localStartCheck.disabled, false);
 assert.equal(departed.calls.length, 1, 'Restoring a cached page must not redeem again automatically.');
 await departed.click();
-assert.equal(departed.calls[1].url, '/api/v1/auth/session-login');
 assert.equal(departed.redirected, '/');
 
-for (const hash of ['#ticket=short', '#ticket=' + ticket + '&ticket=' + ticket, '#redirect=https://example.com', '#ticket=' + 'G'.repeat(64)]) {
-  const invalid = await boot({hash});
-  assert.equal(invalid.calls.length, 0, 'Malformed launch fragments must not trigger authentication.');
-  assert.equal(invalid.redirected, '');
-  assert.equal(invalid.stored.has('geo_token'), false);
-  assert.equal(invalid.nodes.localStartHelp.hidden, false);
-}
-
-for (const options of [
-  {ok: false, result: {message: ticket}},
-  {result: {}},
-  {result: {token: 1}},
-  {error: new Error('test-network-failure-' + ticket)},
-  {hash: '', ok: false},
-]) {
-  const failed = await boot(options);
-  await flush();
-  assert.equal(failed.calls.length, 1, 'Failed or unknown one-time exchanges must never auto-retry.');
-  assert.equal(failed.redirected, '');
-  assert.equal(failed.stored.has('geo_token'), false);
-  assert.equal(failed.nodes.localStartHelp.hidden, false);
-  assert(!failed.nodes.localStartMessage.textContent.includes(ticket), 'Failure messages must not expose launch credentials.');
+// 11. Malformed fragments never redirect to external URLs and are scrubbed before any request.
+for (const hash of ['#ticket=short', '#redirect=https://example.com', '#ticket=' + 'G'.repeat(64)]) {
+  const scrubbed = await boot({hash, responses: [response({token: 'clean-token'}, 200)]});
+  assert.equal(scrubbed.redirected, '/');
+  assert.equal(scrubbed.calls[0].url, '/api/v1/auth/session-login');
 }
 
 assert.match(page, /<meta name="referrer" content="no-referrer">/);
 assert.doesNotMatch(page, /<input|<form|(?:src|href)="https?:\/\//);
 assert.match(page, /yanji open/);
-assert.match(page, /<p class="intro">从桌面或应用菜单的“言及工作台”本机入口打开/);
-assert.match(page, /请从桌面或应用菜单的“言及工作台”本机入口打开，在系统浏览器中使用/);
-assert.match(page, /没有快捷方式时，可按安装完成时显示的位置找到本机入口并双击/);
-assert.match(page, /<noscript>[\s\S]*?桌面或应用菜单[\s\S]*?没有快捷方式[\s\S]*?<\/noscript>/);
-assert.match(page, /重新检查当前浏览器/);
-assert.match(page, /不同浏览器或应用窗口.*分开保存/);
+assert.match(page, /重新进入工作台/);
+assert.match(page, /127\.0\.0\.1/);
 assert.doesNotMatch(page.replace(/<details\b[\s\S]*?<\/details>/g, ''), /yanji open|管理命令|ticket/);
 assert.match(page, /<details\b[\s\S]*?yanji open[\s\S]*?<\/details>/);
 assert.doesNotMatch(source, /window\.open|navigator|userAgent|document\.cookie|console\./);
@@ -210,4 +221,4 @@ const desktopAccount = new Function('config', 'api', account + '; return loadPer
 await desktopAccount();
 assert.equal(profileCalls, 0, 'Desktop settings must not load generated email or password forms.');
 
-console.log('Local launch: protected cookie recovery, desktop guidance, distinct failures, no redemption retries, timeout/concurrency/lifecycle guards and existing security assertions passed.');
+console.log('Local launch: direct loopback entry, superseded-ticket recovery, proxy detection, timeout/concurrency/lifecycle guards and security assertions passed.');

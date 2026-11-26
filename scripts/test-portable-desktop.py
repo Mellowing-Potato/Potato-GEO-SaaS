@@ -323,6 +323,22 @@ def authorize_and_check(instance, port):
         raise AssertionError('A desktop API token bypassed its browser-cookie binding')
     if request(client(), origin, '/api/v1/auth/local-start', method='POST', body={'ticket': nonce})[0] != 403:
         raise AssertionError('A consumed desktop nonce was accepted twice')
+    if request(client(), origin, '/api/v1/auth/local-start', method='POST', body={})[0] != 200:
+        raise AssertionError('Direct same-origin loopback access could not establish a local desktop session')
+    cross_req = urllib.request.Request(
+        origin + '/api/v1/auth/local-start',
+        data=b'{}',
+        headers={'Accept': 'application/json', 'Content-Type': 'application/json', 'Origin': 'https://example.com'},
+        method='POST',
+    )
+    try:
+        with client().open(cross_req, timeout=15) as resp:
+            cross_code = resp.code
+    except urllib.error.HTTPError as err:
+        cross_code = err.code
+        err.close()
+    if cross_code != 403:
+        raise AssertionError('Cross-origin loopback access was not rejected')
     return api_identity
 
 
