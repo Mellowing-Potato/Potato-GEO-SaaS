@@ -248,6 +248,9 @@
 .launch-status-card .status {
     margin: 0;
     min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: var(--text);
 }
 .launch-indicator {
