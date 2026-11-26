@@ -1,0 +1,173 @@
+name: Published Reader Entry Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published release tag to verify
+        required: true
+        default: v0.1.1
+        type: string
+      source_commit:
+        description: Verified full source commit of the published packages
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  public-entry:
+    name: Published reader entry (${{ matrix.os }}, ${{ matrix.scenario }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2025]
+        scenario: [fresh, interrupted]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - name: Setup Python 3.12 (acceptance host)
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Validate published tag and source
+        shell: python
+        env:
+          VERSION: ${{ inputs.version }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          import json
+          import os
+          import re
+          import subprocess
+
+          REPOSITORY = 'Mellowing-Potato/Potato-GEO-SaaS'
+          WORKFLOW_REF = REPOSITORY + '/.github/workflows/public-entry-verify.yml@refs/heads/main'
+
+          class GuardError(Exception):
+              pass
+
+          def validate_context(environment):
+              expected = {
+                  'GITHUB_ACTIONS': 'true', 'RUNNER_ENVIRONMENT': 'github-hosted',
+                  'GITHUB_REPOSITORY': REPOSITORY, 'GITHUB_EVENT_NAME': 'workflow_dispatch',
+                  'GITHUB_REF': 'refs/heads/main', 'GITHUB_REF_TYPE': 'branch',
+                  'GITHUB_REF_NAME': 'main', 'GITHUB_WORKFLOW_REF': WORKFLOW_REF,
+              }
+              if any(environment.get(key) != value for key, value in expected.items()):
+                  raise GuardError('public_entry_workflow_context_rejected')
+              if not re.fullmatch(r'[a-f0-9]{40}', environment.get('GITHUB_SHA', '')):
+                  raise GuardError('workflow_source_commit_invalid')
+
+          def api_object(endpoint):
+              try:
+                  result = subprocess.run(['gh', 'api', '--method', 'GET',
+                      'https://api.github.com/repos/' + REPOSITORY + '/' + endpoint],
+                      stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                      encoding='utf-8', timeout=30, check=False)
+              except (OSError, UnicodeError, subprocess.TimeoutExpired):
+                  raise GuardError('published_tag_lookup_failed') from None
+              if result.returncode != 0 or len(result.stdout) > 65536:
+                  raise GuardError('published_tag_lookup_failed')
+              try:
+                  record = json.loads(result.stdout)
+              except (TypeError, ValueError):
+                  raise GuardError('published_tag_metadata_invalid') from None
+              if not isinstance(record, dict) or not isinstance(record.get('object'), dict):
+                  raise GuardError('published_tag_metadata_invalid')
+              return record
+
+          def validate_remote_tag(version, expected_commit):
+              if not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+', version):
+                  raise GuardError('release_version_invalid')
+              if not re.fullmatch(r'[a-f0-9]{40}', expected_commit):
+                  raise GuardError('published_source_commit_invalid')
+              record = api_object('git/ref/tags/' + version)
+              if record.get('ref') != 'refs/tags/' + version:
+                  raise GuardError('published_tag_metadata_invalid')
+              current = record['object']
+              for depth in range(6):
+                  kind, sha = current.get('type'), current.get('sha')
+                  if not isinstance(sha, str) or not re.fullmatch(r'[a-f0-9]{40}', sha):
+                      raise GuardError('published_tag_metadata_invalid')
+                  if kind == 'commit':
+                      if sha != expected_commit:
+                          raise GuardError('published_tag_source_mismatch')
+                      return
+                  if kind != 'tag' or depth == 5:
+                      raise GuardError('published_tag_peeling_rejected')
+                  current = api_object('git/tags/' + sha)['object']
+
+          def main():
+              try:
+                  validate_context(os.environ)
+                  validate_remote_tag(os.environ.get('VERSION', ''), os.environ.get('SOURCE_COMMIT', ''))
+              except GuardError as error:
+                  print(json.dumps({'published_reference': 'failed', 'code': str(error)}))
+                  return 1
+              except Exception:
+                  print(json.dumps({'published_reference': 'failed', 'code': 'unexpected_reference_failure'}))
+                  return 1
+              print(json.dumps({'published_reference': 'verified'}))
+              return 0
+
+          if __name__ == '__main__':
+              raise SystemExit(main())
+
+      - name: Fetch exact workflow source
+        shell: python
+        run: |
+          import os
+          import re
+          import subprocess
+
+          def main():
+              sha = os.environ.get('GITHUB_SHA', '')
+              if not re.fullmatch(r'[a-f0-9]{40}', sha):
+                  return 1
+              try:
+                  for arguments in (
+                      ['git', 'init', '.'],
+                      ['git', '-c', 'protocol.version=2', 'fetch', '--no-tags', '--depth=1',
+                       'https://github.com/Mellowing-Potato/Potato-GEO-SaaS.git', sha],
+                      ['git', 'switch', '--detach', 'FETCH_HEAD'],
+                  ):
+                      subprocess.run(arguments, stdin=subprocess.DEVNULL, capture_output=True,
+                                     timeout=180, check=True)
+                  actual = subprocess.run(['git', 'rev-parse', 'HEAD'], stdin=subprocess.DEVNULL,
+                      capture_output=True, text=True, encoding='utf-8', timeout=30, check=True)
+                  return 0 if actual.stdout.strip() == sha else 1
+              except Exception:
+                  return 1
+
+          if __name__ == '__main__':
+              status = main()
+              print('workflow_source_verified' if status == 0 else 'workflow_source_fetch_failed')
+              raise SystemExit(status)
+
+      - name: Verify standard published macOS reader command
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          SCENARIO: ${{ matrix.scenario }}
+        run: python3 scripts/test-published-macos-onboarding.py --version "$VERSION" --scenario "$SCENARIO" --source-commit "$SOURCE_COMMIT"
+
+      - name: Verify standard published Windows reader command
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          SCENARIO: ${{ matrix.scenario }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          python scripts/test-published-windows-onboarding.py --version "$env:VERSION" --scenario "$env:SCENARIO" --source-commit "$env:SOURCE_COMMIT"
+          if ($LASTEXITCODE -ne 0) { throw 'Published Windows reader acceptance failed' }
