@@ -2,7 +2,7 @@
 
 **简体中文** | [English](README.en.md) · 最新正式版：[v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1) · 许可：[Apache-2.0](LICENSE) · [免 Docker 便携版](PORTABLE.md) · [Docker 部署](INSTALL.md) · [常见问题 FAQ](#常见问题-faq)
 
-> **v0.1.1 同版本修复重发已完成。** 通用智能体交付状态、本机打开入口与 Windows Unicode 快捷方式修复已更新到下方标准安装入口；版本和下载地址不变。正式资产与公开标准安装入口已按本轮发行流验证，真实 GUI 仍未跑。
+> **v0.1.1 已正式发布；v0.1.2 开箱即用修复准备中（未发布）。** 当前线上正式下载包仍为 `v0.1.1`；源码已准备好 `v0.1.2`（本机单人模式直接打开 `http://127.0.0.1:8000` 即可进入工作台、修复中文 Windows PowerShell 5.1 GBK 解析与代理下载、仓库根目录新增 `install.cmd` / `install.ps1` / `install.sh` 一键入口），待维护者推送 `v0.1.2` 标签完成构建后更新固定摘要。详见 [更新日志](CHANGELOG.md)。
 
 **言及（Yanji GEO-SaaS）** 是一款可自部署的开源 **GEO（Generative Engine Optimization，生成式引擎优化 / AI 搜索优化）项目管理与内容交付工作台**，面向 GEO 代运营个人、小团队与品牌市场人员。支持 **macOS Apple Silicon / Windows x64 / Linux 免 Docker 一键运行** 与 **Docker 自部署**，自带模型 Key（BYOK）、无订阅抽成，在独立隔离工作区中串联客户资料、1024 维向量知识库、11 项 GEO 技能报告与内容生成、中文平台草稿助手以及豆包 AI 搜索可见性监测。
 
@@ -75,14 +75,19 @@ bash scripts/install.sh
 
 脚本会交互创建首个管理员并启动 `web`、`worker`、`scheduler` 与 `postgres` 四个容器服务。镜像与备份恢复、升级和代理 DNS 排障见 [INSTALL.md](INSTALL.md) 与 [v0.1.1 Release](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1)。
 
-### 方式三：交给 AI 编程助手自动安装
+### 方式三：克隆仓库一键运行 / 交给 AI 编程助手自动安装
 
-统一安装与交付要求见 [通用智能体安装协议](docs/INSTALL-AGENT.md)。普通使用者和智能体共用上方标准安装入口，也可先下载同一正式发行的安装文件，再按 [标准本地安装步骤](PORTABLE.md#安装) 执行。本轮 `v0.1.1` 同版本修复重发已包含结构化交付与本机入口，标准公开命令验收通过；真实 GUI 未跑。智能体应通过当前实例入口在系统默认浏览器确认工作台；仅打开裸地址或看到服务就绪不能宣称该实例已可正常使用。
+如果你已经克隆或下载了本仓库，无需预装 Docker，直接在仓库根目录运行一键入口即可自动拉取已校验便携包并启动工作台（已安装同版本时直接秒开，不重复下载）：
 
-可以直接复制下面这句话发给你的 AI 编程助手（支持按需选择免 Docker 便携版或 Docker 版）：
+- **Windows（双击或 PowerShell）：** 双击仓库根目录的 `install.cmd`，或在 PowerShell 运行 `.\install.ps1`
+- **macOS / Linux：** 运行 `sh install.sh`（如需 Docker 部署可传 `sh install.sh --docker`）
+
+统一安装与交付要求见 [通用智能体安装协议](docs/INSTALL-AGENT.md)。`v0.1.2` 源码已支持本机回环同源直开 `http://127.0.0.1:8000` 进入工作台（正式包待 `v0.1.2` 发布后生效；当前已发布 `v0.1.1` 包仍可通过 `yanji open` 或本机入口打开）。
+
+可以直接复制下面这句话发给你的 AI 助手（无论命令行或智能体代理均适用）：
 
 ```text
-请先读 docs/INSTALL-AGENT.md，再按 PORTABLE.md（免 Docker）或 INSTALL.md（Docker）安装言及。通过本机入口在系统默认浏览器确认工作台；无法确认时说明待人工验收。仓库地址是 https://github.com/Mellowing-Potato/Potato-GEO-SaaS
+请先读 docs/INSTALL-AGENT.md，帮我在本机免 Docker 安装并启动言及（Windows 可直接运行仓库根目录 .\install.ps1，macOS/Linux 运行 sh install.sh；也可使用 README 中的一行安装命令），确认服务就绪后把工作台访问地址告诉我。仓库地址是 https://github.com/Mellowing-Potato/Potato-GEO-SaaS
 ```
 
 ---

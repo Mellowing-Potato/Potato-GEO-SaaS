@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English** · Latest Release: [v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1) · License: [Apache-2.0](LICENSE) · [No-Docker Portable Guide (ZH)](PORTABLE.md) · [Docker Guide (ZH)](INSTALL.md) · [FAQ](#frequently-asked-questions-faq)
 
-> **The v0.1.1 same-version installer repair/reissue is published.** Generic-agent handoff and per-instance entry changes are available through the standard commands below. The version and URLs are unchanged; formal assets and standard public commands passed this release flow. Human GUI acceptance remains unverified.
+> **v0.1.1 is published; v0.1.2 out-of-the-box onboarding fixes are prepared in source (unreleased).** Download pins below still point to the verified `v0.1.1` assets until `v0.1.2` is tagged and built; `v0.1.2` enables direct same-origin loopback entry at `http://127.0.0.1:8000`, pure-ASCII PowerShell bootstrappers for GBK locales, `System32\curl.exe` proxy download priority, and root `install.cmd` / `install.ps1` / `install.sh` launchers. See [CHANGELOG.md](CHANGELOG.md).
 
 **Yanji GEO-SaaS (言及)** is an open-source, self-hosted **GEO (Generative Engine Optimization / AI Search Optimization) project management and content delivery workbench** built for GEO agencies, solo consultants, and brand marketing teams. Run it locally with **zero Docker on macOS Apple Silicon, Windows x64, and Linux**—or self-host via **Docker**—with **Bring Your Own Key (BYOK)**, strict per-account workspace isolation, a 1024-dimensional RAG knowledge base, 11 rendered GEO skills, a browser draft assistant, and **Doubao (Volcengine Ark) AI search visibility monitoring**.
 
@@ -77,14 +77,19 @@ bash scripts/install.sh
 
 The script creates the initial admin interactively and starts `web`, `worker`, `scheduler` and `postgres` containers. See [INSTALL.md](INSTALL.md) and [v0.1.1 Release](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1) for image, backup/restore, upgrade and proxy DNS guidance.
 
-### Option 3: Install via an AI Coding Agent
+### Option 3: One-Click Repo Entry / Install via an AI Coding Agent
 
-Use the shared [Agent Installation and Handoff Protocol (ZH)](docs/INSTALL-AGENT.md). This v0.1.1 repair/reissue includes structured handoff and per-instance entry changes. All agents use the standard macOS/Linux or Windows command in Option 1, or download the same formal files first and follow the standard local installation steps. Then use the local entry point and confirm the workbench in the system default browser. A bare URL or healthy services alone do not complete that user-instance handoff. Human GUI and particular agent-product acceptance remain unverified and are tracked separately from formal publication.
+If you cloned this repository, you can launch the verified no-Docker portable edition directly from the repository root (re-running starts an already-installed matching release immediately without re-downloading):
 
-Copy and send this prompt to your AI coding assistant:
+- **Windows (Double-click or PowerShell):** Double-click `install.cmd` or run `.\install.ps1`
+- **macOS / Linux:** Run `sh install.sh` (pass `--docker` for Docker deployment)
+
+See the shared [Agent Installation and Handoff Protocol (ZH)](docs/INSTALL-AGENT.md). Note: `v0.1.2` source changes (direct same-origin loopback entry at `http://127.0.0.1:8000`, pure-ASCII PowerShell bootstrapper for GBK locales, and `System32\curl.exe` proxy download priority) are prepared in source and take effect in binary packages once `v0.1.2` is tagged and published; current download pins remain `v0.1.1` until release CI completes.
+
+Copy and send this prompt to your AI assistant:
 
 ```text
-Read docs/INSTALL-AGENT.md first, then install Yanji with the standard v0.1.1 command in README.en.md (no-Docker), or download the package first and follow PORTABLE.md; follow INSTALL.md for Docker. Use the local entry point and confirm the workbench in the system default browser; report pending human acceptance if you cannot confirm it. Repository: https://github.com/Mellowing-Potato/Potato-GEO-SaaS
+Read docs/INSTALL-AGENT.md first, then install and start Yanji on my machine without Docker (run .\install.ps1 on Windows or sh install.sh on macOS/Linux, or use the one-line release installer in README.en.md). Verify service readiness and share the local workbench URL. Repository: https://github.com/Mellowing-Potato/Potato-GEO-SaaS
 ```
 
 ---
