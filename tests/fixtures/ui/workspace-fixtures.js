@@ -231,13 +231,19 @@
     // 第十六批在工作台新接线的四处入口（URL 导入 / 文章分类 / API 令牌 / 账户中心概览）。
     // 没有这些样例，预览里它们只会显示"加载失败"或空态 —— 看不到真实渲染形态，
     // 也就没法用它做"从侧栏进去能看到这个功能"的验收。
+    const previewUrlImports = [
+      { id: 990, url: 'https://example.com/%E6%B1%9F%E6%B2%B9%E6%96%87%E6%97%85%E6%94%BB%E7%95%A5?utm_source=geo_demo&utm_campaign=spring_travel_guide_2026', status: 'completed', title: '示例文旅攻略（本地样例）', article_id: 601, created_at: '2026-09-10T01:00:00Z', updated_at: '2026-09-10T01:02:00Z', metadata: { word_count: 1680, extraction_quality: { state: 'ok', preview: '本地样例提取正文摘要：涵盖两日游路线、交通接驳与亲子行程建议。' } } },
+      { id: 989, url: 'https://example.com/%E6%9D%8E%E7%99%BD%E6%95%85%E9%87%8C%E7%A0%94%E5%AD%A6', status: 'processing', title: '', article_id: null, created_at: '2026-09-10T00:30:00Z' },
+      { id: 988, url: 'https://example.com/private-page', status: 'failed', title: '', error_message: '本地样例：目标页面需要登录，抓不到正文。', article_id: null, created_at: '2026-09-09T23:00:00Z' },
+    ];
     if (path === '/api/v1/url-imports') {
       if (method === 'POST') return response({ data: { id: 990, status: 'pending' } }, 201);
-      return response({ data: [
-        { id: 990, url: 'https://example.com/%E6%B1%9F%E6%B2%B9%E6%96%87%E6%97%85%E6%94%BB%E7%95%A5', status: 'completed', title: '示例文旅攻略（本地样例）', article_id: 601, created_at: '2026-09-10T01:00:00Z' },
-        { id: 989, url: 'https://example.com/%E6%9D%8E%E7%99%BD%E6%95%85%E9%87%8C%E7%A0%94%E5%AD%A6', status: 'processing', title: '', article_id: null, created_at: '2026-09-10T00:30:00Z' },
-        { id: 988, url: 'https://example.com/private-page', status: 'failed', title: '', error_message: '本地样例：目标页面需要登录，抓不到正文。', article_id: null, created_at: '2026-09-09T23:00:00Z' },
-      ], meta: { current_page: 1, last_page: 1, per_page: 20, total: 3 } });
+      return response({ data: previewUrlImports, meta: { current_page: 1, last_page: 1, per_page: 20, total: previewUrlImports.length } });
+    }
+    if (path.startsWith('/api/v1/url-imports/')) {
+      const id = Number(path.split('/').pop());
+      const found = previewUrlImports.find(row => row.id === id);
+      return found ? response({ data: found }) : response({ message: '本地样例未找到该导入记录。' }, 404);
     }
     if (path === '/api/v1/categories') {
       if (method === 'POST') return response({ data: { id: 980, name: '新分类（本地样例）', slug: 'preview-new', sort_order: 30, articles_count: 0 } }, 201);

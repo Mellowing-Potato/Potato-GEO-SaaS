@@ -94,6 +94,32 @@
     }
   }
 
+  function safeDecodeUrlPart(value) {
+    return String(value || "").split("/").map((seg) => {
+      try { return decodeURIComponent(seg); } catch { return seg; }
+    }).join("/");
+  }
+
+  function summarizeUrlImport(rawUrl) {
+    const text = String(rawUrl || "").trim();
+    if (!text) return { host: "—", path: "", safeHref: "", raw: "" };
+    try {
+      const parsed = new URL(text);
+      const isHttp = parsed.protocol === "http:" || parsed.protocol === "https:";
+      const host = parsed.host ? parsed.host.replace(/^www\./i, "") : text;
+      const decodedPath = safeDecodeUrlPart(parsed.pathname || "");
+      let decodedSearch = "";
+      if (parsed.search) {
+        try { decodedSearch = decodeURIComponent(parsed.search); } catch { decodedSearch = parsed.search; }
+      }
+      const combined = (decodedPath === "/" && !decodedSearch) ? "" : `${decodedPath}${decodedSearch}`;
+      return { host, path: combined, safeHref: isHttp ? parsed.href : "", raw: text };
+    } catch {
+      return { host: text, path: "", safeHref: "", raw: text };
+    }
+  }
+  GEO.summarizeUrlImport = summarizeUrlImport;
+
   function renderUrlImports() {
     if (!elements.urlImportRows) return;
     if (state.urlImports.length === 0) {
@@ -102,6 +128,7 @@
     }
     elements.urlImportRows.innerHTML = state.urlImports.map((item) => {
       const url = String(item.url || "");
+      const summary = summarizeUrlImport(url);
       const title = item.title ? escapeHtml(item.title) : "";
       const failure = item.error_message ? escapeHtml(String(item.error_message)) : "";
       const detail = ([title, failure].filter(Boolean).join(" · ") || "—") + (item.status === "failed" ? ` <button type="button" class="button ghost small" data-url-import-retry="${escapeHtml(url)}">重新提交此地址</button>` : "");
@@ -109,8 +136,19 @@
       const article = item.article_id
         ? ` <a href="#content-library" class="md-link">查看文章 #${escapeHtml(String(item.article_id))}</a>`
         : "";
+      const externalLink = summary.safeHref
+        ? `<a class="url-import-ext" href="${escapeHtml(summary.safeHref)}" target="_blank" rel="noopener noreferrer" title="新标签页打开原网页：${escapeHtml(url)}" aria-label="新标签页打开 ${escapeHtml(summary.host)} 原网页">原页 ↗</a>`
+        : "";
       return `<tr>
-        <td><button type="button" class="button ghost small" data-url-import-detail="${escapeHtml(String(item.id))}">${escapeHtml(url)}</button></td>
+        <td class="url-import-source-cell">
+          <div class="url-import-source">
+            <button type="button" class="url-import-trigger" data-url-import-detail="${escapeHtml(String(item.id))}" title="${escapeHtml(url)}">
+              <span class="url-import-host">${escapeHtml(summary.host)}</span>
+              ${summary.path ? `<span class="url-import-path">${escapeHtml(summary.path)}</span>` : ""}
+            </button>
+            ${externalLink}
+          </div>
+        </td>
         <td>${urlImportStatusBadge(item.status)}</td>
         <td>${detail}${article}</td>
         <td>${escapeHtml(formatDate(item.created_at))}</td>
