@@ -29,6 +29,8 @@ final class PortableDesktopAccessTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Ticket creation and exact TTL assertions must share the same clock.
+        $this->freezeTime();
         Http::preventStrayRequests();
         $this->root = storage_path('framework/testing/desktop-'.bin2hex(random_bytes(8)));
         File::ensureDirectoryExists($this->root.'/run', 0700, true);
@@ -102,10 +104,11 @@ final class PortableDesktopAccessTest extends TestCase
 
     public function test_expired_and_replaced_tickets_cannot_create_a_session(): void
     {
+        $issuedAt = now();
         $expired = $this->launch();
         $this->travel(121)->seconds();
         $this->exchange($expired)->assertForbidden();
-        $this->travelBack();
+        $this->travelTo($issuedAt);
         $replaced = $this->launch();
         $current = $this->launch();
         $this->exchange($replaced)->assertForbidden();

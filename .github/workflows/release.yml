@@ -4,6 +4,9 @@ on:
     tags: ['v*']
 permissions:
   contents: read
+concurrency:
+  group: release-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   tests:
     uses: ./.github/workflows/tests.yml
@@ -200,6 +203,17 @@ jobs:
           python .\scripts\test-portable-runtime.py --package-dir D:\yanji-build\candidate --manifest-sha256 $sumsSha
           if ($LASTEXITCODE -ne 0) { throw "Windows test-portable-runtime.py failed with exit code $LASTEXITCODE" }
 
+      - name: Native Windows packaged desktop entry in private fake known folders
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          & D:\yanji-build\render-check\runtime\bin\php.exe -n `
+            -d "extension_dir=D:\yanji-build\render-check\runtime\bin\ext" -d extension=mbstring `
+            .\tests\fixtures\native-desktop-entry.php D:\yanji-build\render-check\app\portable
+          if ($LASTEXITCODE -ne 0) { throw 'Windows packaged desktop entry fixture failed' }
+
       - name: Upload verified Windows x64 portable release artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -210,7 +224,6 @@ jobs:
   portable-unix:
     name: Assemble & Verify ${{ matrix.platform }} Portable Release
     needs: tests
-    if: vars.YANJI_UNIX_RUNTIME_MANIFEST_URL != '' && vars.YANJI_UNIX_RUNTIME_MANIFEST_SHA256 != ''
     strategy:
       fail-fast: false
       matrix:
@@ -262,6 +275,8 @@ jobs:
           MANIFEST_SHA256: ${{ vars.YANJI_UNIX_RUNTIME_MANIFEST_SHA256 }}
           TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
+          test -n "$MANIFEST_URL" || { echo 'Required Unix runtime manifest URL is missing.' >&2; exit 1; }
+          test -n "$MANIFEST_SHA256" || { echo 'Required Unix runtime manifest SHA-256 is missing.' >&2; exit 1; }
           python3 scripts/runtime/fetch-unix-runtime.py \
             --manifest-url "$MANIFEST_URL" \
             --manifest-sha256 "$MANIFEST_SHA256" \
@@ -341,6 +356,11 @@ jobs:
           test "$(printf '%s\n' "$render_out" | grep -c '^yao-geo-')" -eq 11
           python3 scripts/test-portable-runtime.py --package-dir /tmp/yanji-candidate --manifest-sha256 "$sums_sha"
 
+      - name: Native Unix packaged desktop entry in private fake known folders
+        timeout-minutes: 10
+        run: |
+          /tmp/yanji-render-check/runtime/bin/php -n tests/fixtures/native-desktop-entry.php /tmp/yanji-render-check/app/portable
+
       - name: Upload verified Unix portable release artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -355,9 +375,9 @@ jobs:
       always()
       && needs.publish.result == 'success'
       && needs.portable-windows-x64.result == 'success'
-      && (needs.portable-unix.result == 'success' || needs.portable-unix.result == 'skipped')
+      && needs.portable-unix.result == 'success'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 45
     permissions:
       contents: write
     steps:
@@ -396,27 +416,26 @@ jobs:
             --base-url "https://github.com/${REPOSITORY}/releases/download/${VERSION}" \
             --output /tmp/yanji-release
 
-      - name: Upload verified portable assets to GitHub Release
+      - name: Verify complete same-source release, back up old bytes and publish in order
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ github.ref_name }}
+          SOURCE_COMMIT: ${{ github.sha }}
         run: |
-          if ! gh release view "$VERSION" --repo "$GH_REPO" >/dev/null 2>&1; then
-            gh release create "$VERSION" --repo "$GH_REPO" --title "$VERSION" --generate-notes
-          fi
-          for asset in /tmp/yanji-release/*; do
-            test -f "$asset" || continue
-            ok=0
-            for attempt in 1 2 3 4; do
-              if gh release upload "$VERSION" "$asset" --repo "$GH_REPO" --clobber; then
-                ok=1
-                break
-              fi
-              sleep $((attempt * 5))
-            done
-            test "$ok" -eq 1
-          done
+          python3 scripts/runtime/publish-portable-release.py \
+            --release-dir /tmp/yanji-release --source-dir . \
+            --source-commit "$SOURCE_COMMIT" --tag "$VERSION" --repo "$GH_REPO" \
+            --backup-dir /tmp/yanji-previous-release
+
+      - name: Retain previous release rollback materials even when publishing fails
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: previous-portable-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/yanji-previous-release
+          compression-level: 0
+          if-no-files-found: warn
 
   published-macos-onboarding:
     name: Verify Published Reader Installation on macOS (${{ matrix.scenario }})
@@ -449,3 +468,49 @@ jobs:
           VERSION: ${{ github.ref_name }}
           SCENARIO: ${{ matrix.scenario }}
         run: python3 scripts/test-published-macos-onboarding.py --version "$VERSION" --scenario "$SCENARIO"
+
+  published-windows-onboarding:
+    name: Verify Published Reader Installation on Windows (${{ matrix.scenario }})
+    needs: publish-release
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [fresh, interrupted]
+    runs-on: windows-2025
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - name: Fetch source
+        shell: pwsh
+        env:
+          SOURCE_SERVER: ${{ github.server_url }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          git init .
+          $auth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$env:SOURCE_TOKEN"))
+          Write-Host "::add-mask::$auth"
+          git -c protocol.version=2 -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --no-tags --depth=1 "$env:SOURCE_SERVER/$env:SOURCE_REPOSITORY.git" "$env:SOURCE_COMMIT"
+          git switch --detach FETCH_HEAD
+
+      - name: Setup Python 3.12 (acceptance host)
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Install through the published reader command and verify the workspace
+        shell: pwsh
+        env:
+          VERSION: ${{ github.ref_name }}
+          SCENARIO: ${{ matrix.scenario }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          python scripts/test-published-windows-onboarding.py --version "$env:VERSION" --scenario "$env:SCENARIO"
+          if ($LASTEXITCODE -ne 0) { throw 'Published Windows reader acceptance failed' }

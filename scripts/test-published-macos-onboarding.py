@@ -44,6 +44,8 @@ def preflight(version):
     }
     if sys.platform != 'darwin' or any(os.environ.get(key) != value for key, value in expected.items()):
         raise AcceptanceError('fresh_github_hosted_macos_required')
+    if not re.fullmatch(r'[a-f0-9]{40}', os.environ.get('GITHUB_SHA', '')):
+        raise AcceptanceError('fixed_release_source_required')
     import pwd
     home = Path.home()
     account_home = Path(pwd.getpwuid(os.getuid()).pw_dir)
@@ -152,6 +154,9 @@ def check_installed_release(base, version):
     receipt = read_json(release / 'release.json')
     if not isinstance(receipt, dict) or receipt.get('platform') != 'macos-arm64':
         raise AcceptanceError('installed_platform_is_not_macos_arm64')
+    expected_commit = os.environ.get('GITHUB_SHA', '')
+    if not re.fullmatch(r'[a-f0-9]{40}', expected_commit) or receipt.get('commit') != expected_commit:
+        raise AcceptanceError('installed_source_differs_from_release_run')
     config = read_json(instance / 'instance.json')
     if not isinstance(config, dict) or type(config.get('port')) is not int or config['port'] != PORT:
         raise AcceptanceError('installed_instance_did_not_use_default_port')
@@ -207,6 +212,7 @@ def run_acceptance(version, scenario='fresh'):
         check_installed_release(base, version)
         check_services(instance)
         helpers = load_desktop_helpers()
+        helpers['onboarding_and_check'](instance, PORT)
         marker = instance / '.portable-acceptance'
         helpers['write_acceptance_marker'](marker)
         marker.chmod(0o600)
@@ -218,6 +224,7 @@ def run_acceptance(version, scenario='fresh'):
         stop_instance(instance)
     return {'published_reader_entry': 'passed', 'version': version, 'scenario': scenario, **pipeline,
             'default_location_and_port': True, 'services_ready': True,
+            'fixed_release_source': True, 'agent_onboarding_and_entry': True,
             'workspace_cookie_and_api': True, 'anonymous_and_unbound_tokens_rejected': True,
             'instance_stopped': True, 'model_or_magpie_requests': 'not_performed',
             'browser_gui': 'not_verified'}
