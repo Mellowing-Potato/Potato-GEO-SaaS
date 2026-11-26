@@ -1,5 +1,7 @@
 # 安装言及
 
+> **v0.1.1 安装文件同版本修复重发**：便携下载地址保持不变，使用新清单摘要和修复源码。本次 CI：10 项发行任务全部成功，覆盖双架构测试/审计、四平台便携构建、Docker 镜像发布、资产发布和两场 Mac 公开入口验收（[本次修复重发流 #45594562303](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303)）。本次 Mac 标准公开入口分别验收：fresh 全新安装：通过；使用公开标准 `curl ... | sh`、默认目录和 8000 端口，服务就绪，已核对免账号 Cookie、工作区受保护 API 及拒绝匿名/无绑定令牌（[任务日志](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303/job/139153283994)）；interrupted 中断安装：通过；使用公开标准 `curl ... | sh`、默认目录和 8000 端口，服务就绪，已核对免账号 Cookie、工作区受保护 API 及拒绝匿名/无绑定令牌（[任务日志](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303/job/139153284005)）。入口证据仅含默认目录和端口、标准命令、工作台 Cookie 与受保护 API；不扩大为完整 GUI 或 Magpie 真实推理验收。 Docker 继续使用管理员登录；本机单人模式保留已有账号和数据。
+
 适用于人和编程助手。只操作你准备安装的本机 Docker；不要自行连接服务器。模型 Key 在网页「设置」中填写，不写进 `.env`、命令或安装记录。
 
 Docker 自部署由使用者在自己的设备或服务器上管理，维护者不提供托管或收费服务；登录账号用于保护使用者自己的实例。

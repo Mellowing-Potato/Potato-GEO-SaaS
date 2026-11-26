@@ -86,13 +86,53 @@ function Get-Sha256([string]$Path) {
     }
 }
 
+function Apply-WebProxy($Request) {
+    foreach ($name in @('HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY', 'all_proxy')) {
+        $val = [Environment]::GetEnvironmentVariable($name)
+        if ($val -and $val -match '^https?://') {
+            $Request.Proxy = [System.Net.WebProxy]::new($val)
+            return
+        }
+    }
+    $sysProxy = [System.Net.WebRequest]::GetSystemWebProxy()
+    if ($null -ne $sysProxy) {
+        $sysProxy.Credentials = [System.Net.CredentialCache]::DefaultCredentials
+        $Request.Proxy = $sysProxy
+    }
+}
+
 function Download-Https([string]$Url, [string]$Dest, [switch]$ShowProgress) {
+    if ($Url -notmatch '^https://') {
+        Fail '远端安装材料与重定向仅接受 HTTPS。'
+    }
+    $sysCurl = if ($env:SystemRoot) { Join-Path $env:SystemRoot 'System32\curl.exe' } else { '' }
+    if ($sysCurl -and (Test-Path -LiteralPath $sysCurl -PathType Leaf)) {
+        $interactiveErr = $false
+        if ($ShowProgress) {
+            try { $interactiveErr = -not [Console]::IsErrorRedirected } catch { $interactiveErr = $false }
+        }
+        $curlArgs = @('--fail', '--location', '--tlsv1.2', '--connect-timeout', '20', '--max-redirs', '10',
+            '--retry', '2', '--retry-delay', '1', '--proto', '=https', '--proto-redir', '=https',
+            '--user-agent', 'Yanji-Installer/1.0')
+        if ($interactiveErr) {
+            $curlArgs += '--progress-bar'
+        } else {
+            $curlArgs += @('--silent', '--show-error')
+        }
+        $curlArgs += @('--output', $Dest, $Url)
+        & $sysCurl @curlArgs
+        if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $Dest -PathType Leaf)) {
+            return
+        }
+        Remove-Item -LiteralPath $Dest -Force -ErrorAction SilentlyContinue
+    }
     $current = $Url
     for ($hops = 0; $hops -lt 10; $hops++) {
         if ($current -notmatch '^https://') {
             Fail '远端安装材料与重定向仅接受 HTTPS。'
         }
         $req = [System.Net.HttpWebRequest]::Create($current)
+        Apply-WebProxy $req
         $req.AllowAutoRedirect = $false
         $req.Timeout = 30000
         $req.ReadWriteTimeout = 60000

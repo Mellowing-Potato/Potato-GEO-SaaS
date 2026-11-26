@@ -20,6 +20,7 @@ APP_PATHS = (
     'database', 'licenses', 'portable', 'public', 'resources', 'routes', 'scripts/install-local.sh',
     'scripts/install-local.ps1', 'skill-overlays',
     'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'VERSION',
+    'docs/INSTALL-AGENT.md',
 )
 
 

@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 use Yanji\Portable\Backup;
 use Yanji\Portable\DesktopLauncher;
+use Yanji\Portable\DesktopEntry;
 use Yanji\Portable\Installation;
 use Yanji\Portable\Instance;
 use Yanji\Portable\Platform;
+use Yanji\Portable\Onboarding;
 use Yanji\Portable\Supervisor;
 use Yanji\Portable\Upgrade;
 
 umask(0077);
-foreach (['Platform', 'Instance', 'Supervisor', 'Installation', 'DesktopLauncher', 'Upgrade', 'JobClock'] as $class) {
+foreach (['Platform', 'Instance', 'Supervisor', 'Installation', 'DesktopLauncher', 'DesktopEntry', 'Onboarding', 'Upgrade', 'JobClock'] as $class) {
     require __DIR__.'/src/'.$class.'.php';
 }
 if (is_file(__DIR__.'/src/Backup.php')) {
@@ -22,7 +24,7 @@ function runPortable(array $args): int
 {
     $command = array_shift($args) ?: 'help';
     if (in_array($command, ['--help', '-h', 'help'], true) || ($command === '--instance-default' && count($args) <= 1)) {
-        echo "yanji start | stop | restart | open | status | logs | doctor | backup --output FILE | restore --from FILE --instance DIR --port N | upgrade --manifest FILE --manifest-sha256 SHA | reset-password --email EMAIL | magpie --tenant=ID\n--no-browser skips opening a desktop browser; authentication stays enabled.\n";
+        echo "yanji start | stop | restart | open | entry | onboarding | status | logs | doctor | backup --output FILE | restore --from FILE --instance DIR --port N | upgrade --manifest FILE --manifest-sha256 SHA | reset-password --email EMAIL | magpie --tenant=ID\n--no-browser skips opening a desktop browser; authentication stays enabled.\n";
         return 0;
     }
     $options = [];
@@ -62,10 +64,11 @@ function runPortable(array $args): int
         $setup->protectInstancePaths();
         $setup->savePython($python);
         $setup->finishRestore();
+        prepareDesktopEntry($i);
         $services->start();
         echo "恢复完成 http://127.0.0.1:".$i->port()."\n";
         if (!DesktopLauncher::open($i, automatic: true, noBrowser: isset($options['no-browser']))) {
-            echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+            echo "未能自动拉起浏览器，请直接在浏览器打开 http://127.0.0.1:".$i->port()."（或在图形桌面运行 open）。\n";
         }
         return 0;
     }
@@ -111,6 +114,11 @@ function runPortable(array $args): int
         echo json_encode($status ?? ['ready'=>false,'services'=>[], 'state'=>'stopped'], JSON_UNESCAPED_SLASHES)."\n";
         return 0;
     }
+    if ($command === 'onboarding') {
+        echo json_encode(Onboarding::report($i, $services->request('status')),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n";
+        return 0;
+    }
     if ($command === 'logs') {
         $log = $i->root.'/logs/lifecycle.log';
         if (is_file($log) && !is_link($log)) {
@@ -147,7 +155,7 @@ function runPortable(array $args): int
         if ($command !== '__upgrade' && is_file($i->root.'/run/upgrade-hold') && $command !== 'stop') {
             throw new RuntimeException('升级维护门仍在，请重新执行原升级命令恢复，或向新目录恢复备份。');
         }
-        if (in_array($command, ['__install','__upgrade','start','restart','open','reset-password','magpie'], true)) {
+        if (in_array($command, ['__install','__upgrade','start','restart','open','entry','reset-password','magpie'], true)) {
             $i->discardConfigurationCache();
         }
         switch ($command) {
@@ -164,10 +172,11 @@ function runPortable(array $args): int
                     throw new RuntimeException('端口需为 1 至 65535。');
                 }
                 $setup->install($release, $port, $options['email'] ?? null, $options['password-file'] ?? null, $options['python-bin'] ?? null);
+                prepareDesktopEntry($i);
                 $services->start();
                 echo "已就绪 http://127.0.0.1:".$port."  管理命令 ".Platform::nativePath($i->root.'/'.Platform::launcherName())."\n";
                 if (!DesktopLauncher::open($i, automatic: true, noBrowser: isset($options['no-browser']))) {
-                    echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+                    echo "未能自动拉起浏览器，请直接在浏览器打开 http://127.0.0.1:".$port."（或在图形桌面运行 open）。\n";
                 }
                 break;
             case '__upgrade':
@@ -175,16 +184,26 @@ function runPortable(array $args): int
                     throw new RuntimeException('升级版本路径不匹配。');
                 }
                 Upgrade::run($i, $release, $services);
+                prepareDesktopEntry($i);
                 if (!DesktopLauncher::open($i, automatic: true, noBrowser: isset($options['no-browser']))) {
-                    echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+                    echo "未能自动拉起浏览器，请直接在浏览器打开 http://127.0.0.1:".$i->port()."（或在图形桌面运行 open）。\n";
                 }
+                break;
+            case 'entry':
+                if (!Installation::desktopMode($i)) {
+                    throw new RuntimeException('此实例使用账号登录，不创建免登录的本机打开入口。');
+                }
+                prepareDesktopEntry($i);
                 break;
             case 'start':
             case 'open':
+                if (Installation::desktopMode($i) && DesktopEntry::describe($i)['file'] === null) {
+                    prepareDesktopEntry($i);
+                }
                 $services->start();
                 echo "已就绪 http://127.0.0.1:".$i->port()."\n";
                 if (!DesktopLauncher::open($i, automatic: $command !== 'open', noBrowser: isset($options['no-browser']))) {
-                    echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+                    echo "未能自动拉起浏览器，请直接在浏览器打开 http://127.0.0.1:".$i->port()."（或在图形桌面运行 open）。\n";
                 }
                 break;
             case 'stop':
@@ -194,7 +213,7 @@ function runPortable(array $args): int
                 $services->stop();
                 $services->start();
                 if (!DesktopLauncher::open($i, automatic: true, noBrowser: isset($options['no-browser']))) {
-                    echo "未能自动打开浏览器，请在图形桌面终端运行管理命令 open。\n";
+                    echo "未能自动拉起浏览器，请直接在浏览器打开 http://127.0.0.1:".$i->port()."（或在图形桌面运行 open）。\n";
                 }
                 break;
             case 'backup':
@@ -229,6 +248,21 @@ function runPortable(array $args): int
     } finally {
         flock($lock, LOCK_UN);
         fclose($lock);
+    }
+}
+
+function prepareDesktopEntry(Instance $instance): void
+{
+    if (!Installation::desktopMode($instance)) {
+        return;
+    }
+    $entry = DesktopEntry::install($instance);
+    if ($entry['file'] === null) {
+        throw new RuntimeException('未能创建本机打开入口，请检查安装目录的权限或重名文件后重试。');
+    }
+    echo '日常使用可直接打开 http://127.0.0.1:'.$instance->port().' ，或双击“'.$entry['name'].'”自动启动并打开工作台。'."\n";
+    if ($entry['warnings']) {
+        echo '桌面或菜单入口未能全部创建，已保留本机双击入口：'.Platform::nativePath((string) $entry['file'])."\n";
     }
 }
 

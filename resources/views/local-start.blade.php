@@ -28,21 +28,21 @@
         </section>
         <main class="launch-main">
             <h1>打开工作台</h1>
-            <p class="intro">无需填写邮箱和密码，正在验证本次本机一次性启动凭证。</p>
+            <p class="intro">直接在本机浏览器打开工作台地址，或从桌面及应用菜单的“言及工作台”入口进入，无需填写邮箱和密码。</p>
             <div class="launch-status-card" id="localStartCard">
                 <span class="launch-indicator" aria-hidden="true"></span>
                 <p class="status" id="localStartMessage" role="status" aria-live="polite">正在打开你的本机工作台…</p>
             </div>
-            <section class="launch-recovery" id="localStartHelp" hidden aria-label="重新打开指引">
-                <p class="launch-recovery-title">本次一次性入口未能自动进入</p>
-                <p class="field-note">链接可能已过期、已使用，或本机服务尚未启动。请在终端用安装完成时显示的管理命令路径运行以下命令，从新打开的页面进入：</p>
-                <div class="launch-cmd-row">
-                    <code id="localStartCommand">yanji open</code>
-                    <button class="btn-code launch-copy-btn" id="localStartCopy" type="button">复制命令</button>
-                </div>
-                <p class="field-note" id="localStartCopyStatus" role="status" aria-live="polite"></p>
-            </section>
-            <noscript><p class="status is-error">请启用浏览器 JavaScript，再运行本机管理命令 <code>yanji open</code>。</p></noscript>
+            <div class="launch-recovery" id="localStartHelp" hidden>
+                <p class="field-note">请确认直接通过本机回环地址（<code>127.0.0.1</code>）在系统浏览器中访问。若电脑开启了网络代理或浏览器代理插件，请将 <code>127.0.0.1</code> 设为直连（绕过本地地址）后再试。</p>
+                <p class="field-note">不同浏览器或隐私窗口的会话分开保存；点击下方按钮即可在当前浏览器直接进入工作台。</p>
+                <button class="btn-primary" id="localStartCheck" type="button" disabled>重新进入工作台</button>
+                <details class="footer">
+                    <summary>高级排障（可选）</summary>
+                    <p class="field-note">如服务尚未启动，可双击安装完成时生成的“言及工作台”本机入口，或使用管理命令运行 <code>yanji open</code> 自动拉起服务。</p>
+                </details>
+            </div>
+            <noscript><p class="status is-error">请启用系统浏览器的 JavaScript，再重新打开本机工作台地址或双击桌面“言及工作台”入口。</p></noscript>
         </main>
         <div class="eco-note">{{ config('brand.name') }} · 本机工作台</div>
     </div>

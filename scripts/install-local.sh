@@ -90,8 +90,8 @@ if [ -z "$package" ]; then
     case "$manifest" in */*) package=${manifest%/*}/$name;; *) package=$name;; esac
 fi
 case "$package" in
-    https://*) step "正在下载安装包 $name（文件较大，请稍候）...";;
-    *) step "正在读取本地安装包 $name...";;
+    https://*) step "正在下载安装包 ${name}（文件较大，请稍候）...";;
+    *) step "正在读取本地安装包 ${name}...";;
 esac
 get "$package" "$scratch/package" progress
 step '正在校验安装包 SHA-256 与归档结构...'

@@ -259,14 +259,14 @@
     border-radius: 50%;
     animation: launchSpin .9s linear infinite;
 }
-.launch-status-card.is-error {
+.launch-status-card:is(.is-error, :has(.status.is-error)) {
     background: var(--bad-soft);
     border-color: var(--bad-border);
 }
-.launch-status-card.is-error .status {
+.launch-status-card:is(.is-error, :has(.status.is-error)) .status {
     color: var(--bad);
 }
-.launch-status-card.is-error .launch-indicator {
+.launch-status-card:is(.is-error, :has(.status.is-error)) .launch-indicator {
     animation: none;
     border: 0;
     width: 8px;
@@ -276,6 +276,7 @@
 }
 @keyframes launchSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .launch-indicator { animation: none; } }
+.launch-recovery[hidden] { display: none; }
 .launch-recovery {
     margin-top: 20px;
     padding: 16px;

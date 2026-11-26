@@ -377,7 +377,12 @@ def main():
     with tempfile.TemporaryDirectory(prefix='yanji-native-') as directory:
         work = Path(directory)
         try:
+            downloads = {}
+            if not IS_WIN:
+                download_check = runpy.run_path(str(ROOT / 'scripts/checks/test_unix_installer_download.py'))
+                downloads = download_check['verify_installer_download'](args.package_dir / 'install-local.sh')
             result = scenario(args, work)
+            result.update(downloads)
             desktop = runpy.run_path(str(ROOT / 'scripts/test-portable-desktop.py'))
             result.update(desktop['scenario'](args, work / 'desktop-default-acceptance', program=work / 'program'))
         finally:

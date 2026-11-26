@@ -2,7 +2,7 @@
 
 **简体中文** | [English](README.en.md) · 最新正式版：[v0.1.1](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1) · 许可：[Apache-2.0](LICENSE) · [免 Docker 便携版](PORTABLE.md) · [Docker 部署](INSTALL.md) · [常见问题 FAQ](#常见问题-faq)
 
-> **v0.1.1 已正式发布。** 新建本机便携实例无需填写邮箱和密码，可在网页连接本机 Magpie。变更和验证范围见 [更新日志](CHANGELOG.md)。
+> **v0.1.1 已正式发布；v0.1.2 开箱即用修复准备中（未发布）。** 当前线上正式下载包仍为 `v0.1.1`；源码已准备好 `v0.1.2`（本机单人模式直接打开 `http://127.0.0.1:8000` 即可进入工作台、修复中文 Windows PowerShell 5.1 GBK 解析与代理下载、仓库根目录新增 `install.cmd` / `install.ps1` / `install.sh` 一键入口），待维护者推送 `v0.1.2` 标签完成构建后更新固定摘要。详见 [更新日志](CHANGELOG.md)。
 
 **言及（Yanji GEO-SaaS）** 是一款可自部署的开源 **GEO（Generative Engine Optimization，生成式引擎优化 / AI 搜索优化）项目管理与内容交付工作台**，面向 GEO 代运营个人、小团队与品牌市场人员。支持 **macOS Apple Silicon / Windows x64 / Linux 免 Docker 一键运行** 与 **Docker 自部署**，自带模型 Key（BYOK）、无订阅抽成，在独立隔离工作区中串联客户资料、1024 维向量知识库、11 项 GEO 技能报告与内容生成、中文平台草稿助手以及豆包 AI 搜索可见性监测。
 
@@ -45,7 +45,7 @@
 
 ### 方式一：免 Docker 一键便携安装（推荐，开箱即用）
 
-无需提前安装 Docker、PHP 或 Python。引导脚本仅允许 HTTPS，自动校验固定摘要的 `SHA256SUMS`（`543a9e4227b9a0ecb7534ec50568e15e7f066e6dfa9f2e3a73131118431f23a3`）及包内全部文件哈希，并提供 `yanji` / `yanji.cmd` 管理命令（启动、停止、状态、体检 `doctor`、备份、恢复、升级）。
+无需提前安装 Docker、PHP 或 Python。引导脚本仅允许 HTTPS，自动校验当前正式资产的 `SHA256SUMS` 固定摘要（`85a34baa058f0957c74915962c40db4f72d2fd28fd76d14a072e7d4e5294ddda`）及包内全部文件哈希，并提供 `yanji` / `yanji.cmd` 管理命令（启动、停止、状态、体检 `doctor`、备份、恢复、升级）。请使用本轮正式清单摘要，不混用旧版文件。
 
 **macOS（Apple Silicon M1–M4）与 Linux（x86_64 / ARM64）：**
 
@@ -75,12 +75,19 @@ bash scripts/install.sh
 
 脚本会交互创建首个管理员并启动 `web`、`worker`、`scheduler` 与 `postgres` 四个容器服务。镜像与备份恢复、升级和代理 DNS 排障见 [INSTALL.md](INSTALL.md) 与 [v0.1.1 Release](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.1)。
 
-### 方式三：交给 AI 编程助手自动安装
+### 方式三：克隆仓库一键运行 / 交给 AI 编程助手自动安装
 
-可以直接复制下面这句话发给你的 AI 编程助手（支持按需选择免 Docker 便携版或 Docker 版）：
+如果你已经克隆或下载了本仓库，无需预装 Docker，直接在仓库根目录运行一键入口即可自动拉取已校验便携包并启动工作台（已安装同版本时直接秒开，不重复下载）：
+
+- **Windows（双击或 PowerShell）：** 双击仓库根目录的 `install.cmd`，或在 PowerShell 运行 `.\install.ps1`
+- **macOS / Linux：** 运行 `sh install.sh`（如需 Docker 部署可传 `sh install.sh --docker`）
+
+统一安装与交付要求见 [通用智能体安装协议](docs/INSTALL-AGENT.md)。`v0.1.2` 源码已支持本机回环同源直开 `http://127.0.0.1:8000` 进入工作台（正式包待 `v0.1.2` 发布后生效；当前已发布 `v0.1.1` 包仍可通过 `yanji open` 或本机入口打开）。
+
+可以直接复制下面这句话发给你的 AI 助手（无论命令行或智能体代理均适用）：
 
 ```text
-帮我按 PORTABLE.md（免 Docker）或 INSTALL.md（Docker）安装言及。仓库地址是 https://github.com/Mellowing-Potato/Potato-GEO-SaaS
+请先读 docs/INSTALL-AGENT.md，帮我在本机免 Docker 安装并启动言及（Windows 可直接运行仓库根目录 .\install.ps1，macOS/Linux 运行 sh install.sh；也可使用 README 中的一行安装命令），确认服务就绪后把工作台访问地址告诉我。仓库地址是 https://github.com/Mellowing-Potato/Potato-GEO-SaaS
 ```
 
 ---
@@ -213,7 +220,11 @@ bash scripts/install.sh
 
 ## 已验证与待验证
 
-- **v0.1.1 本轮验证：** 本机全量 PHP 共运行 1740 项，1739 项通过、1 项因平台条件跳过，共 13032 项断言；默认 `npm run test:js` 通过。维护者已确认 Apple Silicon Mac 候选安装、更新、免登录工作台及本机 Magpie 服务检测与目录读取。正式四平台发行 CI 另见：8 个任务全部通过：双架构完整测试与审计、四平台组包和原生验收、双架构镜像及 17 项发行资产上传（[发行流 #45572085735](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45572085735)）。当前来源截图仍为第三方直连，Magpie 激活与真实推理未跑；四平台正式包的完整 GUI 人工验收尚未完成，Windows 桌面与 Linux amd64 Docker 完整手工流程仍待验收。以下 `v0.1.0` 结果为历史验证。
+- **本轮 v0.1.1 通用智能体与本机入口修复重发：** 本轮 [发行流 #45737825566](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566) 的 12 项任务全部通过，覆盖双架构测试/审计、四平台原生组包验收、双架构镜像、正式资产发布，以及 macOS/Windows 各两项公开标准安装入口验收（[Mac 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649102537)、[Mac 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649099554)、[Windows 全新](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649101890)、[Windows 中断接续](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649100868)）。构建源为 `6f797567dd18833412f1a6e0ff4c139129106949`。公开入口使用默认目录和 8000 端口，核对本次构建、只读交付状态、免账号 Cookie、工作区受保护 API，以及拒绝匿名和无 Cookie 绑定的令牌；不扩大为真实 GUI、特定智能体产品或模型推理验收。 先前源码的 Windows 中文目录、首次/重复注册与真实已注册快捷方式执行证据保留于 [原生验收流 #45665229256](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45665229256/job/139385482871)。
+
+- **2026-11-25 v0.1.1 安装修复重发（历史）：** 10 项发行任务全部成功，覆盖双架构测试/审计、四平台便携构建、Docker 镜像发布、资产发布和两场 Mac 公开入口验收（[该次修复重发流 #45594562303](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303)）。该次 Mac 标准公开入口分别验收：fresh 全新安装：通过；使用公开标准 `curl ... | sh`、默认目录和 8000 端口，服务就绪，已核对免账号 Cookie、工作区受保护 API 及拒绝匿名/无绑定令牌（[任务日志](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303/job/139153283994)）；interrupted 中断安装：通过；使用公开标准 `curl ... | sh`、默认目录和 8000 端口，服务就绪，已核对免账号 Cookie、工作区受保护 API 及拒绝匿名/无绑定令牌（[任务日志](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45594562303/job/139153284005)）。入口证据仅含默认目录和端口、标准命令、工作台 Cookie 与受保护 API；不扩大为完整 GUI 或 Magpie 真实推理验收。 旧版安装在账号提示前中断、尚未生成实例密钥且默认数据库为空时，安装器会检查原配置与初始化/绑定状态，符合条件后接续本机免账号初始化；已有账号和数据保留。 v0.1.1 首次发行的八项任务成功和本地包验收属于历史记录，没有覆盖当时读者经生成引导脚本走 HTTPS 下载的入口，不能当作该入口成功证据。
+
+- **v0.1.1 首次发行历史验证：** 本机全量 PHP 共运行 1740 项，1739 项通过、1 项因平台条件跳过，共 13032 项断言；默认 `npm run test:js` 通过。维护者已确认 Apple Silicon Mac 候选安装、更新、免登录工作台及本机 Magpie 服务检测与目录读取。正式四平台发行 CI 另见：8 个任务全部通过：双架构完整测试与审计、四平台组包和原生验收、双架构镜像及 17 项发行资产上传（[发行流 #45572085735](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45572085735)）。当前来源截图仍为第三方直连，Magpie 激活与真实推理未跑；四平台正式包的完整 GUI 人工验收尚未完成，Windows 桌面与 Linux amd64 Docker 完整手工流程仍待验收。以下 `v0.1.0` 结果为历史验证。
 - **自动化测试与 v0.1.0 发布流水线：** SQLite、PostgreSQL、前端、字体与技能快照均具备自动化测试（本地运行见 [贡献指南](CONTRIBUTING.md)）。`v0.1.0` 正式发布流（[#45369285542](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45369285542)）全部 8 项任务通过，已公开 [GitHub Release v0.1.0](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.0)（17 项资产）与双架构 Docker 镜像。自动化测试通过不等于全部真实第三方平台账号均已验收。
 - **界面实测：** 新安装、登录与退出、三种真实模型连接、材料入库和检索、豆包监测、标题内容生成、报告下载、用量、未知结果不自动重发、窄屏模型表单。
 - **Magpie 实测：** 原生回环接入已实测文本请求、队列生成结构化标题报告和合成扫描件识别。

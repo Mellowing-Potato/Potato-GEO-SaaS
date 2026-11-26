@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Verify the native no-account desktop path in disposable instances without a GUI or paid requests."""
 import argparse
+import hashlib
 import http.cookiejar
 import html.parser
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import socket
 import subprocess
@@ -48,12 +50,114 @@ def write_acceptance_marker(path):
     path.write_bytes(b'desktop-fixture\n')
 
 
-def manage(launcher, *arguments, check=True):
+def management_command(launcher, *arguments):
     command = [str(launcher), *arguments]
     if IS_WIN:
         command = 'cmd.exe /d /s /c "' + subprocess.list2cmdline(command) + '"'
-    return subprocess.run(command, check=check, stdin=subprocess.DEVNULL,
+    return command
+
+
+def manage(launcher, *arguments, check=True):
+    return subprocess.run(management_command(launcher, *arguments), check=check, stdin=subprocess.DEVNULL,
                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+
+
+def read_management_json(launcher, command):
+    result = subprocess.run(management_command(launcher, command), stdin=subprocess.DEVNULL,
+                            capture_output=True, timeout=30)
+    if result.returncode != 0 or result.stderr or len(result.stdout) > 65536:
+        raise AssertionError('The no-terminal management query failed or emitted unexpected output')
+    try:
+        record = json.loads(result.stdout)
+    except (ValueError, UnicodeDecodeError):
+        raise AssertionError('The management query did not return one JSON object') from None
+    if not isinstance(record, dict):
+        raise AssertionError('The management query did not return an object')
+    return record, result.stdout
+
+
+def onboarding_files(instance):
+    """Snapshot configuration, entry and authorization files; running service logs may change independently."""
+    files = {instance / name for name in ('.env', '.portable-initialized', 'instance.json',
+             'desktop-entry.json', 'yanji', 'yanji.cmd', 'current', 'current-release.txt')}
+    for pattern in ('*.command', '*.desktop', '*.cmd', '*.ps1', 'run/browser-*', 'run/desktop-ticket*'):
+        files.update(instance.glob(pattern))
+    snapshot = {}
+    for path in files:
+        if path.is_symlink():
+            snapshot[str(path.relative_to(instance))] = ('link', os.readlink(path))
+        elif path.is_file():
+            stat = path.stat()
+            snapshot[str(path.relative_to(instance))] = (stat.st_mode, stat.st_mtime_ns,
+                                                       hashlib.sha256(path.read_bytes()).hexdigest())
+    return snapshot
+
+
+def onboarding_and_check(instance, port, previous_entry=None):
+    launcher = instance / ('yanji.cmd' if IS_WIN else 'yanji')
+    before = onboarding_files(instance)
+    status, _ = read_management_json(launcher, 'status')
+    if status.get('ready') is not True or status.get('writes_enabled') is not True:
+        raise AssertionError('Agent onboarding was checked before the managed instance was ready')
+    services = status.get('services', {})
+    if any(not isinstance(services.get(role), dict) or services[role].get('healthy') is not True
+           for role in ('web', 'worker', 'scheduler')):
+        raise AssertionError('Agent onboarding requires healthy Web, worker and scheduler services')
+    report, raw = read_management_json(launcher, 'onboarding')
+    if before != onboarding_files(instance):
+        raise AssertionError('Reading agent onboarding changed configuration, entries or authorization files')
+    expected_keys = {'schema_version', 'product', 'version', 'mode', 'initialized', 'services_ready',
+                     'state', 'entry', 'browser_confirmation_required', 'next_action'}
+    if set(report) != expected_keys or type(report.get('schema_version')) is not int or report['schema_version'] != 1:
+        raise AssertionError('Agent onboarding does not match the schema version 1 contract')
+    if report['product'] != 'yanji' or report['version'] != (ROOT / 'VERSION').read_text(encoding='utf-8').strip():
+        raise AssertionError('Agent onboarding identifies a different product or package version')
+    if report['mode'] != 'desktop' or report['initialized'] is not True or report['services_ready'] is not True:
+        raise AssertionError('Agent onboarding did not describe the initialized desktop instance')
+    if report['state'] != 'awaiting_browser_confirmation' or report['browser_confirmation_required'] is not True:
+        raise AssertionError('Agent onboarding treated service readiness as human browser confirmation')
+    entry = report['entry']
+    if not isinstance(entry, dict) or set(entry) != {'name', 'file', 'shortcuts', 'warnings'}:
+        raise AssertionError('Agent onboarding omitted the verified local entry description')
+    extension = '.cmd' if IS_WIN else ('.command' if os.uname().sysname == 'Darwin' else '.desktop')
+    if not isinstance(entry['name'], str) or not re.fullmatch(r'言及工作台-' + str(port) + r'-[a-f0-9]{8}', entry['name']):
+        raise AssertionError('Agent onboarding entry is not named for the current instance')
+    if not isinstance(entry['file'], str):
+        raise AssertionError('Agent onboarding did not provide its canonical entry file')
+    canonical = Path(entry['file'])
+    if canonical.is_symlink() or not canonical.is_file() or canonical.parent.resolve() != instance.resolve() \
+            or canonical.name != entry['name'] + extension:
+        raise AssertionError('Agent onboarding entry is outside or belongs to a different instance')
+    if previous_entry is not None and (canonical.resolve() == previous_entry.resolve() or canonical.name == previous_entry.name):
+        raise AssertionError('Restoring a backup reused the original instance entry')
+    action = report['next_action']
+    if not isinstance(action, dict) or set(action) != {'action', 'command', 'human_entry'}:
+        raise AssertionError('Agent onboarding omitted the actionable instance command')
+    command = action['command']
+    if action['action'] != 'open' or not isinstance(command, list) or len(command) != 2 \
+            or not isinstance(command[0], str) or Path(command[0]).resolve() != launcher.resolve() \
+            or command[1] != 'open' or action['human_entry'] != entry['file']:
+        raise AssertionError('Agent onboarding suggested a command for a different instance')
+
+    def check_credentials(value):
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if any(word in key.lower() for word in ('ticket', 'token', 'password', 'secret', 'api_key', 'app_key')):
+                    raise AssertionError('Agent onboarding exposed an authorization field')
+                check_credentials(child)
+        elif isinstance(value, list):
+            for child in value:
+                check_credentials(child)
+        elif isinstance(value, str) and any(marker in value.lower() for marker in ('ticket=', 'bearer ', 'app_key=', 'sk-test-')):
+            raise AssertionError('Agent onboarding exposed authorization material')
+
+    check_credentials(report)
+    for line in (instance / '.env').read_bytes().splitlines():
+        if line.startswith(b'APP_KEY='):
+            key = line.partition(b'=')[2].strip(b'\"\' ')
+            if key and key in raw:
+                raise AssertionError('Agent onboarding disclosed the instance encryption key')
+    return canonical
 
 
 def client(jar=None):
@@ -219,6 +323,22 @@ def authorize_and_check(instance, port):
         raise AssertionError('A desktop API token bypassed its browser-cookie binding')
     if request(client(), origin, '/api/v1/auth/local-start', method='POST', body={'ticket': nonce})[0] != 403:
         raise AssertionError('A consumed desktop nonce was accepted twice')
+    if request(client(), origin, '/api/v1/auth/local-start', method='POST', body={})[0] != 200:
+        raise AssertionError('Direct same-origin loopback access could not establish a local desktop session')
+    cross_req = urllib.request.Request(
+        origin + '/api/v1/auth/local-start',
+        data=b'{}',
+        headers={'Accept': 'application/json', 'Content-Type': 'application/json', 'Origin': 'https://example.com'},
+        method='POST',
+    )
+    try:
+        with client().open(cross_req, timeout=15) as resp:
+            cross_code = resp.code
+    except urllib.error.HTTPError as err:
+        cross_code = err.code
+        err.close()
+    if cross_code != 403:
+        raise AssertionError('Cross-origin loopback access was not rejected')
     return api_identity
 
 
@@ -252,6 +372,7 @@ def scenario(args, work, program=None):
         write_acceptance_marker(instance / '.portable-acceptance')
         if not IS_WIN:
             (instance / '.portable-acceptance').chmod(0o600)
+        first_entry = onboarding_and_check(instance, port)
         first_identity = authorize_and_check(instance, port)
 
         # Restore must retain the original internal identity and regain the markers needed by nonce authorization.
@@ -269,13 +390,17 @@ def scenario(args, work, program=None):
         write_acceptance_marker(restored / '.portable-acceptance')
         if not IS_WIN:
             (restored / '.portable-acceptance').chmod(0o600)
+        onboarding_and_check(restored, restored_port, previous_entry=first_entry)
         if authorize_and_check(restored, restored_port) != first_identity:
             raise AssertionError('Restoring a desktop backup changed its internal account or workspace')
 
         return {'desktop_no_account_input': True, 'desktop_nonce_cookie_api_verified': True,
                 'desktop_anonymous_and_unbound_tokens_rejected': True, 'desktop_nonce_replay_rejected': True,
                 'desktop_backup_restore_verified': True, 'desktop_system_browser_not_invoked': True,
-                'desktop_native_opener_uses_private_file_uri': True, 'desktop_backup_excludes_launch_nonces': True}
+                'desktop_native_opener_uses_private_file_uri': True, 'desktop_backup_excludes_launch_nonces': True,
+                'agent_onboarding_read_only_without_terminal': True, 'agent_onboarding_schema_one': True,
+                'agent_onboarding_has_no_credentials': True, 'agent_restored_entry_bound_to_new_instance': True,
+                'agent_browser_confirmation_still_required': True}
     finally:
         for target in (instance, restored):
             managed = target / launcher_name
