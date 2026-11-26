@@ -42,7 +42,7 @@
                     <hr>
                     <div class="md-panel-body">
                     <h3>导入详情</h3>
-                    <p class="muted" id="urlImportDetailMessage">点上面列表里的网页地址，查看这次导入的抓取结果与生成的草稿。</p>
+                    <p class="muted" id="urlImportDetailMessage">点上面列表中的记录行或「详情」，查看抓取结果与生成的草稿；点网页链接可直达原页面。</p>
                     <div id="urlImportDetail"></div>
                     </div>
                     </div>

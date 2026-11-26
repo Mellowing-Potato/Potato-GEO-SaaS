@@ -31,6 +31,25 @@
     return `<p class="muted"><strong>${escapeHtml(label)}</strong>：${escapeHtml(value)}</p>`;
   }
 
+  function safeExternalHref(rawUrl) {
+    try {
+      const parsed = new URL(String(rawUrl || "").trim());
+      return (parsed.protocol === "http:" || parsed.protocol === "https:") ? parsed.href : "";
+    } catch {
+      return "";
+    }
+  }
+
+  function detailUrlRow(rawUrl) {
+    const url = String(rawUrl || "").trim();
+    if (!url) return "";
+    const safeHref = safeExternalHref(url);
+    const linkAction = safeHref
+      ? ` <a class="md-link" href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">打开原网页 ↗</a>`
+      : "";
+    return `<p class="muted url-import-detail-url"><strong>网页地址</strong>：<span class="url-import-full-url">${escapeHtml(url)}</span>${linkAction} <button type="button" class="button ghost small" data-url-import-copy="${escapeHtml(url)}">复制链接</button></p>`;
+  }
+
   function renderDetail(record) {
     const host = byId("urlImportDetail");
     if (!host) return;
@@ -41,7 +60,7 @@
       ? `<a href="#content-library" class="md-link">查看文章 #${escapeHtml(String(record.article_id))}</a>`
       : "";
     host.innerHTML = [
-      detailRow("网页地址", record.url),
+      detailUrlRow(record.url),
       detailRow("状态", status),
       detailRow("标题", record.title || ""),
       detailRow("失败原因", record.error_message || ""),
@@ -93,12 +112,26 @@
       }
       return;
     }
+    if (event.target.closest("a")) return;
     const trigger = event.target.closest("[data-url-import-detail]");
     if (!trigger) return;
     event.preventDefault();
     openDetail(trigger.dataset.urlImportDetail);
   });
-  byId("urlImportDetail")?.addEventListener("click", (event) => {
+  byId("urlImportDetail")?.addEventListener("click", async (event) => {
+    const copyBtn = event.target.closest("[data-url-import-copy]");
+    if (copyBtn) {
+      const value = copyBtn.dataset.urlImportCopy || "";
+      try {
+        await navigator.clipboard?.writeText(value);
+        copyBtn.textContent = "已复制";
+        setTimeout(() => { copyBtn.textContent = "复制链接"; }, 1800);
+      } catch {
+        const message = byId("urlImportDetailMessage");
+        if (message) message.textContent = "浏览器未允许自动复制，请直接选中上方网页地址复制。";
+      }
+      return;
+    }
     const retry = event.target.closest("[data-url-import-retry]");
     if (!retry) return;
     const input = byId("urlImportUrl");

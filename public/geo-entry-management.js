@@ -94,6 +94,32 @@
     }
   }
 
+  function safeDecodeUrlPart(value) {
+    return String(value || "").split("/").map((seg) => {
+      try { return decodeURIComponent(seg); } catch { return seg; }
+    }).join("/");
+  }
+
+  function summarizeUrlImport(rawUrl) {
+    const text = String(rawUrl || "").trim();
+    if (!text) return { host: "—", path: "", safeHref: "", raw: "" };
+    try {
+      const parsed = new URL(text);
+      const isHttp = parsed.protocol === "http:" || parsed.protocol === "https:";
+      const host = parsed.host ? parsed.host.replace(/^www\./i, "") : text;
+      const decodedPath = safeDecodeUrlPart(parsed.pathname || "");
+      let decodedSearch = "";
+      if (parsed.search) {
+        try { decodedSearch = decodeURIComponent(parsed.search); } catch { decodedSearch = parsed.search; }
+      }
+      const combined = (decodedPath === "/" && !decodedSearch) ? "" : `${decodedPath}${decodedSearch}`;
+      return { host, path: combined, safeHref: isHttp ? parsed.href : "", raw: text };
+    } catch {
+      return { host: text, path: "", safeHref: "", raw: text };
+    }
+  }
+  GEO.summarizeUrlImport = summarizeUrlImport;
+
   function renderUrlImports() {
     if (!elements.urlImportRows) return;
     if (state.urlImports.length === 0) {
@@ -102,17 +128,24 @@
     }
     elements.urlImportRows.innerHTML = state.urlImports.map((item) => {
       const url = String(item.url || "");
+      const summary = summarizeUrlImport(url);
       const title = item.title ? escapeHtml(item.title) : "";
       const failure = item.error_message ? escapeHtml(String(item.error_message)) : "";
-      const detail = ([title, failure].filter(Boolean).join(" · ") || "—") + (item.status === "failed" ? ` <button type="button" class="button ghost small" data-url-import-retry="${escapeHtml(url)}">重新提交此地址</button>` : "");
+      const detail = ([title, failure].filter(Boolean).join(" · ") || "—")
+        + (item.status === "failed" ? ` <button type="button" class="button ghost small" data-url-import-retry="${escapeHtml(url)}">重新提交此地址</button>` : "");
       // 已生成草稿的记录给出回到文章列表的路径（R22：跳进工具要能走回来）。
       const article = item.article_id
         ? ` <a href="#content-library" class="md-link">查看文章 #${escapeHtml(String(item.article_id))}</a>`
         : "";
-      return `<tr>
-        <td><button type="button" class="button ghost small" data-url-import-detail="${escapeHtml(String(item.id))}">${escapeHtml(url)}</button></td>
+      const detailAction = ` <button type="button" class="url-import-detail-btn" data-url-import-detail="${escapeHtml(String(item.id))}">详情</button>`;
+      const sourceBody = `<span class="url-import-host">${escapeHtml(summary.host)}</span>${summary.path ? `<span class="url-import-path">${escapeHtml(summary.path)}</span>` : ""}`;
+      const sourceCell = summary.safeHref
+        ? `<a class="url-import-link" href="${escapeHtml(summary.safeHref)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(url)}">${sourceBody}</a>`
+        : `<span class="url-import-link is-static" title="${escapeHtml(url)}">${sourceBody}</span>`;
+      return `<tr class="url-import-row" data-url-import-detail="${escapeHtml(String(item.id))}">
+        <td class="url-import-source-cell">${sourceCell}</td>
         <td>${urlImportStatusBadge(item.status)}</td>
-        <td>${detail}${article}</td>
+        <td>${detail}${article}${detailAction}</td>
         <td>${escapeHtml(formatDate(item.created_at))}</td>
       </tr>`;
     }).join("");

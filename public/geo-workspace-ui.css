@@ -830,6 +830,72 @@ body.geo-app .geo-account-panel[data-workspace-view="personal-settings"] h3 { fo
 #urlImportsPanel .md-table { min-width: 760px; }
 #urlImportForm { max-width: 840px; }
 #urlImportRows .badge { white-space: nowrap; }
+#urlImportRows .url-import-row { cursor: pointer; }
+#urlImportRows .url-import-source-cell { max-width: 340px; }
+.url-import-link {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--md-space-hair);
+  max-width: 100%;
+  min-width: 0;
+  padding: var(--md-space-1) 0;
+  border-radius: var(--md-radius-xs);
+  text-decoration: none;
+}
+.url-import-link.is-static { cursor: default; }
+.url-import-host {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--md-fs-compact);
+  font-weight: var(--md-weight-medium);
+  line-height: var(--md-leading-snug);
+  color: var(--md-text-strong);
+}
+a.url-import-link:hover .url-import-host {
+  color: var(--md-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.url-import-path {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--md-fs-xs);
+  font-weight: var(--md-weight-normal);
+  line-height: var(--md-leading-snug);
+  color: var(--md-text-muted);
+}
+.url-import-link:focus-visible,
+.url-import-detail-btn:focus-visible {
+  outline: 0;
+  box-shadow: var(--md-focus-shadow);
+}
+.url-import-detail-btn {
+  padding: var(--md-space-hair) var(--md-space-1);
+  border: 0;
+  border-radius: var(--md-radius-xs);
+  background: transparent;
+  font-size: var(--md-fs-xs);
+  font-weight: var(--md-weight-medium);
+  line-height: var(--md-leading-snug);
+  color: var(--md-text-muted);
+  cursor: pointer;
+}
+.url-import-detail-btn:hover {
+  color: var(--md-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.url-import-full-url {
+  overflow-wrap: anywhere;
+  font-family: var(--md-font-mono);
+  font-size: var(--md-fs-xs);
+  color: var(--md-text-secondary);
+}
 
 /* EXEC-14 A：项目总览只承接页面布局，统计由既有 md-panel / md-stat 呈现。 */
 .analytics-panel.md-app {
