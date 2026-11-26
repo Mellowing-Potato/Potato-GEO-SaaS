@@ -76,15 +76,14 @@ def preflight(version):
     return base
 
 
-def prepare_interrupted_fixture(base):
-    """Only a fresh, unkeyed interrupted installation may be created after preflight."""
-    instance = base / 'instance'
+def interrupted_environment(instance):
+    """Match the original installer's normalized paths, including on Windows."""
     database = instance / 'database' / 'database.sqlite'
     template = (ROOT / 'portable' / 'instance.env.example').read_text(encoding='utf-8')
-    quoted_database = '"' + str(database).replace('\\', '\\\\').replace('"', '\\"').replace('$', '\\$') + '"'
+    quoted_database = '"' + database.as_posix().replace('\\', '\\\\').replace('"', '\\"').replace('$', '\\$') + '"'
     replacements = {
         'APP_KEY': '', 'DB_DATABASE': quoted_database,
-        'SESSION_COOKIE': 'yanji_' + hashlib.sha256(str(instance).encode()).hexdigest()[:24],
+        'SESSION_COOKIE': 'yanji_' + hashlib.sha256(instance.as_posix().encode()).hexdigest()[:24],
     }
     for name, value in replacements.items():
         template, count = re.subn(r'^' + name + r'=.*$', lambda _: name + '=' + value,
@@ -92,11 +91,19 @@ def prepare_interrupted_fixture(base):
         if count != 1:
             raise AcceptanceError('interrupted_fixture_template_invalid')
     template = re.sub(r'^YANJI_DESKTOP_MODE=.*\n?', '', template, flags=re.MULTILINE)
+    return template.encode()
+
+
+def prepare_interrupted_fixture(base):
+    """Only a fresh, unkeyed interrupted installation may be created after preflight."""
+    instance = base / 'instance'
+    database = instance / 'database' / 'database.sqlite'
+    environment = interrupted_environment(instance)
     base.mkdir(parents=True)
     instance.mkdir()
     database.parent.mkdir()
     files = {
-        instance / '.env': template.encode(), database: b'',
+        instance / '.env': environment, database: b'',
         instance / '.portable-layout': b'yanji-portable-v1\n',
         instance / 'instance.json': b'{"port":8000}\n',
     }

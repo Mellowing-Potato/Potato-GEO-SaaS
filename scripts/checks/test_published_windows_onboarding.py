@@ -2,9 +2,10 @@
 import contextlib
 import importlib.util
 import io
+import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import subprocess
 import tempfile
 from types import SimpleNamespace
@@ -233,6 +234,17 @@ class PublishedWindowsOnboardingTest(unittest.TestCase):
         self.assertEqual(result['browser_gui'], 'not_verified')
         self.assertEqual(result['model_or_magpie_requests'], 'not_performed')
         self.assertNotIn(str(self.local), json.dumps(result))
+
+    def test_windows_interrupted_environment_uses_the_original_installer_slash_format(self):
+        instance = PureWindowsPath('C:/Users/example/AppData/Local/Yanji/instance')
+        self.assertIn('\\', str(instance))
+        environment = onboarding.interrupted_environment(instance).decode('utf-8')
+        self.assertIn('\nDB_DATABASE="C:/Users/example/AppData/Local/Yanji/instance/database/database.sqlite"\n', environment)
+        self.assertNotIn('\\', environment)
+        self.assertIn('\nSESSION_COOKIE=yanji_' + hashlib.sha256(instance.as_posix().encode()).hexdigest()[:24] + '\n',
+                      environment)
+        self.assertIn('\nAPP_KEY=\n', environment)
+        self.assertNotIn('YANJI_DESKTOP_MODE=', environment)
 
     def test_interrupted_fixture_has_no_existing_key_data_or_desktop_binding(self):
         onboarding.prepare_interrupted_fixture(self.base)
