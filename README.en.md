@@ -1,12 +1,12 @@
 # Yanji GEO-SaaS (言及) — Open-Source Self-Hosted GEO (Generative Engine Optimization) Project Workbench
 
-[简体中文](README.md) | **English** · Latest Release: [v0.1.2](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2) · License: [Apache-2.0](LICENSE) · [No-Docker Portable Guide (ZH)](PORTABLE.md) · [Docker Guide (ZH)](INSTALL.md) · [FAQ](#frequently-asked-questions-faq)
+[简体中文](README.md) | **English** · Latest Release: [v0.1.3](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.3) · License: [Apache-2.0](LICENSE) · [No-Docker Portable Guide (ZH)](PORTABLE.md) · [Docker Guide (ZH)](INSTALL.md) · [FAQ](#frequently-asked-questions-faq)
 
-> **v0.1.2 is published (active download entry); v0.1.3 is in release preparation (unreleased).** Portable single-user instances open directly at `http://127.0.0.1:8000` in any local browser without requiring an unconsumed one-time ticket, `get-yanji.ps1` uses pure 7-bit ASCII with `System32\curl.exe` proxy priority, and repository root `install.cmd` / `install.ps1` / `install.sh` launchers are included. `main` is prepared for `v0.1.3` (bundling cross-platform seamless auto-upgrade, AI-agent background daemon detachment, stone-white & deep-pine UI onboarding, URL import direct source links, Tremor-style analytics overview, and Symfony `v8.1.12` security updates); online download pins remain on `v0.1.2` until `v0.1.3` release assets and public-entry checks pass. See [Verified vs. Unverified](#verified-vs-unverified) and [CHANGELOG.md](CHANGELOG.md).
+> **v0.1.3 is published (seamless cross-version auto-upgrade, AI-agent daemon detachment & UI redesign).** Building on `v0.1.2` direct `http://127.0.0.1:8000` loopback access and pure 7-bit ASCII PowerShell bootstrapping, `v0.1.3` automatically backs up and upgrades existing older instances in place when re-running the standard installer on macOS / Windows / Linux, detaches background services cleanly from AI-agent subshells/Job Objects, and ships the stone-white & deep-pine palette, 3-step Day-1 onboarding, segmented model setup, readable URL import links, and Tremor-style analytics overview. See [Verified vs. Unverified](#verified-vs-unverified) and [CHANGELOG.md](CHANGELOG.md).
 
 **Yanji GEO-SaaS (言及)** is an open-source, self-hosted **GEO (Generative Engine Optimization / AI Search Optimization) project management and content delivery workbench** built for GEO agencies, solo consultants, and brand marketing teams. Run it locally with **zero Docker on macOS Apple Silicon, Windows x64, and Linux**—or self-host via **Docker**—with **Bring Your Own Key (BYOK)**, strict per-account workspace isolation, a 1024-dimensional RAG knowledge base, 11 rendered GEO skills, a browser draft assistant, and **Doubao (Volcengine Ark) AI search visibility monitoring**.
 
-> **Contents**: [Core Capabilities & 6-Stage GEO Workflow](#core-capabilities--6-stage-geo-workflow) · [Quick Install (v0.1.2)](#quick-install-v012) · [3-Minute Getting Started](#3-minute-getting-started) · [Screenshots](#screenshots) · [Capabilities & Boundaries](#capabilities--boundaries) · [Yanji vs. GEOFlow](#yanji-vs-geoflow) · [Channel Support](#channel-support) · [FAQ](#frequently-asked-questions-faq) · [Verified vs. Unverified](#verified-vs-unverified) · [License & Attribution](#license-attribution--branding)
+> **Contents**: [Core Capabilities & 6-Stage GEO Workflow](#core-capabilities--6-stage-geo-workflow) · [Quick Install (v0.1.3)](#quick-install-v013) · [3-Minute Getting Started](#3-minute-getting-started) · [Screenshots](#screenshots) · [Capabilities & Boundaries](#capabilities--boundaries) · [Yanji vs. GEOFlow](#yanji-vs-geoflow) · [Channel Support](#channel-support) · [FAQ](#frequently-asked-questions-faq) · [Verified vs. Unverified](#verified-vs-unverified) · [License & Attribution](#license-attribution--branding)
 
 ---
 
@@ -39,29 +39,29 @@ While classic SEO tools optimize for keyword rankings in traditional search engi
 
 ---
 
-## Quick Install (v0.1.2)
+## Quick Install (v0.1.3)
 
-**v0.1.2 is released.** Platform packages, checksums, corresponding source/relink kits and Docker image details are on [GitHub Release v0.1.2](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2). See [CHANGELOG.md](CHANGELOG.md).
+**v0.1.3 is released.** Platform packages, checksums, corresponding source/relink kits and Docker image details are on [GitHub Release v0.1.3](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.3). See [CHANGELOG.md](CHANGELOG.md).
 
 ### Option 1: One-Line No-Docker Portable Install (Recommended)
 
-Requires no pre-installed Docker, PHP, or Python. The bootstrapper enforces HTTPS (including redirects), verifies the pinned `SHA256SUMS` digest (`a2e8d887efea5ad8e89c367613364b2039c34a51ce5dec720f59db8fd48984b9`) and every file inside the archive, and provides a local `yanji` / `yanji.cmd` CLI (`start`, `stop`, `status`, `doctor`, `backup`, `restore`, `upgrade`).
+Requires no pre-installed Docker, PHP, or Python. The bootstrapper enforces HTTPS (including redirects), verifies the pinned `SHA256SUMS` digest (`eddbb3fc6961ae6660b92e326ad303bbe769c5a8f5afa3fb8bf2816c3d0e5fc5`) and every file inside the archive, and provides a local `yanji` / `yanji.cmd` CLI (`start`, `stop`, `status`, `doctor`, `backup`, `restore`, `upgrade`).
 
 **macOS (Apple Silicon M1–M4) & Linux (x86_64 / ARM64):**
 
 ```sh
-curl -fsSL https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.2/get-yanji.sh | sh
+curl -fsSL https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.3/get-yanji.sh | sh
 ```
 
 **Windows 10 / 11 (64-bit PowerShell 5.1+):**
 
 ```powershell
-irm https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.2/get-yanji.ps1 | iex
+irm https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/download/v0.1.3/get-yanji.ps1 | iex
 ```
 
-> Installation displays download, integrity-check, initialization and service-start progress. Initial readiness may take about a minute. Fresh portable instances need no email or password; once running, open `http://127.0.0.1:8000` directly in your local browser (configure `127.0.0.1` to bypass any local proxy), double-click the desktop shortcut, or run `yanji open`. See [PORTABLE.md](PORTABLE.md) for offline installs and operations. Intel Mac (`macos-x64`) requires Docker.
+> Installation displays download, integrity-check, initialization and service-start progress. Initial readiness may take about a minute. Fresh portable instances need no email or password; matching installed versions start immediately without re-downloading, and older installed versions automatically back up and upgrade in place. Once running, open `http://127.0.0.1:8000` directly in your local browser (configure `127.0.0.1` to bypass any local proxy), double-click the desktop shortcut, or run `yanji open`. See [PORTABLE.md](PORTABLE.md) for offline installs and operations. Intel Mac (`macos-x64`) requires Docker.
 
-You can also download the matching platform archive from [GitHub Release v0.1.2](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2) first, then follow the standard local installation steps in [PORTABLE.md](PORTABLE.md).
+You can also download the matching platform archive from [GitHub Release v0.1.3](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.3) first, then follow the standard local installation steps in [PORTABLE.md](PORTABLE.md).
 
 > **Portable access:** Single-user portable instances bind strictly to `127.0.0.1` and establish or reuse the owner session via same-origin loopback checks plus Cookie+Token binding. Existing account-based instances and explicit account credentials keep their original sign-in flow. The maintainer confirmed candidate installation, update, passwordless access, local Magpie service detection and model listing on Apple Silicon Mac. Magpie activation and real inference in this new flow remain untested.
 
@@ -75,7 +75,7 @@ cd yanji
 bash scripts/install.sh
 ```
 
-The script creates the initial admin interactively and starts `web`, `worker`, `scheduler` and `postgres` containers. See [INSTALL.md](INSTALL.md) and [v0.1.2 Release](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2) for image, backup/restore, upgrade and proxy DNS guidance.
+The script creates the initial admin interactively and starts `web`, `worker`, `scheduler` and `postgres` containers. See [INSTALL.md](INSTALL.md) and [v0.1.3 Release](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.3) for image, backup/restore, upgrade and proxy DNS guidance.
 
 ### Option 3: Install via an AI Assistant / One-Click Repo Entry
 
@@ -190,7 +190,9 @@ Traditional SEO tools target classic keyword rankings and backlinks. Yanji targe
 
 ## Verified vs. Unverified
 
-- **Current v0.1.2 formal release (2026-11-26)**: Build source `20d57bc17f541a3064a7c61b9b65d453a939c9cc`, unified `SHA256SUMS` digest `a2e8d887efea5ad8e89c367613364b2039c34a51ce5dec720f59db8fd48984b9`. All 12 jobs in [release workflow #45768018488](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488) passed: dual-architecture tests/audits, four native portable packages and acceptance flows, dual-architecture Docker images, formal publication of 17 release assets, and standard public-entry checks on macOS and Windows ([Mac fresh](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468654), [Mac interrupted](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468642), [Windows fresh](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468597), [Windows interrupted](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468596)), alongside pure 7-bit ASCII `get-yanji.ps1` verification and direct loopback same-origin session/anti-CSRF/proxy checks. Public-entry CI checks do not replace manual desktop GUI verification, specific third-party agent UX verification, or live paid-model inference.
+- **Current v0.1.3 formal release (2026-11-27)**: Build source `a9d84db7ca30c3201bc9dd872d9b70f551972866`, unified `SHA256SUMS` digest `eddbb3fc6961ae6660b92e326ad303bbe769c5a8f5afa3fb8bf2816c3d0e5fc5`. All 12 jobs in [release workflow #45850087833](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833) passed: dual-architecture tests/audits, four native portable packages and acceptance flows, dual-architecture Docker images, formal publication of 17 release assets, and standard public-entry checks on macOS and Windows ([Mac fresh](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833/job/140034075059), [Mac interrupted](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833/job/140034074992), [Windows fresh](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833/job/140034075043), [Windows interrupted](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833/job/140034074933)), alongside pure 7-bit ASCII `get-yanji.ps1` verification, cross-version auto-upgrade/rollback regressions, background daemon detachment, and UI/onboarding test suites. Public-entry CI checks do not replace manual desktop GUI verification, specific third-party agent UX verification, or live paid-model inference.
+
+- **Historical v0.1.2 formal release (2026-11-26)**: Build source `20d57bc17f541a3064a7c61b9b65d453a939c9cc`, unified `SHA256SUMS` digest `a2e8d887efea5ad8e89c367613364b2039c34a51ce5dec720f59db8fd48984b9`. All 12 jobs in [release workflow #45768018488](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488) passed: dual-architecture tests/audits, four native portable packages and acceptance flows, dual-architecture Docker images, formal publication of 17 release assets, and standard public-entry checks on macOS and Windows ([Mac fresh](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468654), [Mac interrupted](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468642), [Windows fresh](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468597), [Windows interrupted](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488/job/139745468596)), alongside pure 7-bit ASCII `get-yanji.ps1` verification and direct loopback same-origin session/anti-CSRF/proxy checks. Public-entry CI checks do not replace manual desktop GUI verification, specific third-party agent UX verification, or live paid-model inference.
 
 - **Historical v0.1.1 same-version repair/reissue**: All 12 jobs in [release workflow #45737825566](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566) passed: dual-architecture tests/audits, four native portable packages and acceptance flows, dual-architecture Docker images, formal asset publication, and the standard public commands on macOS and Windows ([Mac fresh](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649102537), [Mac interrupted](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649099554), [Windows fresh](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649101890), [Windows interrupted](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45737825566/job/139649100868)). Build source: `6f797567dd18833412f1a6e0ff4c139129106949`. Public-entry checks used default paths and port 8000, verified the build, read-only onboarding, passwordless cookie and protected workspace API, and rejected anonymous requests and tokens without cookie binding. These checks do not verify real GUI use, particular agent products, or real model inference. Earlier source/package Windows entry checks (two canonical and four registered `.lnk` cases each, including Unicode directories) remain documented in [native workflow #45665229256](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45665229256/job/139385482871).
 
@@ -210,7 +212,7 @@ Traditional SEO tools target classic keyword rankings and backlinks. Yanji targe
 
 ## License, Attribution & Branding
 
-Yanji source code is licensed under [Apache-2.0](LICENSE). Third-party code, dependencies, fonts and skills retain their licenses; see [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Corresponding source and relink kits for portable runtimes are distributed with [GitHub Release v0.1.2](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2).
+Yanji source code is licensed under [Apache-2.0](LICENSE). Third-party code, dependencies, fonts and skills retain their licenses; see [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Corresponding source and relink kits for portable runtimes are distributed with [GitHub Release v0.1.3](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.3).
 
 Ported GEOFlow code originates from Apache-2.0 historical commits `7a8f6ff2643222cadbfb9b2bbb4252284df6ea72` and v2.3.0 (`97119662325b1d6d88ff6a3f390567bcfa91eedd`). Pinned `yao-geo-skills` assets come from commit `136eb92c90946ea56ec63f912d5025bcbc884f39` (MIT).
 

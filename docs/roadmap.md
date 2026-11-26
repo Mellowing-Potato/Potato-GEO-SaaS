@@ -32,7 +32,7 @@
 
 ## 等待维护者实测
 
-- [ ] **macOS / Windows / Linux 跨版本同入口无感升级与智能体后台保活（v0.1.3 发行准备中，未发布）**：针对用户从旧版重跑安装入口报“实例已有其他程序版本”及智能体工具退出后后台服务被宿主回收/管道阻塞问题，已在全平台便携安装器与 `yanji.php` 实现合法已有实例自动备份+迁移升级与失败回滚、同版本在线重跑免重下大包秒开、macOS/Linux 双 `fork` 抗 `SIGHUP` + 关闭继承管道 FD、Windows `CREATE_BREAKAWAY_FROM_JOB` + WMI `Win32_Process` 三级脱离宿主 Job Object，并在 `AGENTS.md` / `README` 补充用户仅发仓库链接时的极简智能体安装指引。当前已随界面改动进入 `v0.1.3` 发行准备（未发布），待正式资产打包、公开入口验收及真实 macOS / Windows 桌面与智能体环境复测确认后关闭。
+- [ ] **macOS / Windows / Linux 跨版本同入口无感升级与智能体后台保活（v0.1.3 已发布，剩余桌面实测见下）**：针对用户从旧版重跑安装入口报“实例已有其他程序版本”及智能体工具退出后后台服务被宿主回收/管道阻塞问题，已在全平台便携安装器与 `yanji.php` 实现合法已有实例自动备份+迁移升级与失败回滚、同版本在线重跑免重下大包秒开、macOS/Linux 双 `fork` 抗 `SIGHUP` + 关闭继承管道 FD、Windows `CREATE_BREAKAWAY_FROM_JOB` + WMI `Win32_Process` 三级脱离宿主 Job Object，并在 `AGENTS.md` / `README` 补充用户仅发仓库链接时的极简智能体安装指引。构建源 `a9d84db7ca30c3201bc9dd872d9b70f551972866`，清单 SHA-256 `eddbb3fc6961ae6660b92e326ad303bbe769c5a8f5afa3fb8bf2816c3d0e5fc5`；[发行流 #45850087833](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833) 的 12 项任务全部通过（含 macOS/Windows 各两项公开标准安装入口验收），`portable/release-pin.json` 与文档摘要已切换至 `v0.1.3`。不因正式发布或自动化 CI 通过而勾选本项，待真实 macOS / Windows 桌面与智能体环境复测确认后关闭。
 
 - [ ] **Windows 与通用智能体开箱即用修复（v0.1.2 已发布，剩余桌面实测见下）**：针对真实 Windows 用户经智能体安装反馈的中文 PowerShell 5.1（GBK）无 BOM 解析失败、本地代理 `.NET` 下载卡住、沙箱快捷方式创建失败及一次性启动票据被顶替/失效无法进入工作台问题，已将便携本机单人模式升级为 `127.0.0.1` 同源直连免票据进入（保留仅回环监听、`Origin`/`Host`/`Sec-Fetch-Site` 防跨站、外部反代拒绝与 `proxy_detected` 指引、Cookie+Token 鉴权及账号模式），将 `get-yanji.ps1` 改为纯 7-bit ASCII + `System32\curl.exe` 优先下载，加固 OneDrive/无桌面外壳快捷方式回退，并在仓库根目录新增 `install.ps1` / `install.cmd` / `install.sh` 一键入口。构建源 `20d57bc17f541a3064a7c61b9b65d453a939c9cc`，清单 SHA-256 `a2e8d887efea5ad8e89c367613364b2039c34a51ce5dec720f59db8fd48984b9`；[发行流 #45768018488](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45768018488) 的 12 项任务全部通过（含 macOS/Windows 各两项公开标准安装入口验收），`portable/release-pin.json` 与文档摘要已切换至 `v0.1.2`。不因正式发布或自动化 CI 通过而勾选本项，待真实 Windows 桌面及智能体环境复测确认后关闭。
 
@@ -44,6 +44,6 @@
   - 维护者已在 Apple Silicon Mac 候选包上确认安装、更新、免登录工作台，以及网页检测本机 Magpie 服务和读取模型目录。设置页已移除内部权限代码。
   - 当前来源截图仍为第三方直连；本轮 Magpie 模型激活与真实推理未跑，不能把服务身份和模型目录作为账号及推理验收通过证据。
   - `v0.1.1` 首次发行历史 CI 证据：8 个任务全部通过：双架构完整测试与审计、四平台组包和原生验收、双架构镜像及 17 项发行资产上传（[发行流 #45572085735](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45572085735)）。Linux amd64 Docker 完整手工流程、Windows 桌面浏览器仍待验收；R1 与 P1/P7 保持未勾选。服务与目录检查不替代模型激活和真实推理验收。
-- [ ] **全站配色收敛（素白与深松）、首次上手引导与分析/导入可读性优化（v0.1.3 发行准备中，待本机桌面实测验收）**：独立收口为素白底面 + 单一中性墨阶 + 深松绿主色，同步更新品牌 SVG 与顶栏 `GEO` 标识；优化本机启动页 3 步流程预览、模型配置页分段直连/Magpie 与可选能力折叠、首次建项目 3 步指引、Day-1 首个技能启动卡、大屏居中适配、报告阅读页字阶与折叠区排版，并补充 URL 导入可读短链直达源站与 Tremor 风格分析概览。自动化检查与静态预览浏览器核对不替代真实桌面使用体验验收。
+- [ ] **全站配色收敛（素白与深松）、首次上手引导与分析/导入可读性优化（v0.1.3 已发布，待本机桌面实测验收）**：独立收口为素白底面 + 单一中性墨阶 + 深松绿主色，同步更新品牌 SVG 与顶栏 `GEO` 标识；优化本机启动页 3 步流程预览、模型配置页分段直连/Magpie 与可选能力折叠、首次建项目 3 步指引、Day-1 首个技能启动卡、大屏居中适配、报告阅读页字阶与折叠区排版，并补充 URL 导入可读短链直达源站与 Tremor 风格分析概览。已随 `v0.1.3`（[#45850087833](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/actions/runs/45850087833)）正式打包发布；自动化检查与静态预览浏览器核对不替代真实桌面使用体验验收。
 
 以下事项需要真实账号验收，助手不主动领取：微博文章草稿（含图片转存）、WordPress 与 HTTP 接收端的真实远端发布、微信公众号草稿、视觉模型识别扫描件。
