@@ -191,6 +191,7 @@ if (\$cmd === 'yanji:ready') {
     }
     try {
         \$db = new SQLite3(\$dbPath, SQLITE3_OPEN_READONLY);
+        \$db->busyTimeout(5000);
         \$ok = \$db->querySingle("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'");
         \$db->close();
         exit(\$ok === 'projects' ? 0 : 1);
@@ -331,6 +332,7 @@ PHP;
 
         // Record user data in SQLite and private storage to prove zero data loss across auto-upgrade.
         $db = new SQLite3($instRoot.'/database/database.sqlite');
+        $db->busyTimeout(5000);
         $db->exec("INSERT INTO projects (name) VALUES ('客户项目Alpha')");
         $db->close();
         mkdir($instRoot.'/storage/app/private/executions/1', 0700, true);
@@ -356,6 +358,7 @@ PHP;
         self::assertFileDoesNotExist($instRoot.'/run/upgrade-hold');
 
         $dbAfter = new SQLite3($instRoot.'/database/database.sqlite', SQLITE3_OPEN_READONLY);
+        $dbAfter->busyTimeout(5000);
         $names = [];
         $res = $dbAfter->query('SELECT name FROM projects');
         while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
@@ -397,6 +400,7 @@ PHP;
         $installGood->mustRun();
 
         $db = new SQLite3($instRoot.'/database/database.sqlite');
+        $db->busyTimeout(5000);
         $db->exec("INSERT INTO projects (name) VALUES ('回滚保护项目')");
         $db->close();
 
@@ -415,6 +419,7 @@ PHP;
         self::assertFileDoesNotExist($instRoot.'/run/upgrade-hold');
 
         $dbRolledBack = new SQLite3($instRoot.'/database/database.sqlite', SQLITE3_OPEN_READONLY);
+        $dbRolledBack->busyTimeout(5000);
         $names = [];
         $res = $dbRolledBack->query('SELECT name FROM projects');
         while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
