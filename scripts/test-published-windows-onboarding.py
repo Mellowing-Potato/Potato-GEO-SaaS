@@ -47,13 +47,23 @@ def linked(path):
     return path.is_symlink() or (hasattr(path, 'is_junction') and path.is_junction())
 
 
-def preflight(version):
+def preflight(version, source_commit=None):
     release_url(version)
     expected = {
         'GITHUB_ACTIONS': 'true', 'RUNNER_OS': 'Windows',
         'RUNNER_ENVIRONMENT': 'github-hosted', 'GITHUB_REPOSITORY': REPOSITORY,
-        'GITHUB_REF_TYPE': 'tag', 'GITHUB_REF_NAME': version, 'GITHUB_REF': 'refs/tags/' + version,
     }
+    if source_commit is None:
+        expected.update({'GITHUB_REF_TYPE': 'tag', 'GITHUB_REF_NAME': version,
+                         'GITHUB_REF': 'refs/tags/' + version})
+    else:
+        if not re.fullmatch(r'[a-f0-9]{40}', source_commit):
+            raise AcceptanceError('fixed_release_source_required')
+        expected.update({
+            'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_REF_TYPE': 'branch',
+            'GITHUB_REF_NAME': 'main', 'GITHUB_REF': 'refs/heads/main',
+            'GITHUB_WORKFLOW_REF': REPOSITORY + '/.github/workflows/public-entry-verify.yml@refs/heads/main',
+        })
     if sys.platform != 'win32' or any(os.environ.get(key) != value for key, value in expected.items()):
         raise AcceptanceError('fresh_github_hosted_windows_required')
     if not re.fullmatch(r'[a-f0-9]{40}', os.environ.get('GITHUB_SHA', '')):
@@ -148,7 +158,7 @@ def read_json(path):
     return json.loads(path.read_text(encoding='utf-8'))
 
 
-def check_installed_release(base, version):
+def check_installed_release(base, version, source_commit=None):
     instance = base / 'instance'
     launcher = instance / 'yanji.cmd'
     pointer = instance / 'current-release.txt'
@@ -164,13 +174,19 @@ def check_installed_release(base, version):
     receipt = read_json(release / 'release.json')
     if not isinstance(receipt, dict) or receipt.get('platform') != 'windows-x86_64':
         raise AcceptanceError('installed_platform_is_not_windows_x86_64')
-    commit = os.environ.get('GITHUB_SHA', '')
-    if not re.fullmatch(r'[a-f0-9]{40}', commit) or receipt.get('commit') != commit:
+    workflow_commit = os.environ.get('GITHUB_SHA', '')
+    commit = source_commit if source_commit is not None else workflow_commit
+    if not re.fullmatch(r'[a-f0-9]{40}', workflow_commit) or not re.fullmatch(r'[a-f0-9]{40}', commit) \
+            or receipt.get('commit') != commit:
         raise AcceptanceError('installed_source_differs_from_release_run')
     config = read_json(instance / 'instance.json')
     if not isinstance(config, dict) or type(config.get('port')) is not int or config['port'] != PORT:
         raise AcceptanceError('installed_instance_did_not_use_default_port')
     return instance
+
+
+def load_public_entry_support():
+    return runpy.run_path(str(ROOT / 'scripts' / 'public-entry-support.py'))
 
 
 def load_desktop_helpers():
@@ -203,45 +219,73 @@ def stop_instance(instance, helpers):
         raise AcceptanceError('installed_instance_cleanup_failed')
 
 
-def run_acceptance(version, scenario='fresh'):
-    if scenario not in ('fresh', 'interrupted'):
-        raise AcceptanceError('invalid_acceptance_scenario')
-    # Refuse existing data before loading helpers or reaching cleanup.
-    base = preflight(version)
-    instance = base / 'instance'
-    helpers = load_desktop_helpers()
-    if scenario == 'interrupted':
-        prepare_interrupted_fixture(base)
+def run_acceptance(version, scenario='fresh', source_commit=None):
+    stage = 'preflight'
     try:
-        pipeline = run_published_pipeline(version)
-        check_installed_release(base, version)
-        check_services(instance, helpers)
-        helpers['onboarding_and_check'](instance, PORT)
-        helpers['write_acceptance_marker'](instance / '.portable-acceptance')
-        identity = helpers['authorize_and_check'](instance, PORT)
-        if not isinstance(identity, dict) or any(type(identity.get(key)) is not int or identity[key] <= 0
-                                                 for key in ('user_id', 'tenant_id')):
-            raise AcceptanceError('desktop_workspace_identity_invalid')
-    finally:
-        stop_instance(instance, helpers)
-    return {'published_reader_entry': 'passed', 'version': version, 'scenario': scenario, **pipeline,
-            'default_location_and_port': True, 'fixed_release_source': True, 'services_ready': True,
-            'agent_onboarding_and_entry': True, 'workspace_cookie_and_api': True,
-            'anonymous_and_unbound_tokens_rejected': True, 'instance_stopped': True,
-            'model_or_magpie_requests': 'not_performed', 'browser_gui': 'not_verified'}
+        if scenario not in ('fresh', 'interrupted'):
+            raise AcceptanceError('invalid_acceptance_scenario')
+        # Refuse existing data before loading helpers or reaching cleanup.
+        base = preflight(version) if source_commit is None else preflight(version, source_commit=source_commit)
+        instance = base / 'instance'
+        helpers = load_desktop_helpers()
+        support = load_public_entry_support()
+        if scenario == 'interrupted':
+            stage = 'interrupted_fixture'
+            prepare_interrupted_fixture(base)
+        try:
+            stage = 'published_pipeline'
+            pipeline = run_published_pipeline(version)
+            stage = 'installed_release'
+            if source_commit is None:
+                check_installed_release(base, version)
+            else:
+                check_installed_release(base, version, source_commit=source_commit)
+            stage = 'services'
+            check_services(instance, helpers)
+            stage = 'initial_authorization_settle'
+            support['wait_for_initial_authorization_settle'](instance)
+            stage = 'onboarding'
+            helpers['onboarding_and_check'](instance, PORT)
+            stage = 'acceptance_marker'
+            helpers['write_acceptance_marker'](instance / '.portable-acceptance')
+            stage = 'workspace_authorization'
+            identity = helpers['authorize_and_check'](instance, PORT)
+            if not isinstance(identity, dict) or any(type(identity.get(key)) is not int or identity[key] <= 0
+                                                     for key in ('user_id', 'tenant_id')):
+                raise AcceptanceError('desktop_workspace_identity_invalid')
+        except Exception as error:
+            error._published_stage = stage
+            raise
+        finally:
+            try:
+                stop_instance(instance, helpers)
+            except Exception as error:
+                error._published_stage = 'cleanup'
+                raise
+        return {'published_reader_entry': 'passed', 'version': version, 'scenario': scenario, **pipeline,
+                'default_location_and_port': True, 'fixed_release_source': True, 'services_ready': True,
+                'agent_onboarding_and_entry': True, 'workspace_cookie_and_api': True,
+                'anonymous_and_unbound_tokens_rejected': True, 'instance_stopped': True,
+                'model_or_magpie_requests': 'not_performed', 'browser_gui': 'not_verified'}
+    except Exception as error:
+        if not hasattr(error, '_published_stage'):
+            error._published_stage = stage
+        raise
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--version', required=True)
     parser.add_argument('--scenario', choices=('fresh', 'interrupted'), default='fresh')
+    parser.add_argument('--source-commit', help='Existing release source, only in the hosted main-branch verification workflow')
     arguments = parser.parse_args(argv)
     try:
-        result = run_acceptance(arguments.version, arguments.scenario)
-    except AcceptanceError as error:
-        result = {'published_reader_entry': 'failed', 'code': error.code}
-    except Exception:
-        result = {'published_reader_entry': 'failed', 'code': 'unexpected_acceptance_failure'}
+        result = (run_acceptance(arguments.version, arguments.scenario) if arguments.source_commit is None
+                  else run_acceptance(arguments.version, arguments.scenario, source_commit=arguments.source_commit))
+    except Exception as error:
+        support = load_public_entry_support()
+        result = {'published_reader_entry': 'failed',
+                  **support['safe_failure_diagnostic'](error, getattr(error, '_published_stage', 'acceptance'))}
     print(json.dumps(result, sort_keys=True))
     return 0 if result['published_reader_entry'] == 'passed' else 1
 

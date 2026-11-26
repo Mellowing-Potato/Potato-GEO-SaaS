@@ -24,9 +24,10 @@ PORT = 8000
 
 
 class AcceptanceError(Exception):
-    def __init__(self, code):
+    def __init__(self, code, stage=None):
         super().__init__(code)
         self.code = code
+        self.stage = stage
 
 
 def release_url(version):
@@ -35,13 +36,21 @@ def release_url(version):
     return f'https://github.com/{REPOSITORY}/releases/download/{version}/get-yanji.sh'
 
 
-def preflight(version):
+def preflight(version, source_commit=None):
     release_url(version)
     expected = {
         'GITHUB_ACTIONS': 'true', 'RUNNER_OS': 'macOS',
         'RUNNER_ENVIRONMENT': 'github-hosted', 'GITHUB_REPOSITORY': REPOSITORY,
-        'GITHUB_REF_TYPE': 'tag', 'GITHUB_REF_NAME': version, 'GITHUB_REF': 'refs/tags/' + version,
     }
+    if source_commit is None:
+        expected.update({'GITHUB_REF_TYPE': 'tag', 'GITHUB_REF_NAME': version,
+                         'GITHUB_REF': 'refs/tags/' + version})
+    else:
+        if not re.fullmatch(r'[a-f0-9]{40}', source_commit):
+            raise AcceptanceError('fixed_release_source_required')
+        expected.update({'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_REF_TYPE': 'branch',
+                         'GITHUB_REF_NAME': 'main', 'GITHUB_REF': 'refs/heads/main',
+                         'GITHUB_WORKFLOW_REF': REPOSITORY + '/.github/workflows/public-entry-verify.yml@refs/heads/main'})
     if sys.platform != 'darwin' or any(os.environ.get(key) != value for key, value in expected.items()):
         raise AcceptanceError('fresh_github_hosted_macos_required')
     if not re.fullmatch(r'[a-f0-9]{40}', os.environ.get('GITHUB_SHA', '')):
@@ -141,7 +150,7 @@ def read_json(path):
     return json.loads(path.read_text(encoding='utf-8'))
 
 
-def check_installed_release(base, version):
+def check_installed_release(base, version, source_commit=None):
     instance = base / 'instance'
     launcher = instance / 'yanji'
     if launcher.is_symlink() or not launcher.is_file():
@@ -154,7 +163,7 @@ def check_installed_release(base, version):
     receipt = read_json(release / 'release.json')
     if not isinstance(receipt, dict) or receipt.get('platform') != 'macos-arm64':
         raise AcceptanceError('installed_platform_is_not_macos_arm64')
-    expected_commit = os.environ.get('GITHUB_SHA', '')
+    expected_commit = source_commit if source_commit is not None else os.environ.get('GITHUB_SHA', '')
     if not re.fullmatch(r'[a-f0-9]{40}', expected_commit) or receipt.get('commit') != expected_commit:
         raise AcceptanceError('installed_source_differs_from_release_run')
     config = read_json(instance / 'instance.json')
@@ -183,6 +192,10 @@ def load_desktop_helpers():
     return runpy.run_path(str(ROOT / 'scripts' / 'test-portable-desktop.py'))
 
 
+def load_public_entry_support():
+    return runpy.run_path(str(ROOT / 'scripts' / 'public-entry-support.py'))
+
+
 def stop_instance(instance):
     launcher = instance / 'yanji'
     if launcher.is_symlink():
@@ -199,32 +212,58 @@ def stop_instance(instance):
         raise AcceptanceError('installed_instance_cleanup_failed')
 
 
-def run_acceptance(version, scenario='fresh'):
+def run_acceptance(version, scenario='fresh', source_commit=None):
     if scenario not in ('fresh', 'interrupted'):
         raise AcceptanceError('invalid_acceptance_scenario')
     # Refusing an existing directory happens before the try/finally: never stop a prior instance.
-    base = preflight(version)
+    base = preflight(version) if source_commit is None else preflight(version, source_commit)
     instance = base / 'instance'
+    support = load_public_entry_support()
     if scenario == 'interrupted':
         prepare_interrupted_fixture(base)
+    stage = 'published_pipeline'
     try:
         pipeline = run_published_pipeline(version)
-        check_installed_release(base, version)
+        stage = 'installed_release'
+        if source_commit is None:
+            check_installed_release(base, version)
+        else:
+            check_installed_release(base, version, source_commit)
+        stage = 'services'
         check_services(instance)
         helpers = load_desktop_helpers()
+        stage = 'initial_authorization_settle'
+        support['wait_for_initial_authorization_settle'](instance)
+        stage = 'onboarding'
         helpers['onboarding_and_check'](instance, PORT)
+        stage = 'acceptance_marker'
         marker = instance / '.portable-acceptance'
         helpers['write_acceptance_marker'](marker)
         marker.chmod(0o600)
+        stage = 'workspace_authorization'
         identity = helpers['authorize_and_check'](instance, PORT)
         if not isinstance(identity, dict) or any(type(identity.get(key)) is not int or identity[key] <= 0
                                                  for key in ('user_id', 'tenant_id')):
             raise AcceptanceError('desktop_workspace_identity_invalid')
+    except AcceptanceError as error:
+        if error.stage is None:
+            error.stage = stage
+        raise
+    except Exception as error:
+        diagnostic = support['safe_failure_diagnostic'](error, stage)
+        raise AcceptanceError(diagnostic['code'], diagnostic['stage']) from None
     finally:
-        stop_instance(instance)
+        try:
+            stop_instance(instance)
+        except AcceptanceError as error:
+            error.stage = 'cleanup'
+            raise
     return {'published_reader_entry': 'passed', 'version': version, 'scenario': scenario, **pipeline,
             'default_location_and_port': True, 'services_ready': True,
             'fixed_release_source': True, 'agent_onboarding_and_entry': True,
+            'initial_authorization_settled': True,
+            'source_commit': source_commit if source_commit is not None else os.environ.get('GITHUB_SHA', ''),
+            'test_source_commit': os.environ.get('GITHUB_SHA', ''),
             'workspace_cookie_and_api': True, 'anonymous_and_unbound_tokens_rejected': True,
             'instance_stopped': True, 'model_or_magpie_requests': 'not_performed',
             'browser_gui': 'not_verified'}
@@ -234,11 +273,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--version', required=True, help='The release tag from the GitHub tag event')
     parser.add_argument('--scenario', choices=('fresh', 'interrupted'), default='fresh')
+    parser.add_argument('--source-commit', help='Exact release source for the main-only hosted verification workflow')
     arguments = parser.parse_args(argv)
     try:
-        result = run_acceptance(arguments.version, arguments.scenario)
+        result = run_acceptance(arguments.version, arguments.scenario, arguments.source_commit)
     except AcceptanceError as error:
         result = {'published_reader_entry': 'failed', 'code': error.code}
+        if error.stage is not None:
+            result['stage'] = error.stage
     except Exception:
         # Exceptions from tools/helpers can include credentials, command arguments or private paths.
         result = {'published_reader_entry': 'failed', 'code': 'unexpected_acceptance_failure'}

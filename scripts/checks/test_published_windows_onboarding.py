@@ -40,6 +40,15 @@ class PublishedWindowsOnboardingTest(unittest.TestCase):
         # The macOS temporary directory may itself have a linked ancestor, unlike this fake runner.
         self.linked = self.enterContext(patch.object(onboarding, 'linked', side_effect=lambda path: path.is_symlink()))
         self.socket = self.enterContext(patch.object(onboarding.socket, 'socket'))
+        original_support_loader = onboarding.load_public_entry_support
+        self.wait_for_initial_authorization = MagicMock(return_value={'state': 'consumed', 'waited_seconds': 0})
+
+        def support_loader():
+            support = original_support_loader()
+            support['wait_for_initial_authorization_settle'] = self.wait_for_initial_authorization
+            return support
+
+        self.enterContext(patch.object(onboarding, 'load_public_entry_support', side_effect=support_loader))
         self.helpers = {
             'read_management_json': MagicMock(return_value=({'ready': True, 'writes_enabled': True,
                 'services': {role: {'healthy': True} for role in ('web', 'worker', 'scheduler')}}, b'{}')),
@@ -72,7 +81,7 @@ class PublishedWindowsOnboardingTest(unittest.TestCase):
                     status = onboarding.main(['--version', VERSION, '--scenario', scenario])
                 self.assertEqual(status, 1)
                 self.assertEqual(json.loads(output.getvalue()), {
-                    'published_reader_entry': 'failed', 'code': 'fresh_github_hosted_windows_required'})
+                    'published_reader_entry': 'failed', 'code': 'fresh_github_hosted_windows_required', 'stage': 'preflight'})
                 self.assertNotIn(str(self.local), output.getvalue())
         self.assertFalse(self.base.exists())
         self.folder.assert_not_called()
@@ -227,6 +236,7 @@ class PublishedWindowsOnboardingTest(unittest.TestCase):
              patch.object(onboarding, 'run_published_pipeline', return_value={'powershell_exit': 0}), \
              patch.object(onboarding, 'load_desktop_helpers', return_value=self.helpers):
             result = onboarding.run_acceptance(VERSION)
+        self.wait_for_initial_authorization.assert_called_once_with(instance)
         self.helpers['onboarding_and_check'].assert_called_once_with(instance, 8000)
         self.helpers['authorize_and_check'].assert_called_once_with(instance, 8000)
         self.helpers['manage'].assert_called_once_with(instance / 'yanji.cmd', 'stop', check=False)
@@ -304,6 +314,143 @@ class PublishedWindowsOnboardingTest(unittest.TestCase):
              patch.object(onboarding, 'load_desktop_helpers', return_value=self.helpers):
             with self.assertRaisesRegex(onboarding.AcceptanceError, 'desktop_workspace_identity_invalid'):
                 onboarding.run_acceptance(VERSION)
+        self.helpers['manage'].assert_called_once()
+
+    def dispatch_environment(self):
+        return {
+            'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_REF_TYPE': 'branch',
+            'GITHUB_REF_NAME': 'main', 'GITHUB_REF': 'refs/heads/main',
+            'GITHUB_WORKFLOW_REF': onboarding.REPOSITORY + '/.github/workflows/public-entry-verify.yml@refs/heads/main',
+            'GITHUB_SHA': 'b' * 40,
+        }
+
+    def test_explicit_source_is_allowed_only_in_the_exact_hosted_main_verification_workflow(self):
+        with patch.dict(os.environ, self.dispatch_environment()):
+            self.assertEqual(onboarding.preflight(VERSION, source_commit=COMMIT), self.base)
+            invalid = [
+                ('GITHUB_EVENT_NAME', 'push'), ('GITHUB_REF_TYPE', 'tag'),
+                ('GITHUB_REF_NAME', 'example'), ('GITHUB_REF', 'refs/heads/example'),
+                ('GITHUB_WORKFLOW_REF', onboarding.REPOSITORY + '/.github/workflows/release.yml@refs/heads/main'),
+                ('GITHUB_WORKFLOW_REF', 'example/project/.github/workflows/public-entry-verify.yml@refs/heads/main'),
+                ('GITHUB_WORKFLOW_REF', onboarding.REPOSITORY + '/.github/workflows/public-entry-verify.yml@refs/heads/example'),
+                ('RUNNER_ENVIRONMENT', 'self-hosted'), ('GITHUB_REPOSITORY', 'example/project'),
+            ]
+            for key, value in invalid:
+                with self.subTest(key=key, value=value), patch.dict(os.environ, {key: value}):
+                    with self.assertRaisesRegex(onboarding.AcceptanceError, 'fresh_github_hosted_windows_required'):
+                        onboarding.preflight(VERSION, source_commit=COMMIT)
+            with patch.dict(os.environ, {'GITHUB_SHA': 'invalid'}):
+                with self.assertRaisesRegex(onboarding.AcceptanceError, 'fixed_release_source_required'):
+                    onboarding.preflight(VERSION, source_commit=COMMIT)
+
+    def test_tag_flow_cannot_override_its_receipt_source_and_dispatch_cannot_omit_source(self):
+        for supplied in (COMMIT, 'b' * 40):
+            with self.subTest(source=supplied):
+                with self.assertRaisesRegex(onboarding.AcceptanceError, 'fresh_github_hosted_windows_required'):
+                    onboarding.preflight(VERSION, source_commit=supplied)
+        with patch.dict(os.environ, self.dispatch_environment()):
+            with self.assertRaisesRegex(onboarding.AcceptanceError, 'fresh_github_hosted_windows_required'):
+                onboarding.preflight(VERSION)
+            for source in ('', 'short', 'A' * 40, COMMIT + '\n'):
+                with self.subTest(source=source), self.assertRaisesRegex(onboarding.AcceptanceError, 'fixed_release_source_required'):
+                    onboarding.preflight(VERSION, source_commit=source)
+
+    def test_dispatch_checks_receipt_against_release_source_without_losing_test_source_binding(self):
+        instance, release = self.fixture_installation()
+        with patch.dict(os.environ, self.dispatch_environment()):
+            self.assertEqual(onboarding.check_installed_release(self.base, VERSION, source_commit=COMMIT), instance)
+            with self.assertRaisesRegex(onboarding.AcceptanceError, 'installed_source_differs_from_release_run'):
+                onboarding.check_installed_release(self.base, VERSION)
+            (release / 'release.json').write_text(json.dumps({'platform': 'windows-x86_64', 'commit': 'c' * 40}))
+            with self.assertRaisesRegex(onboarding.AcceptanceError, 'installed_source_differs_from_release_run'):
+                onboarding.check_installed_release(self.base, VERSION, source_commit=COMMIT)
+            with patch.dict(os.environ, {'GITHUB_SHA': ''}):
+                with self.assertRaisesRegex(onboarding.AcceptanceError, 'installed_source_differs_from_release_run'):
+                    onboarding.check_installed_release(self.base, VERSION, source_commit=COMMIT)
+
+    def test_source_override_is_forwarded_only_when_explicitly_requested(self):
+        self.fixture_installation()
+        with patch.object(onboarding, 'preflight', return_value=self.base) as guard, \
+             patch.object(onboarding, 'run_published_pipeline', return_value={'powershell_exit': 0}), \
+             patch.object(onboarding, 'load_desktop_helpers', return_value=self.helpers), \
+             patch.dict(os.environ, self.dispatch_environment()):
+            result = onboarding.run_acceptance(VERSION, source_commit=COMMIT)
+        guard.assert_called_once_with(VERSION, source_commit=COMMIT)
+        self.assertEqual(result['published_reader_entry'], 'passed')
+        with patch.object(onboarding, 'run_acceptance', return_value={'published_reader_entry': 'passed'}) as run:
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(onboarding.main(['--version', VERSION, '--source-commit', COMMIT]), 0)
+        run.assert_called_once_with(VERSION, 'fresh', source_commit=COMMIT)
+
+    def test_initial_browser_authorization_settles_before_strict_read_only_onboarding(self):
+        self.fixture_installation()
+        events = []
+        self.wait_for_initial_authorization.side_effect = lambda _: events.append('settle')
+        self.helpers['onboarding_and_check'].side_effect = lambda *_: events.append('onboarding')
+        with patch.object(onboarding, 'preflight', return_value=self.base), \
+             patch.object(onboarding, 'run_published_pipeline', return_value={'powershell_exit': 0}), \
+             patch.object(onboarding, 'load_desktop_helpers', return_value=self.helpers):
+            onboarding.run_acceptance(VERSION)
+        self.assertEqual(events, ['settle', 'onboarding'])
+
+    def test_assertion_diagnostics_keep_exact_stage_and_never_include_arbitrary_error_text(self):
+        self.fixture_installation()
+        private = 'sk-test-never-print-private-diagnostic ' + str(self.local)
+        self.helpers['onboarding_and_check'].side_effect = AssertionError(private)
+        with patch.object(onboarding, 'preflight', return_value=self.base), \
+             patch.object(onboarding, 'run_published_pipeline', return_value={'powershell_exit': 0}), \
+             patch.object(onboarding, 'load_desktop_helpers', return_value=self.helpers):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(onboarding.main(['--version', VERSION]), 1)
+        result = json.loads(output.getvalue())
+        self.assertEqual(result['stage'], 'onboarding')
+        self.assertEqual(result['published_reader_entry'], 'failed')
+        self.assertNotIn(private, output.getvalue())
+        self.assertNotIn(str(self.local), output.getvalue())
+        self.assertNotIn('sk-test-', output.getvalue())
+        self.helpers['manage'].assert_called_once()
+
+    def test_fixed_onboarding_assertion_is_reported_with_a_public_code_and_stage(self):
+        self.fixture_installation()
+        self.helpers['onboarding_and_check'].side_effect = AssertionError(
+            'Reading agent onboarding changed configuration, entries or authorization files')
+        with patch.object(onboarding, 'preflight', return_value=self.base), \
+             patch.object(onboarding, 'run_published_pipeline', return_value={'powershell_exit': 0}), \
+             patch.object(onboarding, 'load_desktop_helpers', return_value=self.helpers):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(onboarding.main(['--version', VERSION]), 1)
+        self.assertEqual(json.loads(output.getvalue()), {
+            'published_reader_entry': 'failed', 'stage': 'onboarding', 'code': 'onboarding_files_changed'})
+        self.helpers['manage'].assert_called_once()
+
+    def test_failed_initial_settle_stops_before_snapshot_or_new_authorization(self):
+        self.fixture_installation()
+        private = 'sk-test-private-settle-message ' + str(self.local)
+        self.wait_for_initial_authorization.side_effect = RuntimeError(private)
+        with patch.object(onboarding, 'preflight', return_value=self.base), \
+             patch.object(onboarding, 'run_published_pipeline', return_value={'powershell_exit': 0}), \
+             patch.object(onboarding, 'load_desktop_helpers', return_value=self.helpers):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(onboarding.main(['--version', VERSION]), 1)
+        result = json.loads(output.getvalue())
+        self.assertEqual(result['stage'], 'initial_authorization_settle')
+        self.assertNotIn(private, output.getvalue())
+        self.helpers['onboarding_and_check'].assert_not_called()
+        self.helpers['authorize_and_check'].assert_not_called()
+        self.helpers['manage'].assert_called_once()
+
+    def test_cleanup_does_not_relabel_the_original_acceptance_failure(self):
+        self.fixture_installation()
+        self.helpers['authorize_and_check'].side_effect = AssertionError('synthetic failure')
+        with patch.object(onboarding, 'preflight', return_value=self.base), \
+             patch.object(onboarding, 'run_published_pipeline', return_value={'powershell_exit': 0}), \
+             patch.object(onboarding, 'load_desktop_helpers', return_value=self.helpers):
+            with self.assertRaises(AssertionError) as caught:
+                onboarding.run_acceptance(VERSION)
+        self.assertEqual(caught.exception._published_stage, 'workspace_authorization')
         self.helpers['manage'].assert_called_once()
 
     def test_cleanup_error_and_unexpected_diagnostics_are_redacted(self):
