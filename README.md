@@ -2,7 +2,7 @@
 
 **简体中文** | [English](README.en.md) · 最新正式版：[v0.1.2](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2) · 许可：[Apache-2.0](LICENSE) · [免 Docker 便携版](PORTABLE.md) · [Docker 部署](INSTALL.md) · [常见问题 FAQ](#常见问题-faq)
 
-> **v0.1.2 已正式发布（开箱即用升级）。** 便携本机单人模式现支持在本机浏览器直接打开 `http://127.0.0.1:8000` 进入工作台（无需一次性启动票据，遇本地代理误转发自动提示直连排障），修复中文 Windows PowerShell 5.1（GBK）引导脚本解析与系统 `curl.exe` 代理下载优先级，并在仓库根目录提供 `install.cmd` / `install.ps1` / `install.sh` 免 Docker 一键入口（`main` 分支源码已完成 macOS / Windows / Linux 跨版本同入口无感升级与智能体后台进程脱离修复，待与界面更新汇合后随下一正式版打包发布）。详见 [已验证与待验证](#已验证与待验证) 与 [更新日志](CHANGELOG.md)。
+> **v0.1.2 已正式发布（当前在线下载入口）；v0.1.3 发行准备中（未发布）。** 便携本机单人模式现支持在本机浏览器直接打开 `http://127.0.0.1:8000` 进入工作台（无需一次性启动票据，遇本地代理误转发自动提示直连排障），修复中文 Windows PowerShell 5.1（GBK）引导脚本解析与系统 `curl.exe` 代理下载优先级，并在仓库根目录提供 `install.cmd` / `install.ps1` / `install.sh` 免 Docker 一键入口。`main` 分支已完成 `v0.1.3` 准备（汇合 macOS / Windows / Linux 跨版本同入口无感升级、智能体后台进程脱离、素白与深松视觉及首次上手引导、URL 导入短链直达、Tremor 风格分析概览与 Symfony `v8.1.12` 安全更新），在 `v0.1.3` 正式资产与公开入口验收完成前，下方在线安装入口保持已发布的 `v0.1.2`。详见 [已验证与待验证](#已验证与待验证) 与 [更新日志](CHANGELOG.md)。
 
 **言及（Yanji GEO-SaaS）** 是一款可自部署的开源 **GEO（Generative Engine Optimization，生成式引擎优化 / AI 搜索优化）项目管理与内容交付工作台**，面向 GEO 代运营个人、小团队与品牌市场人员。支持 **macOS Apple Silicon / Windows x64 / Linux 免 Docker 一键运行** 与 **Docker 自部署**，自带模型 Key（BYOK）、无订阅抽成，在独立隔离工作区中串联客户资料、1024 维向量知识库、11 项 GEO 技能报告与内容生成、中文平台草稿助手以及豆包 AI 搜索可见性监测。
 

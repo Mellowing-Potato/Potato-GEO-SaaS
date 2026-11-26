@@ -1,18 +1,21 @@
 # 版本变化
 
-## 未发布（源码已合入 `main`，待随下一版本打包发布）— macOS / Windows / Linux 同入口无感升级与智能体后台进程保活
+## v0.1.3（发行准备，未发布）— 跨平台同入口无感升级、智能体后台保活与工作台视觉/引导升级
 
-当前线上正式下载入口保持 `v0.1.2`（清单 SHA-256 `a2e8d887efea5ad8e89c367613364b2039c34a51ce5dec720f59db8fd48984b9`）；以下根治修复已进入源码与仓库根入口，包内便携运行时改动将于与后续界面更新汇合发版后在正式下载包生效：
+目标版本号已更新至 [VERSION](VERSION)（`0.1.3`，尚未打标签发布）；在 `v0.1.3` 四平台正式资产与公开入口验收完成前，线上正式下载入口与 `portable/release-pin.json` 保持已发布的 `v0.1.2`（清单 SHA-256 `a2e8d887efea5ad8e89c367613364b2039c34a51ce5dec720f59db8fd48984b9`）：
 
 - **根治跨版本重跑安装命令报“覆盖拒绝”问题（macOS / Windows / Linux 全平台）**：普通用户或智能体在已有旧版实例的电脑上运行标准一行安装命令、仓库根 `install.cmd` / `install.ps1` / `install.sh` 或本地 `install-local.sh` / `install-local.ps1` 时，自动检测已初始化的合法言及实例并转入 `Upgrade::run()` 完整安全升级流程（停写自动备份 `.yanji-recovery-*/instance.zip`、切换新版本、执行数据库迁移并校验就绪、异常自动回滚至原版本与原数据），不再报错要求手工拼接 `yanji upgrade --manifest ...`；同版本重跑在线命令亦跳过重复下载大包直接启动。非言及目录、损坏缺库实例及显式冲突参数继续严格拒绝。
 - **根治 macOS / Linux 与 Windows 智能体命令退出后后台服务被回收或挂起问题**：
   - **macOS / Linux**：`Supervisor::start()` 改为标准双 `fork` + `setsid` + `SIGHUP` 忽略，使后台托管器立即脱离调用方进程树归属系统初始化进程（macOS `launchd` / Linux `init`），并在 `exec` 前关闭全部继承自智能体宿主的非标准管道文件描述符（`FD >= 3`），防止智能体工具等待管道 EOF 卡死超时或关闭终端时连带终止服务（保留内部 `services.lock` 共享租约继承）。
   - **Windows**：`Platform::spawnDetachedWindows()` 升级为三级脱离策略（优先 `CreateProcessW` `CREATE_BREAKAWAY_FROM_JOB`，若智能体沙箱 Job Object 禁止 breakaway 则通过 WMI `Win32_Process.Create` 在宿主 `KILL_ON_JOB_CLOSE` 作业对象外以当前用户身份拉起无窗口后台托管器，受限环境回退标准 `CreateProcessW`），解决智能体单步命令结束后后台服务变回 `stopped` 的问题。
 - **补充极简智能体路由指引**：在 `AGENTS.md` 顶部与 `README.md` 明确区分“协助用户安装/更新”与“二次开发”，用户仅发送仓库链接与“帮我安装”时，智能体可直接走免 Docker 标准入口完成首次安装或跨版本升级。
+- **全站素白与深松视觉收敛、首次上手 3 步引导与模型分段配置**：全站设计令牌统一收口为素白底面 + 单一中性墨阶 + 深松绿主色，同步更新品牌 SVG 与顶栏 `GEO` 标识；优化 `/local-start` 本机启动恢复页 3 步流程预览与命令一键复制；重构 `#aikeys` 模型配置页，突出必填文本模型的供应商直连 / 本机 Magpie 分段切换（保留双侧未保存草稿）并将 1024 维向量、视觉与豆包监测归入可折叠摘要卡；新增首次建项目 3 步引导、Day-1 首个技能启动卡、32 寸宽屏居中布局与报告阅读页字阶抽屉排版。
+- **URL 导入可读短链直达源站与分析概览改版**：知识库 URL 导入列表展示可读域名与首末路径摘要，点击安全直达原始网页；分析概览升级为 Tremor 风格 KPI 指标卡、双序列 AreaChart（区分主趋势与虚线基线）、Donut + CategoryBar 占比条与 BarList 排行。
+- **Symfony 安全更新**：升级 `symfony/http-foundation`、`symfony/http-kernel`、`symfony/mailer` 与 `symfony/routing` 至 `v8.1.12` 并同步第三方许可声明，`composer audit --locked` 零已知漏洞。
 
-**本轮已跑：** 新增 `PortableCrossVersionUpgradeTest`（覆盖无 `--upgrade` 参数跨版本自动备份升级、迁移失败自动回滚原版本与原数据库、损坏实例/冲突参数拒绝、macOS/Unix 后台双 `fork` 关闭继承管道 FD 7 及抗 `SIGHUP` 存活）与全部便携单元测试共 115 项（876 断言）、`scripts/checks` 全部 136 项 Python 测试（含根脚本旧版本自动挂 `--upgrade` 与 Windows 三级脱离检查）；将旧版 `main` 代码放回对照，新增跨版本升级、管道关闭及脚本脱离回归均按预期失败并精确指向原缺陷；前端 `npm run test:js`、`composer audit --locked`、`npm audit --package-lock-only`、隐私与 C1–C3 检查、`git diff --check`。
+**前序合入与本轮准备已跑：** 合并提交 `7965944`（PR #30）、`dc20606`（PR #29）与 `6d35f49`（PR #31）在 GitHub Actions 已通过双架构完整 PHPUnit（SQLite 1837 项、PostgreSQL 353 项）、原生 Windows x64 便携构建与冷安装验收、双架构 Linux 随包 Python 11 技能渲染验收；本轮发行准备核对 `scripts/checks` 全部 136 项 Python 测试、全量前端 `npm run test:js`、`composer audit --locked`、`npm audit --package-lock-only`、隐私与 C1–C3 检查、`git diff --check`。本地未重跑完整 PHPUnit 与容器测试（交由 PR 与标签 CI 执行）。
 
-**未跑 / 待验收：** 尚未打新版本标签重新打包四平台正式资产（待与进行中的界面改动汇合后统一发版）；真实 Windows / macOS 桌面环境与智能体现场复测、Linux amd64 Docker 完整手工业务流程、网页连接后的 Magpie 模型激活与真实推理仍待实测。
+**未跑 / 待验收：** `v0.1.3` 标签尚未推送，四平台正式资产打包、双架构 GHCR 镜像发布及 macOS/Windows 四项公开标准入口验收待标签流水线执行；真实 Windows / macOS 桌面环境与智能体现场复测、Linux amd64 Docker 完整手工业务流程、网页连接后的 Magpie 模型激活与真实推理仍待实测。
 
 ## v0.1.2（2026-11-26，已发布）— 本机 `127.0.0.1` 零门槛直进与 Windows / 智能体开箱即用修复
 
