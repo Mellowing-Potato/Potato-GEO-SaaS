@@ -283,6 +283,25 @@ try {
     $pkgName = 'yanji-windows-x86_64.zip'
     $pkgSha = Get-ManifestEntry $sumsFile $pkgName
     $pkgSrc = if ($Package) { $Package } else { Resolve-Sibling $Manifest $pkgName }
+    if ($pkgSrc -match '^https://' -and -not $Upgrade -and $Port -le 0 -and -not $Email -and -not $PasswordFile -and -not $PythonBin) {
+        $defaultBase = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'Yanji' } else { Join-Path $HOME 'AppData\Local\Yanji' }
+        $probeProg = if ($ProgramHome) { $ProgramHome } else { Join-Path $defaultBase 'program' }
+        $probeInst = if ($Instance) { $Instance } else { Join-Path $defaultBase 'instance' }
+        $managedCmd = Join-Path $probeInst 'yanji.cmd'
+        $initMarker = Join-Path $probeInst '.portable-initialized'
+        $ptrFile = Join-Path $probeInst 'current-release.txt'
+        $expRel = Join-Path (Join-Path $probeProg 'releases') $pkgSha
+        if ((Test-Path -LiteralPath $managedCmd -PathType Leaf) -and (Test-Path -LiteralPath $initMarker -PathType Leaf) -and (Test-Path -LiteralPath $ptrFile -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $expRel '.archive-sha256') -PathType Leaf)) {
+            $curRel = [System.IO.File]::ReadAllText($ptrFile, [System.Text.Encoding]::UTF8).Trim()
+            $arcSha = [System.IO.File]::ReadAllText((Join-Path $expRel '.archive-sha256'), [System.Text.Encoding]::UTF8).Trim()
+            if ($curRel -and $arcSha -eq $pkgSha -and [System.IO.Path]::GetFullPath($curRel).TrimEnd('\') -ieq [System.IO.Path]::GetFullPath($expRel).TrimEnd('\')) {
+                Step '检测到已安装当前版本，正在直接启动言及工作台...'
+                $openArgs = if ($NoBrowser) { @('start', '--no-browser') } else { @('open') }
+                & cmd.exe /d /s /c "`"$managedCmd`" $($openArgs -join ' ')"
+                exit $LASTEXITCODE
+            }
+        }
+    }
     $pkgZip = Join-Path $scratch $pkgName
     if ($pkgSrc -match '^https://') {
         Step "正在下载安装包 $pkgName（文件较大，请稍候）..."

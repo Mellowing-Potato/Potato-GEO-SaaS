@@ -70,8 +70,11 @@ final class Backup
                     throw new RuntimeException('不能发布备份，请确认目标文件名未被占用。');
                 }
                 Platform::protectPrivate($output, false);
-            } elseif (! chmod($archive, 0600) || ! @link($archive, $output)) {
-                throw new RuntimeException('不能发布备份，请确认目标文件名未被占用。');
+            } else {
+                $published = chmod($archive, 0600) && (@link($archive, $output) || (!file_exists($output) && @rename($archive, $output)));
+                if (!$published) {
+                    throw new RuntimeException('不能发布备份，请确认目标文件名未被占用。');
+                }
             }
         } finally {
             self::removeWorkspace($work);

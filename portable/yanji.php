@@ -152,7 +152,21 @@ function runPortable(array $args): int
     }
     $lock = $i->commandLock();
     try {
-        if ($command !== '__upgrade' && is_file($i->root.'/run/upgrade-hold') && $command !== 'stop') {
+        $explicitPort = null;
+        if (isset($options['port'])) {
+            $explicitPort = filter_var($options['port'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]);
+            if (!$explicitPort) {
+                throw new RuntimeException('端口需为 1 至 65535。');
+            }
+        }
+        $autoUpgrade = $command === '__install' && Installation::shouldUpgradeExisting(
+            $i,
+            $release,
+            $explicitPort,
+            $options['email'] ?? null,
+            $options['password-file'] ?? null,
+        );
+        if ($command !== '__upgrade' && !$autoUpgrade && is_file($i->root.'/run/upgrade-hold') && $command !== 'stop') {
             throw new RuntimeException('升级维护门仍在，请重新执行原升级命令恢复，或向新目录恢复备份。');
         }
         if (in_array($command, ['__install','__upgrade','start','restart','open','entry','reset-password','magpie'], true)) {
@@ -166,11 +180,20 @@ function runPortable(array $args): int
                 if ($release !== Platform::normalize((string) ($options['release'] ?? ''))) {
                     throw new RuntimeException('程序版本路径不匹配。');
                 }
-                $port = filter_var($options['port'] ?? (is_file($i->root.'/instance.json') ? $i->port() : 8000),
-                    FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]);
-                if (!$port) {
-                    throw new RuntimeException('端口需为 1 至 65535。');
+                if ($autoUpgrade) {
+                    $setup->checkPython($release, $options['python-bin'] ?? null);
+                    fwrite(STDERR, "检测到已有言及实例，正在自动备份并平滑升级程序版本...\n");
+                    Upgrade::run($i, $release, $services);
+                    $setup->savePython($options['python-bin'] ?? null);
+                    prepareDesktopEntry($i);
+                    $port = $i->port();
+                    echo "已就绪 http://127.0.0.1:".$port."  管理命令 ".Platform::nativePath($i->root.'/'.Platform::launcherName())."\n";
+                    if (!DesktopLauncher::open($i, automatic: true, noBrowser: isset($options['no-browser']))) {
+                        echo "未能自动拉起浏览器，请直接在浏览器打开 http://127.0.0.1:".$port."（或在图形桌面运行 open）。\n";
+                    }
+                    break;
                 }
+                $port = $explicitPort ?? (is_file($i->root.'/instance.json') ? $i->port() : 8000);
                 $setup->install($release, $port, $options['email'] ?? null, $options['password-file'] ?? null, $options['python-bin'] ?? null);
                 prepareDesktopEntry($i);
                 $services->start();

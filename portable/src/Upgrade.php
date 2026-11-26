@@ -47,11 +47,17 @@ final class Upgrade
         Instance::atomicFile($hold, json_encode(['instance'=>$i->root,'old'=>$old,'backup'=>$backup,'online'=>$online], JSON_THROW_ON_ERROR));
         try {
             $setup->configure($candidate, $port);
+            $setup->protectInstancePaths();
             foreach ([['migrate', '--force'], ['yanji:ready','--portable'], ['yanji:worker','--check'], ['schedule:list']] as $args) {
                 if ($i->artisan($args, quiet: true) !== 0) {
                     throw new RuntimeException('候选版本迁移或就绪检查失败。');
                 }
             }
+            if (!file_exists($i->root.'/.portable-layout')) {
+                Instance::atomicFile($i->root.'/.portable-layout', "yanji-portable-v1\n");
+            }
+            Instance::atomicFile($i->root.'/.portable-initialized', "verified\n");
+            $setup->protectInstancePaths();
             $services->start();
             if (!unlink($hold)) {
                 throw new RuntimeException('服务未开放写入。');

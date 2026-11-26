@@ -45,6 +45,7 @@ manifest_sha=''
 custom_target=0
 no_browser=0
 upgrade=0
+upgrade_flag_present=0
 prev=''
 for arg in "$@"; do
     case "$prev" in
@@ -57,7 +58,7 @@ for arg in "$@"; do
         --manifest=*) manifest=${arg#*=} ;;
         --manifest-sha256=*) manifest_sha=${arg#*=} ;;
         --program-home=*|--instance=*|--port=*|--package=*) custom_target=1 ;;
-        --upgrade) upgrade=1 ;;
+        --upgrade) upgrade=1; upgrade_flag_present=1 ;;
         --no-browser) no_browser=1 ;;
     esac
 done
@@ -119,6 +120,9 @@ if [ "$custom_target" -eq 0 ] && [ "$upgrade" -eq 0 ] && [ -x "$default_base/ins
             exec "$default_base/instance/yanji" start --no-browser
         fi
         exec "$default_base/instance/yanji" open
+    elif [ -n "$current_rel" ]; then
+        printf '%s\n' "检测到已有旧版言及实例，正在自动备份并平滑升级至新版本..." >&2
+        upgrade=1
     fi
 fi
 
@@ -142,6 +146,9 @@ else
 fi
 
 chmod 0700 "$staged_installer"
+if [ "$upgrade" -eq 1 ] && [ "$upgrade_flag_present" -eq 0 ]; then
+    set -- --upgrade "$@"
+fi
 if [ ! -t 0 ] && (exec </dev/tty) 2>/dev/null; then
     /bin/sh "$staged_installer" --manifest "$manifest" --manifest-sha256 "$manifest_sha" "$@" </dev/tty
 else

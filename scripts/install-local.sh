@@ -89,6 +89,25 @@ digest=$(entry "$name") || fail '清单缺少该平台的唯一安装包摘要�
 if [ -z "$package" ]; then
     case "$manifest" in */*) package=${manifest%/*}/$name;; *) package=$name;; esac
 fi
+# Fast path for remote HTTPS re-runs when this exact verified release is already initialized at the target instance.
+case "$package" in
+    https://*)
+        if [ "$mode" = install ] && [ -z "$port" ] && [ -z "$email" ] && [ -z "$passfile" ] && [ -z "$python" ] \
+            && [ -x "$instance/yanji" ] && [ -f "$instance/.portable-initialized" ] && [ -L "$instance/current" ]; then
+            cur_rel=$(CDPATH= cd -- "$instance/current" 2>/dev/null && pwd -P || true)
+            exp_rel=$(CDPATH= cd -- "$program/releases/$digest" 2>/dev/null && pwd -P || true)
+            if [ -n "$cur_rel" ] && [ "$cur_rel" = "$exp_rel" ] && [ -f "$exp_rel/.archive-sha256" ] \
+                && [ "$(cat "$exp_rel/.archive-sha256")" = "$digest" ] && [ -f "$exp_rel/PACKAGE-FILES.sha256" ] \
+                && (cd "$exp_rel" && check_files "$exp_rel/PACKAGE-FILES.sha256") 2>/dev/null; then
+                step '检测到已安装当前版本，正在直接启动言及工作台...'
+                if [ "$no_browser" -eq 1 ]; then
+                    exec "$instance/yanji" start --no-browser
+                fi
+                exec "$instance/yanji" open
+            fi
+        fi
+        ;;
+esac
 case "$package" in
     https://*) step "正在下载安装包 ${name}（文件较大，请稍候）...";;
     *) step "正在读取本地安装包 ${name}...";;
