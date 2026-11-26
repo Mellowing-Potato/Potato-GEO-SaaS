@@ -2,7 +2,7 @@
 # 可重复运行：保留已有 .env、数据卷、APP_KEY 和管理员。
 set -eu
 cd "$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-command -v docker >/dev/null 2>&1 || { echo '请先安装 Docker Desktop 或 Docker Engine。' >&2; exit 1; }
+command -v docker >/dev/null 2>&1 || { echo '请先安装 Docker Desktop 或 Docker Engine。（若需免 Docker 开箱即用便携安装，请改运行仓库根目录 sh install.sh 或 Windows .\install.ps1，详见 PORTABLE.md）' >&2; exit 1; }
 docker info >/dev/null 2>&1 || { echo 'Docker 尚未运行，请启动后重试。' >&2; exit 1; }
 docker compose version >/dev/null 2>&1 || { echo '需要 Docker Compose v2。' >&2; exit 1; }
 if [ ! -f .env ]; then

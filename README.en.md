@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English** · Latest Release: [v0.1.2](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2) · License: [Apache-2.0](LICENSE) · [No-Docker Portable Guide (ZH)](PORTABLE.md) · [Docker Guide (ZH)](INSTALL.md) · [FAQ](#frequently-asked-questions-faq)
 
-> **v0.1.2 is published (out-of-the-box onboarding upgrade).** Portable single-user instances now open directly at `http://127.0.0.1:8000` in any local browser without requiring an unconsumed one-time ticket (with explicit proxy-bypass guidance if a local proxy forwards `127.0.0.1`), `get-yanji.ps1` uses pure 7-bit ASCII for GBK/CP936 Windows PowerShell 5.1 compatibility and prioritizes `System32\curl.exe` for proxy downloads, and repository root `install.cmd` / `install.ps1` / `install.sh` launchers are included. Public entry CI checks passed; see [Verified vs. Unverified](#verified-vs-unverified) and [CHANGELOG.md](CHANGELOG.md) for manual GUI verification boundaries.
+> **v0.1.2 is published (out-of-the-box onboarding upgrade).** Portable single-user instances open directly at `http://127.0.0.1:8000` in any local browser without requiring an unconsumed one-time ticket, `get-yanji.ps1` uses pure 7-bit ASCII with `System32\curl.exe` proxy priority, and repository root `install.cmd` / `install.ps1` / `install.sh` launchers are included (cross-version seamless auto-upgrade and AI-agent background daemon detachment fixes are merged in `main` source for the next binary release). See [Verified vs. Unverified](#verified-vs-unverified) and [CHANGELOG.md](CHANGELOG.md).
 
 **Yanji GEO-SaaS (言及)** is an open-source, self-hosted **GEO (Generative Engine Optimization / AI Search Optimization) project management and content delivery workbench** built for GEO agencies, solo consultants, and brand marketing teams. Run it locally with **zero Docker on macOS Apple Silicon, Windows x64, and Linux**—or self-host via **Docker**—with **Bring Your Own Key (BYOK)**, strict per-account workspace isolation, a 1024-dimensional RAG knowledge base, 11 rendered GEO skills, a browser draft assistant, and **Doubao (Volcengine Ark) AI search visibility monitoring**.
 
@@ -77,20 +77,17 @@ bash scripts/install.sh
 
 The script creates the initial admin interactively and starts `web`, `worker`, `scheduler` and `postgres` containers. See [INSTALL.md](INSTALL.md) and [v0.1.2 Release](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.2) for image, backup/restore, upgrade and proxy DNS guidance.
 
-### Option 3: One-Click Repo Entry / Install via an AI Coding Agent
+### Option 3: Install via an AI Assistant / One-Click Repo Entry
 
-If you cloned this repository, you can launch the verified `v0.1.2` no-Docker portable edition directly from the repository root (re-running starts an already-installed matching release immediately without re-downloading):
-
-- **Windows (Double-click or PowerShell):** Double-click `install.cmd` or run `.\install.ps1`
-- **macOS / Linux:** Run `sh install.sh` (pass `--docker` for Docker deployment)
-
-See the shared [Agent Installation and Handoff Protocol (ZH)](docs/INSTALL-AGENT.md). `v0.1.2` packages support direct same-origin loopback access at `http://127.0.0.1:8000` (bypass any local proxy for `127.0.0.1`) alongside desktop shortcuts and `yanji open`.
-
-Copy and send this prompt to your AI assistant:
+- **Delegate to any AI assistant (WorkBuddy, Claude Code, Cursor, etc.):** Simply paste the repository link:
 
 ```text
-Read docs/INSTALL-AGENT.md first, then install and start Yanji on my machine without Docker (run .\install.ps1 on Windows or sh install.sh on macOS/Linux, or use the one-line release installer in README.en.md). Verify service readiness and share the local workbench URL. Repository: https://github.com/Mellowing-Potato/Potato-GEO-SaaS
+Install and start https://github.com/Mellowing-Potato/Potato-GEO-SaaS
 ```
+
+> **Note for AI Agents:** When asked to install, start, or update Yanji, follow [AGENTS.md](AGENTS.md) and [docs/INSTALL-AGENT.md](docs/INSTALL-AGENT.md)—use the one-line no-Docker release installer above or run root `.\install.ps1` (Windows) / `sh install.sh` (macOS/Linux) without setting up Docker, PHP, or Node dev environments.
+
+- **From a cloned repository:** Double-click `install.cmd` / run `.\install.ps1` on Windows, or run `sh install.sh` on macOS/Linux (pass `--docker` for Docker). Matching installed releases open immediately without re-downloading; older installed releases automatically back up and upgrade in place while preserving all projects, database records, and encrypted API keys.
 
 ---
 
