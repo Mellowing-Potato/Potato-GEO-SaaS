@@ -17,6 +17,7 @@ SPEC = importlib.util.spec_from_file_location('published_macos_onboarding', SOUR
 onboarding = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(onboarding)
 VERSION = 'v0.1.1'
+COMMIT = 'a' * 40
 
 
 class PublishedMacosOnboardingTest(unittest.TestCase):
@@ -29,6 +30,7 @@ class PublishedMacosOnboardingTest(unittest.TestCase):
             'GITHUB_ACTIONS': 'true', 'RUNNER_OS': 'macOS',
             'RUNNER_ENVIRONMENT': 'github-hosted', 'GITHUB_REPOSITORY': onboarding.REPOSITORY,
             'GITHUB_REF_TYPE': 'tag', 'GITHUB_REF_NAME': VERSION, 'GITHUB_REF': 'refs/tags/' + VERSION,
+            'GITHUB_SHA': COMMIT,
         }
         self.enterContext(patch.dict(os.environ, environment))
         self.enterContext(patch.object(onboarding.Path, 'home', return_value=self.home))
@@ -44,7 +46,7 @@ class PublishedMacosOnboardingTest(unittest.TestCase):
         (instance / 'yanji').write_bytes(b'# synthetic launcher, never executed\n')
         (instance / 'current').symlink_to(release, target_is_directory=True)
         (instance / 'instance.json').write_text(json.dumps({'port': 8000}))
-        (release / 'release.json').write_text(json.dumps({'platform': 'macos-arm64'}))
+        (release / 'release.json').write_text(json.dumps({'platform': 'macos-arm64', 'commit': COMMIT}))
         (release / 'app' / 'VERSION').write_text(VERSION[1:] + '\n')
         return instance, release
 
@@ -154,7 +156,7 @@ class PublishedMacosOnboardingTest(unittest.TestCase):
         self.assertEqual(onboarding.check_installed_release(self.base, VERSION), instance)
         for path, bad, original, code in [
             (release / 'app' / 'VERSION', '0.0.0\n', VERSION[1:] + '\n', 'installed_version_differs_from_release_tag'),
-            (release / 'release.json', '{"platform":"linux-x86_64"}', '{"platform":"macos-arm64"}', 'installed_platform_is_not_macos_arm64'),
+            (release / 'release.json', '{"platform":"linux-x86_64"}', json.dumps({'platform': 'macos-arm64', 'commit': COMMIT}), 'installed_platform_is_not_macos_arm64'),
             (instance / 'instance.json', '{"port":8001}', '{"port":8000}', 'installed_instance_did_not_use_default_port'),
         ]:
             with self.subTest(code=code):
@@ -162,6 +164,18 @@ class PublishedMacosOnboardingTest(unittest.TestCase):
                 with self.assertRaisesRegex(onboarding.AcceptanceError, code):
                     onboarding.check_installed_release(self.base, VERSION)
                 path.write_text(original)
+
+    def test_same_version_old_source_and_missing_source_are_rejected(self):
+        _, release = self.fixture_installation()
+        for commit in ('b' * 40, '', None):
+            with self.subTest(commit=commit):
+                (release / 'release.json').write_text(json.dumps({'platform': 'macos-arm64', 'commit': commit}))
+                with self.assertRaisesRegex(onboarding.AcceptanceError, 'installed_source_differs_from_release_run'):
+                    onboarding.check_installed_release(self.base, VERSION)
+        for value in ('', 'not-a-commit'):
+            with self.subTest(environment=value), patch.dict(os.environ, {'GITHUB_SHA': value}):
+                with self.assertRaisesRegex(onboarding.AcceptanceError, 'fixed_release_source_required'):
+                    onboarding.preflight(VERSION)
 
     def test_services_require_explicit_ready_and_all_three_healthy_roles(self):
         record = {'ready': True, 'writes_enabled': True,
@@ -180,13 +194,16 @@ class PublishedMacosOnboardingTest(unittest.TestCase):
         instance, _ = self.fixture_installation()
         authorize = MagicMock(return_value={'user_id': 1, 'tenant_id': 1})
         marker_writer = MagicMock(side_effect=lambda path: path.write_bytes(b'desktop-fixture\n'))
+        onboarding_helper = MagicMock()
         with patch.object(onboarding, 'preflight', return_value=self.base), \
              patch.object(onboarding, 'run_published_pipeline', return_value={'curl_exit': 0, 'sh_exit': 0}), \
              patch.object(onboarding, 'check_services') as services, \
              patch.object(onboarding, 'load_desktop_helpers', return_value={
-                 'write_acceptance_marker': marker_writer, 'authorize_and_check': authorize}), \
+                 'write_acceptance_marker': marker_writer, 'authorize_and_check': authorize,
+                 'onboarding_and_check': onboarding_helper}), \
              patch.object(onboarding, 'stop_instance') as stop:
             result = onboarding.run_acceptance(VERSION)
+        onboarding_helper.assert_called_once_with(instance, 8000)
         authorize.assert_called_once_with(instance, 8000)
         marker_writer.assert_called_once_with(instance / '.portable-acceptance')
         services.assert_called_once_with(instance)
@@ -244,7 +261,7 @@ class PublishedMacosOnboardingTest(unittest.TestCase):
              patch.object(onboarding, 'check_services'), \
              patch.object(onboarding, 'load_desktop_helpers', return_value={
                  'write_acceptance_marker': lambda path: path.write_bytes(b'desktop-fixture\n'),
-                 'authorize_and_check': authorize}), \
+                 'authorize_and_check': authorize, 'onboarding_and_check': MagicMock()}), \
              patch.object(onboarding, 'stop_instance') as stop:
             result = onboarding.run_acceptance(VERSION, 'interrupted')
         self.assertEqual(events, ['guard', 'pipeline'])
