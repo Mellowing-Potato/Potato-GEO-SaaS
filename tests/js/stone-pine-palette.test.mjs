@@ -48,6 +48,14 @@ const entryCss = fs.readFileSync('public/geo-entry.css', 'utf8');
 assert.match(entryCss, /\.workspace-main > \*\s*\{[^}]*max-width:\s*1440px[^}]*margin-inline:\s*auto/s, 'Workspace main views must expand cleanly to 1440px and center on wide displays');
 assert.match(entryCss, /#aikeysPanel\.panel\s*\{[^}]*max-width:\s*960px[^}]*margin-inline:\s*auto[^}]*background:\s*transparent/s, '#aikeysPanel must center cleanly and avoid outer card nesting');
 
+const typographyCss = fs.readFileSync('public/geo-typography.css', 'utf8');
+assert.match(typographyCss, /#resultPageBody :is\(\.report-metric-note,\s*\.report-section-note,\s*\.report-note\)\s*\{[^}]*font:\s*var\(--md-type-ui\)[^}]*color:\s*var\(--md-text-secondary\)/s, 'Report metric notes must use secondary compact UI scale instead of colliding with body prose');
+assert.doesNotMatch(typographyCss, /#resultPageBody :is\([^)]*\.report-metric-note[^)]*\)[^{]*\{[^}]*--md-type-body/s, 'Report metric notes must not inherit full 15px body prose styling');
+
+const readerCss = fs.readFileSync('public/geo-report-reader.css', 'utf8');
+assert.match(readerCss, /\.report-reader\s*\{[^}]*max-width:\s*1160px[^}]*margin-inline:\s*auto/s, 'Report reader must stay proportionally centered on wide displays');
+assert.match(readerCss, /\.report-reader > \.report-detail-options \.asset-next-card\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s, 'Report detail options must stack .asset-next-card in a single column so text never crushes beside actions');
+
 const legacyHexPattern = /#(3F7A61|223E36|F7F4ED|1E6594|D4A438|6B5B8E)/i;
 for (const file of [
   'public/geo-tokens.css',

@@ -87,9 +87,12 @@ body.geo-app .workspace-sidebar .workspace-menu .workspace-menu-link[aria-curren
 .geo-app .reader-toc-link { color: var(--md-text-secondary); }
 .geo-app .reader-toc-link[aria-current] { color: var(--md-primary-pressed); }
 .geo-app #resultPageBody, .geo-app.geo-reading .article { font: var(--md-type-body); }
-.geo-app #resultPageBody :is(p, li, dd, dt, td, .report-metric-value, .report-metric-note, .report-score-num, .report-section-note, .report-note),
+.geo-app #resultPageBody :is(p, li, dd, dt, td, .report-score-num),
 .geo-app.geo-reading .article :is(p, li, td) { font: var(--md-type-body); color: var(--md-text); }
-.geo-app #resultPageBody :is(h2, h3, h4, h5, h6), .geo-app.geo-reading .article :is(h2, h3, h4) { font: var(--md-type-section); color: var(--md-text-heading); }
-.geo-app #resultPageBody .reader-subheading { font: var(--md-type-subheading); color: var(--md-text-heading); }
+.geo-app #resultPageBody :is(h2, h3, h4), .geo-app.geo-reading .article :is(h2, h3, h4) { font: var(--md-type-section); color: var(--md-text-heading); }
+.geo-app #resultPageBody :is(h5, h6, .reader-subheading) { font: var(--md-type-subheading); color: var(--md-text-heading); }
 .geo-app #resultPageBody :is(.report-meta, .report-metric-label) { font: var(--md-type-caption); color: var(--md-text-muted); }
-.geo-app #resultPageBody th, .geo-app.geo-reading .article th { font: var(--md-type-subheading); color: var(--md-text-heading); }
+.geo-app #resultPageBody :is(.report-metric-note, .report-section-note, .report-note) { font: var(--md-type-ui); color: var(--md-text-secondary); }
+.geo-app #resultPageBody .report-metric-value { font-size: var(--md-fs-xl); line-height: var(--md-leading-tight); font-weight: var(--md-weight-semibold); color: var(--md-text-strong); }
+.geo-app #resultPageBody .report-summary-explain .report-metric-value { font-size: var(--md-fs-sm); line-height: var(--md-leading-snug); font-weight: var(--md-weight-semibold); color: var(--md-text-strong); }
+.geo-app #resultPageBody th, .geo-app.geo-reading .article th { font: var(--md-type-label); color: var(--md-text-secondary); }
