@@ -53,84 +53,141 @@
     <div class="geo-page-content">
 
 <nav class="section-nav" aria-label="分区跳转">
-    <a href="#sec-overview" class="on">总览</a>
-    <a href="#sec-topbots">Top AI 爬虫</a>
-    <a href="#sec-trend">AI-PV 趋势</a>
-    <a href="#sec-articles">Top 文章</a>
-    <a href="#sec-beacon">信标健康度</a>
-    <a href="#sec-logs">原始日志</a>
+    <div class="section-nav-inner">
+        <a href="#sec-overview" class="on">总览</a>
+        <a href="#sec-trend">AI-PV 趋势</a>
+        <a href="#sec-topbots">Top AI 爬虫</a>
+        <a href="#sec-articles">Top 文章</a>
+        <a href="#sec-beacon">信标健康度</a>
+        <a href="#sec-logs">原始日志</a>
+    </div>
 </nav>
 
 <main class="wrap">
-    <div class="view-title">
-        <h1>AI 爬虫访问</h1>
-        <span class="vt-sub" id="gaPeriod">—</span>
-        <label class="days-pick" for="daysSel">近
+    <header class="ga-header">
+        <div class="ga-header-copy">
+            <div class="view-title">
+                <h1>AI 爬虫访问</h1>
+                <span class="vt-sub" id="gaPeriod">—</span>
+            </div>
+            <p class="monitoring-scope">这里记录站点被 AI 爬虫访问的情况；访问量不代表品牌已出现在智能回答中。</p>
+        </div>
+        <label class="days-pick" for="daysSel">统计周期
             <select id="daysSel" aria-label="统计周期">
-                <option value="7">7</option>
-                <option value="30" selected>30</option>
-                <option value="90">90</option>
-            </select> 天
+                <option value="7">近 7 天</option>
+                <option value="30" selected>近 30 天</option>
+                <option value="90">近 90 天</option>
+            </select>
         </label>
+    </header>
+
+    <!-- ============ 一、总览：Tremor 顶层 KPI 卡片带 ============ -->
+    <section id="sec-overview" aria-label="流量总览指标">
+        <div class="kpi-row" id="kpiRow">
+            <div class="kpi">
+                <div class="k-head"><span class="k-label">总 PV</span><span class="k-badge neutral" data-kpi-meta="pv">—</span></div>
+                <div class="k-num" data-kpi="pv">—</div>
+            </div>
+            <div class="kpi kpi-featured">
+                <div class="k-head"><span class="k-label"><span class="k-dot ai" aria-hidden="true"></span>AI 爬虫 PV</span><span class="k-badge ai" data-kpi-meta="ai_bot_pv">—</span></div>
+                <div class="k-num" data-kpi="ai_bot_pv">—</div>
+            </div>
+            <div class="kpi">
+                <div class="k-head"><span class="k-label"><span class="k-dot human" aria-hidden="true"></span>真人 PV</span><span class="k-badge neutral" data-kpi-meta="human_pv">—</span></div>
+                <div class="k-num" data-kpi="human_pv">—</div>
+            </div>
+            <div class="kpi">
+                <div class="k-head"><span class="k-label"><span class="k-dot search" aria-hidden="true"></span>搜索爬虫 PV</span><span class="k-badge neutral" data-kpi-meta="search_bot_pv">—</span></div>
+                <div class="k-num" data-kpi="search_bot_pv">—</div>
+            </div>
+            <div class="kpi">
+                <div class="k-head"><span class="k-label">独立 IP</span><span class="k-badge neutral" data-kpi-meta="unique_ip">—</span></div>
+                <div class="k-num" data-kpi="unique_ip">—</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ 二、主分析网格：AreaChart 趋势 + 流量构成 Donut/CategoryBar ============ -->
+    <div class="ga-grid-main">
+        <section id="sec-trend">
+            <div class="panel ga-card-fill">
+                <div class="panel-head">
+                    <div class="ga-head-title">
+                        <h3>每日 PV 与 AI 爬虫 PV</h3>
+                        <span class="hint">按日对比总访问量与 AI 爬虫访问量</span>
+                    </div>
+                    <div class="spacer"></div>
+                    <div class="trend-legend" aria-label="图例">
+                        <span><span class="sw total"></span>总 PV</span>
+                        <span><span class="sw ai"></span>AI 爬虫 PV</span>
+                    </div>
+                </div>
+                <div class="panel-body" id="trendHost"></div>
+            </div>
+        </section>
+
+        <section id="sec-breakdown" aria-label="流量构成">
+            <div class="panel ga-card-fill">
+                <div class="panel-head">
+                    <div class="ga-head-title">
+                        <h3>流量构成</h3>
+                        <span class="hint" id="ovHint"></span>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="donut-wrap" id="donutWrap"><!-- 流量构成环 + CategoryBar（纯 SVG） --></div>
+                </div>
+            </div>
+        </section>
     </div>
-    <p class="monitoring-scope">这里记录站点被 AI 爬虫访问的情况；访问量不代表品牌已出现在智能回答中。</p>
 
-    <!-- ============ 一、总览：KPI + 流量构成 ============ -->
-    <section id="sec-overview">
-        <div class="panel">
-            <div class="panel-head"><h2>流量总览</h2><div class="spacer"></div><span class="hint" id="ovHint"></span></div>
-            <div class="panel-body">
-                <div class="kpi-row" id="kpiRow">
-                    <div class="kpi"><div class="k-num" data-kpi="pv">—</div><div class="k-label">总 PV</div></div>
-                    <div class="kpi"><div class="k-num" data-kpi="unique_ip">—</div><div class="k-label">独立 IP</div></div>
-                    <div class="kpi"><div class="k-num ai" data-kpi="ai_bot_pv">—</div><div class="k-label">AI 爬虫 PV</div></div>
-                    <div class="kpi"><div class="k-num search" data-kpi="search_bot_pv">—</div><div class="k-label">搜索爬虫 PV</div></div>
-                    <div class="kpi"><div class="k-num human" data-kpi="human_pv">—</div><div class="k-label">真人 PV</div></div>
+    <!-- ============ 三、明细网格：Top AI 爬虫 BarList + Top 文章 Table ============ -->
+    <div class="ga-grid-split">
+        <section id="sec-topbots">
+            <div class="panel ga-card-fill">
+                <div class="panel-head">
+                    <div class="ga-head-title">
+                        <h3>Top AI 爬虫</h3>
+                        <span class="hint">按命中（hits）排序 · 近周期</span>
+                    </div>
                 </div>
-                <div class="donut-wrap" id="donutWrap"><!-- 流量构成环（手绘 SVG，无图表库） --></div>
+                <div class="panel-body" id="topBotsHost"></div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- ============ 二、Top AI 爬虫 ============ -->
-    <section id="sec-topbots">
-        <div class="panel">
-            <div class="panel-head"><h2>Top AI 爬虫</h2><span class="hint">按命中（hits）排序 · 近周期</span></div>
-            <div class="panel-body" id="topBotsHost"></div>
-        </div>
-    </section>
-
-    <!-- ============ 三、每日 AI-PV 趋势 ============ -->
-    <section id="sec-trend">
-        <div class="panel">
-            <div class="panel-head"><h2>每日 PV 与 AI 爬虫 PV</h2><span class="hint">按日对比总访问量与 AI 爬虫访问量</span></div>
-            <div class="panel-body" id="trendHost"></div>
-        </div>
-    </section>
-
-    <!-- ============ 四、Top 文章 ============ -->
-    <section id="sec-articles">
-        <div class="panel">
-            <div class="panel-head"><h2>Top 文章（按访问量）</h2><span class="hint">近周期 · 最多 10 篇</span></div>
-            <div class="panel-body">
-                <div class="tbl-wrap">
-                    <table class="tbl">
-                        <thead><tr><th>文章</th><th>访问量</th><th>独立 IP</th></tr></thead>
-                        <tbody id="articlesBody"></tbody>
-                    </table>
+        <section id="sec-articles">
+            <div class="panel ga-card-fill">
+                <div class="panel-head">
+                    <div class="ga-head-title">
+                        <h3>Top 文章（按访问量）</h3>
+                        <span class="hint">近周期 · 最多 10 篇</span>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="tbl-wrap">
+                        <table class="tbl">
+                            <thead><tr><th>文章</th><th class="num">访问量</th><th class="num">独立 IP</th></tr></thead>
+                            <tbody id="articlesBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
+    </div>
 
     <!-- ============ 五、信标健康度 ============ -->
     <section id="sec-beacon">
         <div class="panel">
-            <div class="panel-head"><h2>外站信标健康度</h2><span class="hint" id="beaconHint"></span></div>
+            <div class="panel-head">
+                <div class="ga-head-title">
+                    <h3>外站信标健康度</h3>
+                    <span class="hint" id="beaconHint"></span>
+                </div>
+            </div>
             <div class="panel-body">
                 <div class="tbl-wrap">
                     <table class="tbl">
-                        <thead><tr><th>分发渠道</th><th>最后回传</th><th>状态</th><th>近 7 日命中</th></tr></thead>
+                        <thead><tr><th>分发渠道</th><th>最后回传</th><th>状态</th><th class="num">近 7 日命中</th></tr></thead>
                         <tbody id="beaconBody"></tbody>
                     </table>
                 </div>
@@ -141,7 +198,11 @@
     <!-- ============ 六、原始日志 ============ -->
     <section id="sec-logs">
         <div class="panel">
-            <div class="panel-head"><h2>原始访问日志</h2><div class="spacer"></div>
+            <div class="panel-head">
+                <div class="ga-head-title">
+                    <h3>原始访问日志</h3>
+                </div>
+                <div class="spacer"></div>
                 <div class="toolbar">
                     <select id="logTraffic" aria-label="流量类型筛选">
                         <option value="">全部流量</option>
@@ -159,7 +220,7 @@
             <div class="panel-body">
                 <div class="tbl-wrap">
                     <table class="tbl">
-                        <thead><tr><th>时间</th><th>类型</th><th>爬虫</th><th>路径</th><th>IP</th><th>状态</th></tr></thead>
+                        <thead><tr><th>时间</th><th>类型</th><th>爬虫</th><th>路径</th><th>IP</th><th class="num">状态</th></tr></thead>
                         <tbody id="logsBody"></tbody>
                     </table>
                 </div>
