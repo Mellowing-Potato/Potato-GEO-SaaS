@@ -95,6 +95,7 @@
                                 <button class="button primary small" id="kbSearchTestButton" type="button">检索测试</button>
                             </div>
                             <div class="history-list" id="kbDocList"></div>
+                            <nav class="panel-actions" id="kbDocPagination" aria-label="文档分页"></nav>
                         </div>
                     </div>
                     </div>

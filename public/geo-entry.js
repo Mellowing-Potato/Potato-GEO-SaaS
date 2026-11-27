@@ -1687,6 +1687,7 @@
       await api("/api/v1/auth/logout", { method: "POST" });
       ["geo_token", "geo_user", "geo_tenant"].forEach(key => sessionStorage.removeItem(key));
       globalThis.GEO?.discardEnterpriseDrafts?.();
+      globalThis.GEO?.closeKnowledgePreview?.();
       document.getElementById("workspaceState").hidden = true;
       window.location.replace(config.accountLoginUrl + "?redirect_to=" + encodeURIComponent(window.location.origin + "/"));
     } catch (error) { button.disabled = false; showWorkspaceNotice(error.message || "退出未完成，请重试。"); }

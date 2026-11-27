@@ -127,7 +127,9 @@ export const CEILINGS = Object.freeze({
   // 2026-10-02：检索按钮补全与 API 共用的幂等键及未知结果重试保护（+8 行）。
   // 逻辑留在检索弹窗事件里，避免为一次请求再拆一块共享状态。
   // 2026-10-02：+32 行，文档质量提示、历史预览及重抓/归档入口属于知识库详情。
-  'public/geo-entry-knowledge-base.js': 1116,
+  // 分页与预览竞态修复：将正文/PDF 预览独立成模块，列表入口只保留转发。
+  'public/geo-entry-knowledge-base.js': 777,
+  'public/geo-entry-knowledge-preview.js': 537,
   // 拆出来的第五块：内容库（CL0-CL5 列表/审核/抽屉/下载）+ 素材库（四类素材 + 技能选料 chips）。
   // 1459 里含 18 行区块横幅（内容库 / 数据拉取 / 列表与行内动作 / 抽屉 / 素材库 / 注册绑定）——
   // 同第四块：这个脚本靠横幅切块，没有横幅就只剩一个 900 行的"未命名区块"。
@@ -321,6 +323,7 @@ export function inventory() {
     ['public/geo-entry-management.js', jsPieces],
     ['public/geo-entry-enterprise-knowledge.js', jsPieces],
     ['public/geo-entry-knowledge-base.js', jsPieces],
+    ['public/geo-entry-knowledge-preview.js', jsPieces],
     ['public/geo-entry-content-library.js', jsPieces],
     ['public/geo-entry-publishing.js', jsPieces],
     ['public/geo-entry-leads.js', jsPieces],

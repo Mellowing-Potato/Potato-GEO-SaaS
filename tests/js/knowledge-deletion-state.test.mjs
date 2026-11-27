@@ -64,6 +64,7 @@ test('polling must not report a deleting material as successfully indexed', asyn
   const state = { selectedKbId: 21, kbDocuments: [{ id: 31, status: 'pending' }] };
   runInNewContext(`${poll}\npollKbDocuments({});`, {
     state, elements: {}, Date, kbDocPollers: new Map(), KB_POLL_INTERVAL_MS: 2500, KB_POLL_MAX_MS: 10000,
+    kbDocumentScope: () => 'unchanged-workspace-and-library', kbDocumentPage: 1, kbDocumentLoading: false,
     window: { setInterval: () => 1, clearInterval() {} },
     loadKbDocuments: async () => { state.kbDocuments = [{ id: 31, status: 'deleting', chunk_count: 0 }]; },
     loadKnowledgeStats() {}, formatNumber: String,
