@@ -43,6 +43,7 @@ class AiVisibilityRun extends Model
         'status',
         'provider',
         'model',
+        'model_connection_snapshot',
         'billing_model',
         'answer_text',
         'upstream_cost_fen',
@@ -58,6 +59,8 @@ class AiVisibilityRun extends Model
         'completed_at',
     ];
 
+    protected $hidden = ['model_connection_snapshot'];
+
     protected function casts(): array
     {
         return [
@@ -70,6 +73,7 @@ class AiVisibilityRun extends Model
             'points_charged_fen' => 'float',
             'duration_seconds' => 'float',
             'metadata' => 'array',
+            'model_connection_snapshot' => 'array',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
         ];

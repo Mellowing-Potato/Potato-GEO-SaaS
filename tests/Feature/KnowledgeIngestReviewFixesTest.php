@@ -344,7 +344,7 @@ class KnowledgeIngestReviewFixesTest extends TestCase
 
         $response = $this->withServerVariables(['HTTP_HOST' => $tenant->subdomain.'.geo.example.test'])
             ->withHeader('X-Tenant', $tenant->subdomain)
-            ->postJson("/api/v1/enterprise-knowledge/{$project->id}/publish", ['create_knowledge_base' => true]);
+            ->postJson("/api/v1/enterprise-knowledge/{$project->id}/publish", ['base_version' => (int) $project->fresh()->draft_version, 'create_knowledge_base' => true]);
 
         $response->assertStatus(422);
         $message = (string) $response->json('message');

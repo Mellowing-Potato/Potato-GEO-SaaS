@@ -177,7 +177,7 @@ class EnterpriseKnowledgeTest extends TestCase
 
         // 触发生成（sync 队列，作业内联执行）
         $this->forTenant($tenant)
-            ->postJson("/api/v1/enterprise-knowledge/{$projectId}/generate")
+            ->postJson("/api/v1/enterprise-knowledge/{$projectId}/generate", ['base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($projectId)->draft_version])
             ->assertStatus(202);
 
         $project = EnterpriseKnowledgeProject::query()->where('tenant_id', $tenant->id)->findOrFail($projectId);
@@ -216,18 +216,20 @@ class EnterpriseKnowledgeTest extends TestCase
 
         // 生成一次，产生 1 条 system 修订
         $this->forTenant($tenant)
-            ->postJson("/api/v1/enterprise-knowledge/{$projectId}/generate")
+            ->postJson("/api/v1/enterprise-knowledge/{$projectId}/generate", ['base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($projectId)->draft_version])
             ->assertStatus(202);
 
         // 手动保存两次不同内容 → 各产生 1 条 manual 修订
         $this->forTenant($tenant)
             ->postJson("/api/v1/enterprise-knowledge/{$projectId}/autosave", [
+                'base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($projectId)->draft_version,
                 'content' => "# 自定义草稿 v1\n这是第一次手动编辑的内容 MARKER_V1。",
             ])
             ->assertStatus(200);
 
         $this->forTenant($tenant)
             ->postJson("/api/v1/enterprise-knowledge/{$projectId}/autosave", [
+                'base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($projectId)->draft_version,
                 'content' => "# 自定义草稿 v2\n这是第二次手动编辑的内容 MARKER_V2。",
             ])
             ->assertStatus(200);
@@ -259,12 +261,13 @@ class EnterpriseKnowledgeTest extends TestCase
         $projectId = $response->json('data.id');
 
         $this->forTenant($tenant)
-            ->postJson("/api/v1/enterprise-knowledge/{$projectId}/generate")
+            ->postJson("/api/v1/enterprise-knowledge/{$projectId}/generate", ['base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($projectId)->draft_version])
             ->assertStatus(202);
 
         // 记录一次手动编辑（成为最新草稿）
         $this->forTenant($tenant)
             ->postJson("/api/v1/enterprise-knowledge/{$projectId}/autosave", [
+                'base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($projectId)->draft_version,
                 'content' => "# 手动编辑版\n这是会被覆盖的内容 MARKER_LATEST。",
             ])
             ->assertStatus(200);
@@ -279,7 +282,7 @@ class EnterpriseKnowledgeTest extends TestCase
 
         // 恢复到 system 修订
         $this->forTenant($tenant)
-            ->postJson("/api/v1/enterprise-knowledge/{$projectId}/restore/{$systemRevision->id}")
+            ->postJson("/api/v1/enterprise-knowledge/{$projectId}/restore/{$systemRevision->id}", ['base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($projectId)->draft_version])
             ->assertStatus(200);
 
         $project = EnterpriseKnowledgeProject::query()->where('tenant_id', $tenant->id)->findOrFail($projectId);
@@ -312,7 +315,7 @@ class EnterpriseKnowledgeTest extends TestCase
         $projectId = $response->json('data.id');
 
         $this->forTenant($tenant)
-            ->postJson("/api/v1/enterprise-knowledge/{$projectId}/generate")
+            ->postJson("/api/v1/enterprise-knowledge/{$projectId}/generate", ['base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($projectId)->draft_version])
             ->assertStatus(202);
 
         // generate 也是队列任务：手动跑完，publish 才有草稿可读
@@ -321,7 +324,7 @@ class EnterpriseKnowledgeTest extends TestCase
         $generateJob->handle($this->app->make(EnterpriseKnowledgeDraftService::class));
 
         $this->forTenant($tenant)
-            ->postJson("/api/v1/enterprise-knowledge/{$projectId}/publish", ['create_knowledge_base' => true])
+            ->postJson("/api/v1/enterprise-knowledge/{$projectId}/publish", ['base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($projectId)->draft_version, 'create_knowledge_base' => true])
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'published')
             ->assertJsonPath('object', 'enterprise_knowledge_project');
@@ -400,26 +403,26 @@ class EnterpriseKnowledgeTest extends TestCase
         ])->assertCreated()->json('data.id');
 
         $url = "/api/v1/enterprise-knowledge/{$ekId}/publish";
-        $this->forTenant($tenant)->postJson($url, ['knowledge_base_id' => $otherBase->id, 'content' => '事实卡正文'])
+        $this->forTenant($tenant)->postJson($url, ['base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($ekId)->draft_version, 'knowledge_base_id' => $otherBase->id, 'content' => '事实卡正文'])
             ->assertStatus(422);
-        $this->forTenant($tenant)->postJson($url, ['content' => '事实卡正文'])->assertStatus(422);
-        $first = $this->forTenant($tenant)->postJson($url, [
+        $this->forTenant($tenant)->postJson($url, ['base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($ekId)->draft_version, 'content' => '事实卡正文'])->assertStatus(422);
+        $first = $this->forTenant($tenant)->postJson($url, ['base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($ekId)->draft_version,
             'knowledge_base_id' => $base->id, 'content' => '事实卡正文',
         ])->assertOk()->assertJsonPath('data.published_knowledge_base_id', $base->id)
             ->assertJsonPath('data.sources.1.source_url', 'https://example.com/geo');
         $docId = $first->json('data.published_document_id');
-        $this->forTenant($tenant)->postJson($url, [
+        $this->forTenant($tenant)->postJson($url, ['base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($ekId)->draft_version,
             'knowledge_base_id' => $base->id, 'content' => '事实卡正文',
         ])->assertOk()->assertJsonPath('data.published_document_id', $docId);
         $this->assertSame(1, KnowledgeDocument::query()->where('knowledge_base_id', $base->id)->count());
         $this->assertSame(["https://example.com/geo"], KnowledgeDocument::findOrFail($docId)->metadata['source_urls']);
 
-        $new = $this->forTenant($tenant)->postJson($url, [
+        $new = $this->forTenant($tenant)->postJson($url, ['base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($ekId)->draft_version,
             'create_knowledge_base' => true, 'content' => '事实卡更新正文',
         ])->assertOk();
         $newBaseId = $new->json('data.published_knowledge_base_id');
         $this->assertNotSame($base->id, $newBaseId);
-        $this->forTenant($tenant)->postJson($url, [
+        $this->forTenant($tenant)->postJson($url, ['base_version' => (int) EnterpriseKnowledgeProject::withoutGlobalScopes()->findOrFail($ekId)->draft_version,
             'create_knowledge_base' => true, 'content' => '事实卡更新正文',
         ])->assertOk()->assertJsonPath('data.published_knowledge_base_id', $newBaseId);
         $this->assertSame(2, KnowledgeBase::query()->where('project_id', $projectId)->count());

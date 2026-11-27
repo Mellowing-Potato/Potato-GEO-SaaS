@@ -18,14 +18,17 @@ final class DoubaoArkResponsesClient
         private readonly AiVisibilityResultNormalizer $normalizer,
     ) {}
 
-    public function ask(string $question, ?string $taskId = null, ?string $clientRequestId = null, ?callable $checkpoint = null): AiVisibilityResult
+    public function ask(string $question, ?string $taskId = null, ?string $clientRequestId = null, ?callable $checkpoint = null, ?array $connectionSnapshot = null): AiVisibilityResult
     {
-        $connection = $this->config->connection();
-        $provider = $this->config->providerName();
-        $model = $connection['model'] ?? '';
-        if (! $connection) {
-            return AiVisibilityResult::failure($question, $provider, $model, '未配置豆包监测');
+        if ($connectionSnapshot === null) {
+            if (! $this->config->connection()) {
+                return AiVisibilityResult::failure($question, $this->config->providerName(), '', '未配置豆包监测');
+            }
+            $connectionSnapshot = $this->config->snapshot();
         }
+        $connection = $this->config->pinnedConnection($connectionSnapshot);
+        $provider = $connection['provider'];
+        $model = $connection['model'];
         if ($taskId === null || ! preg_match('/^[A-Za-z0-9_.:-]{1,140}$/D', $taskId)
             || $clientRequestId === null || ! preg_match('/^[A-Za-z0-9_.:-]{1,160}$/D', $clientRequestId)) {
             return AiVisibilityResult::failure($question, $provider, $model, '监测任务缺少持久编号，未发送请求。');
@@ -41,6 +44,9 @@ final class DoubaoArkResponsesClient
             'credential_fingerprint' => $connection['credential_fingerprint'], 'provider' => $provider, 'model' => $model,
             'attribution' => ['task_id' => $taskId, 'client_request_id' => $clientRequestId, 'feature_id' => 'ai-visibility']];
         if ($checkpoint) { $checkpoint($receipt); }
+        // Check again after durable preparation: configuration may have changed
+        // while the receipt was being saved. Only this matching connection can send.
+        $connection = $this->config->pinnedConnection($connectionSnapshot);
         $stream = new ArkResponseStream($this->config->maxBytes(), function (string $id) use (&$receipt, $checkpoint): void {
             $receipt['provider_request_id'] = $id;
             if ($checkpoint) { $checkpoint($receipt); }

@@ -168,9 +168,11 @@ class KnowledgeImportIdempotencyTest extends TestCase
     public function test_error_after_document_creation_is_marked_unknown_and_never_reenters_stage(): void
     {
         $base = $this->workspace();
-        $disk = Mockery::mock();
+        // Keep the real private path/locking lifecycle; fail only the write
+        // after the document row has been registered.
+        $disk = Mockery::mock(Storage::disk('local'));
         $disk->shouldReceive('put')->once()->andThrow(new \RuntimeException('simulated storage failure'));
-        Storage::shouldReceive('disk')->with('local')->andReturn($disk);
+        Storage::set('local', $disk);
         $this->upload($base, 'partial-stage')->assertUnprocessable()
             ->assertJsonPath('action', 'knowledge_ingestion_result_unknown');
         $this->upload($base, 'partial-stage')->assertUnprocessable()

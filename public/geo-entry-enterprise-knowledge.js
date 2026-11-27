@@ -8,7 +8,7 @@
   }
   const {
     state, elements, api, escapeHtml, formatNumber, setMessage, validationMessage,
-    confirmWorkspaceAction, withBusyButton, clDebounce, clToast, fillErrorNo, loadKnowledgeBases,
+    confirmWorkspaceAction, withBusyButton, clToast, fillErrorNo, loadKnowledgeBases,
     // 静态护栏 tests/js/entry-split-scope.test.mjs 抓出来的漏项：formatDate 与两个 KB 文档状态常量都在主文件里定义。
     formatKnowledgeDate, KB_DOC_STATUS_LABELS, KB_DOC_STATUS_VARIANTS,
   } = GEO;
@@ -33,6 +33,8 @@
     published: "success",
     failed: "danger",
   };
+  const draftEditor = GEO.createEnterpriseDraftEditor({ renderValidation: renderEkValidation });
+
   function safeJson(value) {
     if (typeof value !== "string") return value;
     try { return JSON.parse(value); } catch { return []; }
@@ -46,6 +48,7 @@
   }
 
   function switchKnowledgeSegment(seg) {
+    if (seg !== "enterprise") ekCloseDetail();
     document.querySelectorAll("[data-kb-segment]").forEach((node) => {
       node.hidden = node.dataset.kbSegment !== seg;
     });
@@ -153,18 +156,21 @@
   // ═══════════════════════════════════════════════
   async function openEnterpriseDetail(ekId) {
     stopEkPublishPolling();
+    const editSession = draftEditor.begin(ekId);
     state.selectedEkId = ekId;
+    state.ekDetail = null;
     if (elements.ekHost) elements.ekHost.hidden = true;
     if (elements.ekCreateForm) elements.ekCreateForm.hidden = true;
     if (elements.ekDetail) elements.ekDetail.hidden = false;
     setMessage(elements.ekDetailMessage, "正在加载档案…");
     try {
       const body = await api(`/api/v1/enterprise-knowledge/${ekId}`);
-      if (String(state.selectedEkId) !== String(ekId)) return;
+      if (!draftEditor.current(editSession)) return;
       const project = body.data || body;
       state.ekDetail = project;
       renderEnterpriseDetail(project, body.validation_items || []);
-      void loadEkTargets(ekId, project);
+      draftEditor.loaded(editSession, project);
+      void loadEkTargets(ekId, project, editSession);
       setMessage(elements.ekDetailMessage, "");
       // 和知识库详情同一个道理：重进页面时若索引还没建完，接着盯。
       const pubDoc = project.published_document || project.publishedDocument;
@@ -172,18 +178,18 @@
         pollEkPublishedDoc(project);
       }
     } catch (error) {
-      setMessage(elements.ekDetailMessage, error.message || "档案加载失败。", "danger");
+      if (draftEditor.current(editSession)) setMessage(elements.ekDetailMessage, error.message || "档案加载失败。", "danger");
     }
   }
 
-  async function loadEkTargets(ekId, project) {
+  async function loadEkTargets(ekId, project, editSession) {
     const select = document.getElementById("ekTargetKnowledgeBase");
     if (!select) return;
     select.disabled = true;
     select.innerHTML = '<option value="">正在加载知识库…</option>';
     try {
       const body = await api("/api/v1/knowledge-bases");
-      if (String(state.selectedEkId) !== String(ekId)) return;
+      if (!draftEditor.current(editSession)) return;
       const bases = (body.data || body || []).filter((kb) => kb.status === "active" && Number(kb.project_id) === Number(project.project_id));
       const preferred = project.published_knowledge_base_id;
       select.innerHTML = bases.map((kb) => `<option value="${escapeHtml(String(kb.id))}">${escapeHtml(kb.name)}</option>`).join("")
@@ -191,7 +197,7 @@
       if (preferred && bases.some((kb) => Number(kb.id) === Number(preferred))) select.value = String(preferred);
       select.disabled = false;
     } catch (error) {
-      if (String(state.selectedEkId) !== String(ekId)) return;
+      if (!draftEditor.current(editSession)) return;
       select.innerHTML = '<option value="">知识库加载失败，请重新打开档案</option>';
       setMessage(elements.ekDetailMessage, "目标知识库加载失败，请重新打开档案。", "danger");
     }
@@ -280,72 +286,30 @@
     });
   }
 
-  const ekAutosaveDebounced = clDebounce(async () => {
-    if (!state.selectedEkId) return;
-    const content = elements.ekDraftEditor ? elements.ekDraftEditor.value : "";
-    if (content.trim() === "") return;
-    try {
-      const res = await api(`/api/v1/enterprise-knowledge/${state.selectedEkId}/autosave`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-      });
-      if (elements.ekAutosaveStatus) elements.ekAutosaveStatus.textContent = `已保存 ${formatKnowledgeDate(res.saved_at)}`;
-      if (res.validation_items) renderEkValidation(res.validation_items);
-    } catch (error) {
-      if (elements.ekAutosaveStatus) elements.ekAutosaveStatus.textContent = "保存失败";
-    }
-  }, 900);
+  function ekOnDraftInput() { draftEditor.input(); }
 
-  function ekOnDraftInput() {
-    if (elements.ekAutosaveStatus) elements.ekAutosaveStatus.textContent = "编辑中…";
-    ekAutosaveDebounced();
-  }
-
-  // ═══════════════════════════════════════════════
-  // 校验：草稿与已发布内容的一致性
-  // ═══════════════════════════════════════════════
   async function ekValidate() {
-    if (!state.selectedEkId) return;
-    const content = elements.ekDraftEditor ? elements.ekDraftEditor.value : "";
     if (!elements.ekValidateButton) return;
     await withBusyButton(elements.ekValidateButton, "校验中…", async () => {
-      try {
-        const res = await api(`/api/v1/enterprise-knowledge/${state.selectedEkId}/validate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content }),
-        });
-        renderEkValidation(res.validation_items || []);
-        clToast("校验完成。", "success");
-      } catch (error) {
-        clToast(error.message || "校验失败。", "danger");
-      }
+      const result = await draftEditor.action('validate', content => ({ content }));
+      if (!result || !result.unchanged) return;
+      renderEkValidation(result.res.validation_items || []);
+      clToast("校验完成。", "success");
     });
   }
 
   async function ekGenerate() {
-    if (!state.selectedEkId) return;
-    if (elements.ekGenerateButton) elements.ekGenerateButton.disabled = true;
-    try {
-      const res = await api(`/api/v1/enterprise-knowledge/${state.selectedEkId}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      clToast(res.message || "草稿生成任务已入队。", "success");
-      if (res.data && res.data.status) {
-        const st = String(res.data.status);
-        if (elements.ekDetailStatus) {
-          elements.ekDetailStatus.textContent = EK_STATUS_LABELS[st] || st;
-          elements.ekDetailStatus.dataset.variant = EK_STATUS_VARIANTS[st] || "neutral";
-        }
+    if (!elements.ekGenerateButton) return;
+    await withBusyButton(elements.ekGenerateButton, "登记中…", async () => {
+      const result = await draftEditor.action('generate', {}, { replace: true });
+      if (!result) return;
+      const project = result.res.data;
+      if (project) {
+        state.ekDetail = project;
+        if (result.unchanged) renderEnterpriseDetail(project, project.validation_json ? safeJson(project.validation_json) : []);
       }
-    } catch (error) {
-      clToast(validationMessage(error), "danger");
-    } finally {
-      if (elements.ekGenerateButton) elements.ekGenerateButton.disabled = false;
-    }
+      clToast(result.res.message || "草稿生成任务已入队。", "success");
+    });
   }
 
   // ═══════════════════════════════════════════════
@@ -360,34 +324,34 @@
     const ekId = state.selectedEkId;
     const target = document.getElementById("ekTargetKnowledgeBase")?.value;
     if (!target) { setMessage(elements.ekDetailMessage, "请选择目标知识库。", "danger"); return; }
-    const content = elements.ekDraftEditor ? elements.ekDraftEditor.value : "";
+    const editSession = draftEditor.capture();
     if (elements.ekPublishButton) elements.ekPublishButton.disabled = true;
     // 发布现在是「登记 + 入队」，秒回；耗时的切片/向量化在后台。旧文案会让人以为要等很久。
     setMessage(elements.ekDetailMessage, "正在发布到知识库…");
     try {
-      const res = await api(`/api/v1/enterprise-knowledge/${state.selectedEkId}/publish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: content !== "" ? content : undefined,
-          ...(target === "new" ? { create_knowledge_base: true } : { knowledge_base_id: Number(target) }) }),
-      });
-      if (String(state.selectedEkId) !== String(ekId)) return;
+      const result = await draftEditor.action('publish', content => ({ content: content !== "" ? content : undefined,
+        ...(target === "new" ? { create_knowledge_base: true } : { knowledge_base_id: Number(target) }) }));
+      if (!result) return;
+      const res = result.res;
+      if (!draftEditor.current(editSession)) return;
       // 后端已经不返回 chunk_count / chunk_error 这两个字段了（改异步之后，
       // 发布返回时还没开始切片）。原来这里照旧读它们，于是「失败」分支永远进不去，
       // 弹的一直是绿色成功提示。改成看文档自己的状态。
       const project = res.data || {};
       state.ekDetail = project;
-      renderEnterpriseDetail(project, project.validation_json ? safeJson(project.validation_json) : []);
+      if (result.unchanged) renderEnterpriseDetail(project, project.validation_json ? safeJson(project.validation_json) : []);
       await loadKnowledgeBases();
-      void loadEkTargets(ekId, project);
+      if (!draftEditor.current(editSession)) return;
+      void loadEkTargets(ekId, project, editSession);
       setMessage(elements.ekDetailMessage, res.message || "已发布到知识库，正在后台建立索引。", "success");
       clToast("已发布到知识库，正在后台建立索引。", "success");
       pollEkPublishedDoc(project);
     } catch (error) {
+      if (!draftEditor.current(editSession)) return;
       setMessage(elements.ekDetailMessage, validationMessage(error), "danger");
       clToast("发布失败。", "danger");
     } finally {
-      if (String(state.selectedEkId) === String(ekId) && elements.ekPublishButton) elements.ekPublishButton.disabled = state.knowledgeModelStatus?.embedding_configured !== true;
+      if (draftEditor.current(editSession) && elements.ekPublishButton) elements.ekPublishButton.disabled = state.knowledgeModelStatus?.embedding_configured !== true;
     }
   }
 
@@ -397,7 +361,7 @@
 
   function stopEkPublishPolling() {
     if (ekPublishPoller) {
-      window.clearInterval(ekPublishPoller);
+      window.clearInterval(ekPublishPoller.timer);
       ekPublishPoller = null;
     }
   }
@@ -415,18 +379,22 @@
     const doc = project.published_document || project.publishedDocument;
     if (!kb || !kb.id || !doc || !doc.id) return;
 
-    const ekId = state.selectedEkId;
+    const editSession = draftEditor.capture();
+    const pollToken = {};
+    const isCurrent = () => draftEditor.current(editSession) && ekPublishPoller?.pollToken === pollToken;
     const startedAt = Date.now();
 
     const tick = async () => {
-      if (state.selectedEkId !== ekId) { stopEkPublishPolling(); return; }
+      if (!isCurrent()) return;
 
       let fresh = null;
       try {
         const body = await api(`/api/v1/knowledge-bases/${kb.id}/documents`);
+        if (!isCurrent()) return;
         const list = body.data || body || [];
         fresh = (Array.isArray(list) ? list : []).find((d) => Number(d.id) === Number(doc.id)) || null;
       } catch (error) {
+        if (!isCurrent()) return;
         stopEkPublishPolling();
         return;
       }
@@ -454,7 +422,7 @@
       }
     };
 
-    ekPublishPoller = window.setInterval(tick, EK_PUBLISH_POLL_INTERVAL_MS);
+    ekPublishPoller = { pollToken, timer: window.setInterval(tick, EK_PUBLISH_POLL_INTERVAL_MS) };
     tick();
   }
 
@@ -463,7 +431,9 @@
   // ═══════════════════════════════════════════════
   async function ekAddSource(event) {
     event.preventDefault();
-    if (!state.selectedEkId) return;
+    if (!state.selectedEkId || !await draftEditor.flush()) return;
+    const editSession = draftEditor.capture();
+    const ekId = state.selectedEkId;
     const form = event.currentTarget;
     const message = elements.ekAddSourceMessage;
     const data = new FormData(form);
@@ -471,7 +441,7 @@
     if (!content) { setMessage(message, "请输入来源内容。", "danger"); return; }
     setMessage(message, "正在追加…");
     try {
-      await api(`/api/v1/enterprise-knowledge/${state.selectedEkId}/sources`, {
+      await api(`/api/v1/enterprise-knowledge/${ekId}/sources`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -480,28 +450,36 @@
           source_url: String(data.get("source_url") || "").trim() || null,
         }),
       });
+      if (!draftEditor.current(editSession)) return;
       setMessage(message, "来源已追加。", "success");
       form.reset();
-      await openEnterpriseDetail(state.selectedEkId);
+      await openEnterpriseDetail(ekId);
     } catch (error) {
+      if (!draftEditor.current(editSession)) return;
       setMessage(message, validationMessage(error), "danger");
     }
   }
 
   async function ekDeleteProject() {
     if (!state.selectedEkId) return;
+    const editSession = draftEditor.capture();
+    const ekId = state.selectedEkId;
     if (!await confirmWorkspaceAction("确定删除这份企业知识档案吗？此操作不可恢复。")) return;
+    if (!draftEditor.current(editSession)) return;
     try {
-      await api(`/api/v1/enterprise-knowledge/${state.selectedEkId}`, { method: "DELETE" });
+      await api(`/api/v1/enterprise-knowledge/${ekId}`, { method: "DELETE" });
+      if (!draftEditor.current(editSession)) return;
       clToast("档案已删除。", "success");
       ekCloseDetail();
       await loadEnterpriseKnowledge();
     } catch (error) {
+      if (!draftEditor.current(editSession)) return;
       clToast(error.message || "删除失败。", "danger");
     }
   }
 
   function ekCloseDetail() {
+    draftEditor.close();
     state.selectedEkId = null;
     state.ekDetail = null;
     stopEkPublishPolling();
@@ -514,6 +492,7 @@
   // ═══════════════════════════════════════════════
   async function loadEkRevisions() {
     if (!state.selectedEkId) return;
+    const editSession = draftEditor.capture();
     if (elements.clDrawerTitle) elements.clDrawerTitle.textContent = "修订历史";
     if (elements.clDrawerSub) elements.clDrawerSub.textContent = "";
     if (elements.clDrawerBody) elements.clDrawerBody.innerHTML = '<div class="cl-skeleton"><div class="cl-sk w80"></div><div class="cl-sk w60"></div></div>';
@@ -524,14 +503,16 @@
     if (elements.clDrawerMask) elements.clDrawerMask.hidden = false;
     try {
       const body = await api(`/api/v1/enterprise-knowledge/${state.selectedEkId}/revisions`);
+      if (!draftEditor.current(editSession)) return;
       state.ekRevisions = body.data || [];
-      renderEkRevisions(state.ekRevisions);
+      renderEkRevisions(state.ekRevisions, editSession);
     } catch (error) {
+      if (!draftEditor.current(editSession)) return;
       if (elements.clDrawerBody) elements.clDrawerBody.innerHTML = `<p class="inline-result" data-variant="danger">${escapeHtml(error.message || "修订加载失败")}</p>`;
     }
   }
 
-  function renderEkRevisions(revisions) {
+  function renderEkRevisions(revisions, editSession) {
     if (!elements.clDrawerBody) return;
     if (!revisions || revisions.length === 0) {
       elements.clDrawerBody.innerHTML = '<p class="muted">还没有修订记录。</p>';
@@ -546,23 +527,22 @@
       </li>`;
     }).join("")}</ul>`;
     elements.clDrawerBody.querySelectorAll("[data-ek-restore]").forEach((btn) => {
-      btn.addEventListener("click", () => ekRestore(Number(btn.dataset.ekRestore)));
+      btn.addEventListener("click", () => { if (draftEditor.current(editSession)) return ekRestore(Number(btn.dataset.ekRestore)); });
     });
   }
 
   async function ekRestore(revId) {
-    if (!state.selectedEkId) return;
-    try {
-      const res = await api(`/api/v1/enterprise-knowledge/${state.selectedEkId}/restore/${revId}`, { method: "POST" });
-      const project = res.data || {};
-      state.ekDetail = project;
-      renderEnterpriseDetail(project, project.validation_json ? safeJson(project.validation_json) : []);
-      clToast("已恢复到该版本。", "success");
-      if (elements.clDrawerMask) elements.clDrawerMask.hidden = true;
-    } catch (error) {
-      clToast(validationMessage(error), "danger");
-    }
+    const result = await draftEditor.action(`restore/${revId}`, {}, { replace: true });
+    if (!result) return;
+    const project = result.res.data || {};
+    state.ekDetail = project;
+    if (result.unchanged) renderEnterpriseDetail(project, project.validation_json ? safeJson(project.validation_json) : []);
+    clToast("已恢复到该版本。", "success");
+    if (elements.clDrawerMask) elements.clDrawerMask.hidden = true;
   }
+  window.addEventListener('hashchange', () => {
+    if (window.location.hash.split('?')[0] !== '#knowledge') ekCloseDetail();
+  });
   // Enterprise Knowledge (EK)
   elements.ekSegmentTabs?.querySelectorAll(".kb-seg-tab").forEach((tab) => {
     tab.addEventListener("click", () => switchKnowledgeSegment(tab.dataset.kbSeg || "bases"));
@@ -590,4 +570,5 @@
   // 拆出去之后仍被主文件调用的两个入口：挂到共享命名空间上（主文件用可选链调用）。
   GEO.loadEnterpriseKnowledge = loadEnterpriseKnowledge;
   GEO.ekCloseDetail = ekCloseDetail;
+  GEO.discardEnterpriseDrafts = draftEditor.discard;
 })();

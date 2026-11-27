@@ -324,6 +324,7 @@
     <script src="/geo-entry-magpie.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-magpie.js') }}" defer></script>
     <script src="/geo-entry-onboarding.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-onboarding.js') }}" defer></script>
     <script src="/geo-entry-usage.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-usage.js') }}" defer></script>
+    <script src="/geo-enterprise-draft.js?v={{ \App\Support\PublicAssetVersion::for('geo-enterprise-draft.js') }}" defer></script>
     <script src="/geo-entry-enterprise-knowledge.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-enterprise-knowledge.js') }}" defer></script>
     <script src="/geo-knowledge-import.js?v={{ \App\Support\PublicAssetVersion::for('geo-knowledge-import.js') }}" defer></script>
     <script src="/geo-entry-knowledge-base.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-knowledge-base.js') }}" defer></script>

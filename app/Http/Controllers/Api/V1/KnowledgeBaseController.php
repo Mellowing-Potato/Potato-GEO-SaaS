@@ -152,35 +152,14 @@ class KnowledgeBaseController extends Controller
     public function destroy(KnowledgeBase $knowledgeBase): JsonResponse
     {
         ProjectKnowledge::assertOwnership($knowledgeBase);
+        $documentCount = $knowledgeBase->documents()->count();
+        app(\App\Services\Knowledge\KnowledgeDeletion::class)->base($knowledgeBase);
         // 敏感操作审计（计划 §9.7）：知识库连同文档一起删，事后必须查得到删了什么。
         $this->auditSensitive('knowledge_base.deleted', $knowledgeBase, [
             'name' => (string) $knowledgeBase->name,
-            'documents' => (int) $knowledgeBase->documents()->count(),
+            'documents' => $documentCount,
         ]);
-        $directories = $knowledgeBase->documents()->get()->map->storageDirectory()->unique();
-        \Illuminate\Support\Facades\DB::transaction(function () use ($knowledgeBase) {
-            $documentIds = $knowledgeBase->documents()->pluck('id');
-
-            // Delete all chunks belonging to documents in this knowledge base
-            \App\Models\KnowledgeChunk::whereIn('document_id', $documentIds)->delete();
-
-            // Delete all documents
-            $knowledgeBase->documents()->delete();
-
-            // Delete the knowledge base itself
-            $knowledgeBase->delete();
-
-            Log::info('Knowledge base deleted', [
-                'id' => $knowledgeBase->id,
-                'documents_deleted' => count($documentIds),
-            ]);
-        });
-
-        // 磁盘上的文件也要清掉。删单个文档时是清的（destroyDocument），
-        // 但整库删除此前只清了数据库，文件永远留在 storage 里没人认领 ——
-        // 企业知识库发布现在也会往这里写 content.md，不清会越积越多。
-        // 放在事务提交之后：事务回滚了就不该动文件。
-        foreach ($directories as $directory) Storage::disk('local')->deleteDirectory($directory);
+        Log::info('Knowledge base deleted', ['id' => $knowledgeBase->id, 'documents_deleted' => $documentCount]);
 
         return response()->json(['message' => '知识库已删除。']);
     }
@@ -313,8 +292,10 @@ class KnowledgeBaseController extends Controller
 
         [$replacement, $created] = DB::transaction(function () use ($document, $knowledgeBase, $request) {
             $original = KnowledgeDocument::query()->lockForUpdate()->findOrFail($document->id);
+            abort_if($original->status === 'deleting', 409, '材料正在删除，请先完成删除。');
             $existingId = (int) (($original->metadata ?? [])['replacement_document_id'] ?? 0);
             $existing = $existingId ? KnowledgeDocument::query()->find($existingId) : null;
+            abort_if($existing?->status === 'deleting', 409, '上次重抓材料正在删除，请先完成删除。');
             if ($existing && in_array($existing->status, ['pending', 'processing', 'ready'], true)) {
                 return [$existing, false];
             }
@@ -336,6 +317,7 @@ class KnowledgeBaseController extends Controller
     {
         ProjectKnowledge::assertOwnership($knowledgeBase);
         abort_unless((int) $document->knowledge_base_id === (int) $knowledgeBase->id, 404);
+        abort_if($document->status === 'deleting', 409, '材料正在删除，请先完成删除。');
         $document->update(['review_status' => 'archived']);
         return response()->json(['data' => $document->fresh(), 'message' => '文档已归档，历史仍可查看。']);
     }
@@ -354,21 +336,13 @@ class KnowledgeBaseController extends Controller
             ], 404);
         }
 
-        // Delete chunks first
-        $document->chunks()->delete();
+        app(\App\Services\Knowledge\KnowledgeDeletion::class)->document($knowledgeBase, $document);
 
         // 敏感操作审计（计划 §9.7）：删数据类动作留痕（只记文件名，不记正文/切片内容）。
         $this->auditSensitive('knowledge_document.deleted', $document, [
             'name' => (string) ($document->title ?? $document->file_name ?? ''),
             'knowledge_base_id' => (int) $knowledgeBase->id,
         ]);
-
-        // Delete stored file if it exists
-        if ($document->file_path) {
-            \Illuminate\Support\Facades\Storage::disk('local')->delete($document->file_path);
-        }
-
-        $document->delete();
 
         Log::info('Document deleted', [
             'document_id' => $document->id,

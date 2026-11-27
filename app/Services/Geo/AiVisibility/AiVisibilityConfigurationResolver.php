@@ -2,6 +2,9 @@
 
 namespace App\Services\Geo\AiVisibility;
 
+use App\Services\AI\ModelConnectionResolver;
+use App\Services\AI\ModelConnectionUnavailable;
+
 /**
  * AI 可见性配置解析（批次二 · 单 3）。
  *
@@ -26,6 +29,23 @@ final class AiVisibilityConfigurationResolver
         $data = ['slot' => 'visibility', 'provider' => $key->provider, 'model' => $key->metadata['model'],
             'base_url' => $key->metadata['base_url'], 'api_key' => $key->getDecryptedKey()];
         return $data + ['credential_fingerprint' => $configuration->fingerprint($key->tenant_id, $data)];
+    }
+
+    /** A queued batch keeps identities and fingerprints, never a credential. */
+    public function snapshot(): array
+    {
+        return app(ModelConnectionResolver::class)->snapshot('visibility');
+    }
+
+    /** Resolve the live secret only while the queued identity still matches. */
+    public function pinnedConnection(array $snapshot): array
+    {
+        $connection = app(ModelConnectionResolver::class)->resolve('visibility', snapshot: $snapshot);
+        if ($connection->provider !== 'volces') {
+            throw new ModelConnectionUnavailable('未配置豆包监测');
+        }
+
+        return $connection->legacyConfiguration() + ['credential_fingerprint' => $connection->fingerprint];
     }
 
     public function apiKey(): ?string

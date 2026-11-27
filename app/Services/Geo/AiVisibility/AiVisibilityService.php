@@ -7,6 +7,7 @@ use App\Models\AiVisibilityRun;
 use App\Models\AiVisibilitySource;
 use App\Models\ModelCallLog;
 use App\Models\User;
+use App\Services\AI\ModelConnectionUnavailable;
 use App\Services\Billing\AssistUsageRecorder;
 use App\Services\DTOs\AiProviderCallResult;
 use App\Services\Enums\SkillCategory;
@@ -37,6 +38,7 @@ final class AiVisibilityService
     public function createRuns(int $userId, int $projectId, array $questions): array
     {
         $batchId = (string) Str::uuid();
+        $connectionSnapshot = $this->config->snapshot();
 
         $runs = [];
         foreach (array_values($questions) as $index => $question) {
@@ -47,8 +49,9 @@ final class AiVisibilityService
                 'question_index' => $index,
                 'question' => $question,
                 'status' => AiVisibilityRun::STATUS_PENDING,
-                'provider' => $this->config->providerName(),
-                'model' => $this->config->model(),
+                'provider' => $connectionSnapshot['provider'] ?? $this->config->providerName(),
+                'model' => $connectionSnapshot['model'] ?? '',
+                'model_connection_snapshot' => $connectionSnapshot,
             ]);
         }
 
@@ -105,25 +108,43 @@ final class AiVisibilityService
             return;
         }
 
-        // Store the logical supplier attempt on the durable question row before
-        // sending. A job restart must reuse it, including when the first HTTP
-        // response was lost after the gateway had already paid its supplier.
-        $attemptMetadata = $run->metadata ?? [];
-        $attemptMetadata['model_client_request_id'] ??= 'visibility:'.$run->id.':supplier:1';
-        $run->update(['metadata' => $attemptMetadata]);
-        $result = $recoveryOnly
-            ? $this->client->recover($run->question, 'visibility:'.$run->id,
-                $attemptMetadata['model_client_request_id'], $attemptMetadata['provider_attempt'] ?? [])
-            : $this->client->ask($run->question, 'visibility:'.$run->id,
-                $attemptMetadata['model_client_request_id'], function (array $receipt) use ($run): void {
-                    DB::transaction(function () use ($run, $receipt): void {
-                        $current = AiVisibilityRun::query()->whereKey($run->id)->lockForUpdate()->firstOrFail();
-                        if ($current->status !== AiVisibilityRun::STATUS_RUNNING) {
-                            throw new \RuntimeException('Monitoring run is no longer owned by this request.');
-                        }
-                        $current->update(['metadata' => array_merge($current->metadata ?? [], ['provider_attempt' => $receipt])]);
-                    });
-                });
+        try {
+            if (! $recoveryOnly) {
+                if (! is_array($run->model_connection_snapshot) || $run->model_connection_snapshot === []) {
+                    throw new ModelConnectionUnavailable('任务缺少入队时的模型连接记录，未发送请求。请确认当前模型后重新提交。');
+                }
+                $this->config->pinnedConnection($run->model_connection_snapshot);
+            }
+
+            // Store the logical supplier attempt on the durable question row before
+            // sending. A job restart must reuse it, including when the first HTTP
+            // response was lost after the gateway had already paid its supplier.
+            $attemptMetadata = $run->metadata ?? [];
+            $attemptMetadata['model_client_request_id'] ??= 'visibility:'.$run->id.':supplier:1';
+            $run->update(['metadata' => $attemptMetadata]);
+            $result = $recoveryOnly
+                ? $this->client->recover($run->question, 'visibility:'.$run->id,
+                    $attemptMetadata['model_client_request_id'], $attemptMetadata['provider_attempt'] ?? [])
+                : $this->client->ask($run->question, 'visibility:'.$run->id,
+                    $attemptMetadata['model_client_request_id'], function (array $receipt) use ($run): void {
+                        DB::transaction(function () use ($run, $receipt): void {
+                            $current = AiVisibilityRun::query()->whereKey($run->id)->lockForUpdate()->firstOrFail();
+                            if ($current->status !== AiVisibilityRun::STATUS_RUNNING) {
+                                throw new \RuntimeException('Monitoring run is no longer owned by this request.');
+                            }
+                            $current->update(['metadata' => array_merge($current->metadata ?? [], ['provider_attempt' => $receipt])]);
+                        });
+                    }, connectionSnapshot: $run->model_connection_snapshot);
+        } catch (ModelConnectionUnavailable $e) {
+            // This exception is raised only before POST. Do not record fictitious
+            // supplier usage or leave a local preparation looking like an unknown call.
+            $metadata = $run->fresh()->metadata ?? [];
+            unset($metadata['model_client_request_id'], $metadata['provider_attempt']);
+            $run->update(['metadata' => $metadata]);
+            $this->finalizeFailure($run, $e->getMessage());
+
+            return;
+        }
         $run = $run->fresh();
 
         if ($result->pendingReconciliation) {

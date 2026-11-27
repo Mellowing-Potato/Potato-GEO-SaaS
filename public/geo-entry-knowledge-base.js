@@ -227,6 +227,10 @@
       const done = (state.kbDocuments || []).filter((doc) => watching.has(Number(doc.id)));
       if (done.length === 0) return;
 
+      if (done.some((doc) => doc.status === "deleting")) {
+        setMessage(statusNode, "材料清理未完成，请在文档列表重试删除。", "warning", { sticky: true });
+        return;
+      }
       const failed = done.find((doc) => doc.status === "failed");
       if (failed) {
         setMessage(statusNode, `解析失败：${failed.error_message || "原因未知，请重试"}`, "danger", { sticky: true });
@@ -316,6 +320,8 @@
         }
       } else if (doc.status === "failed" && doc.error_message) {
         docMeta = `<br><span class="kb-doc-error">失败原因：${escapeHtml(doc.error_message)}</span>`;
+      } else if (doc.status === "deleting") {
+        docMeta = `<br><span class="kb-doc-error">${escapeHtml(doc.error_message || "材料尚未清理完成，请重试删除。")}</span>`;
       }
       if (doc.metadata?.vision_notice) {
         docMeta += `<br><span class="kb-doc-error">${escapeHtml(doc.metadata.vision_notice)}</span>`;
@@ -332,10 +338,10 @@
         <strong>${escapeHtml(doc.filename || doc.title || "未命名文档")}</strong>
         <span>${escapeHtml(doc.mime_type || "-")} · ${formatNumber(doc.file_size || 0)} 字节 · ${escapeHtml(formatKnowledgeDate(doc.created_at))}</span>${statusBadge}${docMeta}${source}${qualityNote}${archived}
         <div>
-          <button class="button small" type="button" data-doc-action="view" data-doc-id="${escapeHtml(doc.id)}" data-kb-id="${escapeHtml(state.selectedKbId)}">查看</button>
-          ${doc.source_type === "url" && doc.review_status !== "archived" ? `<button class="button secondary small" type="button" data-doc-action="recrawl" data-doc-id="${escapeHtml(doc.id)}">重抓</button>` : ""}
-          ${doc.review_status !== "archived" ? `<button class="button secondary small" type="button" data-doc-action="archive" data-doc-id="${escapeHtml(doc.id)}">归档</button>` : ""}
-          <button class="button danger small" type="button" data-doc-action="delete" data-doc-id="${escapeHtml(doc.id)}">删除</button>
+          ${doc.status !== "deleting" ? `<button class="button small" type="button" data-doc-action="view" data-doc-id="${escapeHtml(doc.id)}" data-kb-id="${escapeHtml(state.selectedKbId)}">查看</button>` : ""}
+          ${doc.status !== "deleting" && doc.source_type === "url" && doc.review_status !== "archived" ? `<button class="button secondary small" type="button" data-doc-action="recrawl" data-doc-id="${escapeHtml(doc.id)}">重抓</button>` : ""}
+          ${doc.status !== "deleting" && doc.review_status !== "archived" ? `<button class="button secondary small" type="button" data-doc-action="archive" data-doc-id="${escapeHtml(doc.id)}">归档</button>` : ""}
+          <button class="button danger small" type="button" data-doc-action="delete" data-doc-id="${escapeHtml(doc.id)}">${doc.status === "deleting" ? "重试删除" : "删除"}</button>
         </div>
       `;
       elements.kbDocList.appendChild(item);

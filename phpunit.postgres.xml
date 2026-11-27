@@ -17,6 +17,9 @@
             <file>tests/Feature/ApiIdempotencyResponseEncryptionTest.php</file>
             <file>tests/Feature/KnowledgeImportIdempotencyTest.php</file>
             <file>tests/Feature/PlatformWorkspaceContentIsolationTest.php</file>
+            <file>tests/Feature/EnterpriseDraftVersionTest.php</file>
+            <file>tests/Feature/AiVisibilityConnectionSnapshotTest.php</file>
+            <file>tests/Feature/KnowledgeDeletionLifecycleTest.php</file>
             <file>tests/Feature/AccountSessionBindingTest.php</file>
             <file>tests/Feature/ThemePreviewAuthenticationTest.php</file>
             <file>tests/Feature/PrivateReportDownloadTest.php</file>

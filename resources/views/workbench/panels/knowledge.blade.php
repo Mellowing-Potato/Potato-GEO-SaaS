@@ -174,6 +174,15 @@
                                 <div class="ek-draft-col">
                                     <div class="col-title">草稿编辑 <span class="spacer"></span><span class="ek-saved" id="ekAutosaveStatus"></span></div>
                                     <textarea class="ek-editor" aria-label="企业知识草稿" aria-describedby="ekAutosaveStatus" id="ekDraftEditor" rows="14" placeholder="在此编辑企业知识草稿，输入会自动保存…"></textarea>
+                                    <div id="ekDraftRecovery" role="status" hidden>
+                                        <p class="muted" id="ekDraftRecoveryMessage"></p>
+                                        <textarea class="ek-editor" id="ekServerDraft" aria-label="服务器草稿（只读）" rows="6" readonly hidden></textarea>
+                                        <div class="ek-draft-actions">
+                                            <button class="button secondary small" id="ekRetrySaveButton" type="button">重试保存</button>
+                                            <button class="button secondary small" id="ekKeepLocalDraftButton" type="button" hidden>保留本地编辑并保存</button>
+                                            <button class="button secondary small" id="ekUseServerDraftButton" type="button" hidden>使用服务器草稿</button>
+                                        </div>
+                                    </div>
                                     <label>目标知识库
                                         <select id="ekTargetKnowledgeBase" aria-label="发布目标知识库"><option value="">正在加载知识库…</option></select>
                                     </label>

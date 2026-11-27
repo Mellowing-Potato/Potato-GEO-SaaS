@@ -1686,6 +1686,7 @@
     try {
       await api("/api/v1/auth/logout", { method: "POST" });
       ["geo_token", "geo_user", "geo_tenant"].forEach(key => sessionStorage.removeItem(key));
+      globalThis.GEO?.discardEnterpriseDrafts?.();
       document.getElementById("workspaceState").hidden = true;
       window.location.replace(config.accountLoginUrl + "?redirect_to=" + encodeURIComponent(window.location.origin + "/"));
     } catch (error) { button.disabled = false; showWorkspaceNotice(error.message || "退出未完成，请重试。"); }
@@ -3839,6 +3840,7 @@
     processing: "解析中",
     ready: "已解析",
     failed: "失败",
+    deleting: "清理未完成",
   };
 
   const KB_DOC_STATUS_VARIANTS = {
@@ -3846,6 +3848,7 @@
     processing: "info",
     ready: "success",
     failed: "danger",
+    deleting: "warning",
   };
 
   async function loadKnowledgeBases() {
@@ -3920,6 +3923,7 @@
       item.innerHTML = `
         <strong>${escapeHtml(kb.name || "未命名知识库")}</strong>
         <span>${escapeHtml(kb.description || "无描述")} · ${formatNumber(kb.documents_count || 0)} 篇文档</span>
+        ${kb.status === "deleting" ? '<span class="kb-doc-error">清理未完成，请进入知识库重试删除。</span>' : ""}
         <span>创建：${escapeHtml(formatKnowledgeDate(kb.created_at))}</span>
       `;
       item.addEventListener("click", () => globalThis.GEO?.openKnowledgeBase?.(kb.id));
