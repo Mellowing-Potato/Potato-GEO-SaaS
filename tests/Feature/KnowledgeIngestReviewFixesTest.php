@@ -97,7 +97,7 @@ class KnowledgeIngestReviewFixesTest extends TestCase
             ->postJson("/api/v1/knowledge-bases/{$kb->id}/documents", [
                 'file' => $file,
                 'project_id' => $this->attributionProjectId($kb),
-            ]);
+            ], ['X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()]);
     }
 
     private function runFirstIngestJob(): void
@@ -176,7 +176,7 @@ class KnowledgeIngestReviewFixesTest extends TestCase
                 'url' => 'http://127.0.0.1/admin',
                 // B7/§7：project_id 必填，先过归属校验，才轮到 SSRF 拦截那条 422
                 'project_id' => $this->attributionProjectId($kb),
-            ]);
+            ], ['X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()]);
 
         $response->assertStatus(422);
         $message = (string) $response->json('message');

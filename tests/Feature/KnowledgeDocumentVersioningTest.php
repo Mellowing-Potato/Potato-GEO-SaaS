@@ -48,9 +48,9 @@ class KnowledgeDocumentVersioningTest extends TestCase
         $this->withServerVariables(['HTTP_HOST' => 'version-test.geo.example.test'])
             ->withHeader('X-Tenant', 'version-test')->withHeader('X-Project-Id', $project->id);
         $path = "/api/v1/knowledge-bases/{$base->id}/documents/{$old->id}/recrawl";
-        $first = $this->postJson($path)->assertStatus(202);
+        $first = $this->postJson($path, [], ['X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()])->assertStatus(202);
         $newId = $first->json('data.id');
-        $this->postJson($path)->assertStatus(202)->assertJsonPath('data.id', $newId);
+        $this->postJson($path, [], ['X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()])->assertStatus(202)->assertJsonPath('data.id', $newId);
         $this->assertSame('ready', $old->fresh()->status);
         $this->assertSame('unreviewed', $old->fresh()->review_status);
         $this->assertSame($old->id, KnowledgeDocument::findOrFail($newId)->metadata['supersedes_document_id']);

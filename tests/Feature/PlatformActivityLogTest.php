@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AdminActivityLog;
 use App\Models\SecuritySetting;
 use App\Models\User;
+use App\Models\Tenant;
 use App\Services\Admin\ActivityLogService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -22,8 +23,9 @@ class PlatformActivityLogTest extends TestCase
 
     private function platformAdmin(): User
     {
+        $tenant = Tenant::query()->create(['name' => 'Audit fixture', 'subdomain' => 'audit-fixture', 'status' => 'active', 'plan' => 'basic']);
         return User::factory()->create([
-            'tenant_id' => null,
+            'tenant_id' => $tenant->id,
             'role' => 'platform_admin',
         ]);
     }
@@ -78,7 +80,8 @@ class PlatformActivityLogTest extends TestCase
         $this->getJson('/api/v1/platform/audit')
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('data.0.request_method', 'PUT');
+            ->assertJsonPath('data.0.request_method', 'PUT')
+            ->assertJsonPath('data.0.tenant_id', $admin->tenant_id);
     }
 
     public function test_activity_log_service_redacts_sensitive_fields(): void

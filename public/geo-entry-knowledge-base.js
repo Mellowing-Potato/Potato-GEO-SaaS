@@ -28,6 +28,7 @@
 
   async function openKnowledgeBase(kbId) {
     state.selectedKbId = kbId;
+    GEO.refreshKbImportButtons();
     const kb = state.knowledgeBases.find((k) => k.id === kbId);
     if (!kb) return;
     if (elements.kbList) elements.kbList.style.display = "none";
@@ -47,6 +48,7 @@
 
   function closeKnowledgeBaseDetail() {
     state.selectedKbId = null;
+    GEO.refreshKbImportButtons();
     stopKbPolling();
     if (elements.kbList) elements.kbList.style.display = "";
     if (elements.kbDetail) elements.kbDetail.hidden = true;
@@ -354,12 +356,10 @@
   }
 
   async function recrawlKbDocument(docId) {
-    try {
-      await api(`/api/v1/knowledge-bases/${state.selectedKbId}/documents/${docId}/recrawl`, { method: "POST" });
-      setMessage(elements.kbDetailMessage, "重抓已开始；原文档保留，新版本解析成功后才会替代它。", "success");
-      await loadKbDocuments(state.selectedKbId);
-      pollKbDocuments();
-    } catch (error) { setMessage(elements.kbDetailMessage, validationMessage(error), "danger"); }
+    if (!state.selectedKbId) return;
+    await GEO.submitKbImport({ loadDocuments: loadKbDocuments, pollDocuments: pollKbDocuments, action: `recrawl-${docId}`, message: elements.kbDetailMessage,
+      path: `documents/${docId}/recrawl`, payload: {},
+      success: "重抓已开始；原文档保留，新版本解析成功后才会替代它。" });
   }
 
   async function archiveKbDocument(docId) {
@@ -422,22 +422,10 @@
     // B7/§7：归属项目必带（后端 required，这里提前拦，别让用户白传一遍文件）
     const projectId = selectedKbProjectId(form.querySelector("#kbUploadProjectSelect"));
     if (!projectId) { setMessage(message, "请先创建项目，再上传文档。", "danger"); return; }
-    setMessage(message, "正在上传...");
-    try {
-      const formData = new FormData();
-      formData.append("file", fileInput.files[0]);
-      formData.append("project_id", String(projectId));
-      await api(`/api/v1/knowledge-bases/${state.selectedKbId}/documents`, {
-        method: "POST",
-        body: formData,
-      });
-      setMessage(message, "文档已上传，正在后台解析，完成后这里会告诉你结果。", "success");
-      form.reset();
-      await loadKbDocuments(state.selectedKbId);
-      pollKbDocuments(message);
-    } catch (error) {
-      setMessage(message, validationMessage(error), "danger");
-    }
+    const file = fileInput.files[0];
+    await GEO.submitKbImport({ loadDocuments: loadKbDocuments, pollDocuments: pollKbDocuments, action: "upload", path: "documents", payload: { project_id: projectId }, file,
+      form, message, stillSameInput: () => fileInput.files[0] === file,
+      success: "文档已上传，正在后台解析，完成后这里会告诉你结果。" });
   }
 
   async function ingestKbUrl(event) {
@@ -451,20 +439,9 @@
       // B7/§7：归属项目必带（后端 required）
       const projectId = selectedKbProjectId(form.querySelector("#kbIngestProjectSelect"));
       if (!projectId) { setMessage(message, "请先创建项目，再摄入网页。", "danger"); return; }
-      setMessage(message, "正在摄入...");
-    try {
-      await api(`/api/v1/knowledge-bases/${state.selectedKbId}/ingest-url`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, project_id: projectId }),
-      });
-      setMessage(message, "网页已收下，正在后台抓取解析，完成后这里会告诉你结果。", "success");
-      form.reset();
-      await loadKbDocuments(state.selectedKbId);
-      pollKbDocuments(message);
-    } catch (error) {
-      setMessage(message, validationMessage(error), "danger");
-    }
+    await GEO.submitKbImport({ loadDocuments: loadKbDocuments, pollDocuments: pollKbDocuments, action: "url", path: "ingest-url", payload: { url, project_id: projectId },
+      form, message, stillSameInput: () => String(new FormData(form).get("url") || "").trim() === url,
+      success: "网页已收下，正在后台抓取解析，完成后这里会告诉你结果。" });
   }
 
   async function deleteKbDocument(docId) {

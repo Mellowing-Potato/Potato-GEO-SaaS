@@ -9,12 +9,15 @@
 
 namespace App\Services\Api;
 
+use App\Casts\EncryptedReplayBody;
 use App\Models\ApiIdempotencyKey;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Throwable;
 
 /**
@@ -89,6 +92,53 @@ class IdempotencyService
         return hash('sha256', self::encodeJson($normalized));
     }
 
+    /** Bind knowledge imports to the project and actual uploaded bytes. */
+    public static function hashForRequest(Request $request): string
+    {
+        if (! $request->isMethod('POST') || ! preg_match(
+            '#^api/v1/knowledge-bases/[^/]+/(?:documents|ingest-url|documents/[^/]+/recrawl)$#D',
+            trim($request->path(), '/'),
+        )) {
+            // Existing paid-request claims use this payload-only protocol.
+            return self::requestHash($request->all());
+        }
+
+        $attribute = 'yanji.idempotency.request_hash';
+        if ($request->attributes->has($attribute)) {
+            return $request->attributes->get($attribute);
+        }
+
+        $hash = self::requestHash([
+            'project_id' => $request->header('X-Project-Id'),
+            'payload' => self::knowledgePayload($request->all()),
+        ]);
+        // The controller may move a temporary upload; remember the original
+        // identity before entering business code, including when saving a reply.
+        $request->attributes->set($attribute, $hash);
+
+        return $hash;
+    }
+
+    private static function knowledgePayload(mixed $value): mixed
+    {
+        if ($value instanceof UploadedFile) {
+            try {
+                $path = $value->getRealPath();
+                $digest = $value->isValid() && $path !== false ? @hash_file('sha256', $path) : false;
+                if (! is_string($digest)) {
+                    throw new \RuntimeException('Invalid upload');
+                }
+
+                return ['filename' => $value->getClientOriginalName(),
+                    'mime' => $value->getClientMimeType(), 'sha256' => $digest];
+            } catch (Throwable) {
+                throw new UnprocessableEntityHttpException('无法确认上传文件内容，本次未入库，请重新选择文件。');
+            }
+        }
+
+        return is_array($value) ? array_map(self::knowledgePayload(...), $value) : $value;
+    }
+
     /**
      * 读取已缓存的幂等响应；同键不同请求内容则抛 409 冲突。
      *
@@ -120,6 +170,19 @@ class IdempotencyService
             throw new ConflictHttpException('幂等缓存数据损坏');
         }
 
+        if (ApiTokenIssuanceReceipt::matches($routeKey)) {
+            $receipt = ApiTokenIssuanceReceipt::withoutSecret($decoded);
+            if ($receipt !== $decoded) {
+                // Also fail closed for a legacy cache read before the cleanup
+                // migration has run. Never replay or keep the old bearer value.
+                $row->forceFill(['response_body' => self::encodeJson($receipt)])->save();
+            }
+
+            return ['state' => 'completed'] + ApiTokenIssuanceReceipt::replay(
+                $receipt, (int) $row->response_status, $tenantId, $userId,
+            );
+        }
+
         return [
             'state' => 'completed',
             'status' => (int) $row->response_status,
@@ -147,7 +210,7 @@ class IdempotencyService
             'idempotency_key' => $idempotencyKey,
             'route_key' => $routeKey,
             'request_hash' => $requestHash,
-            'response_body' => $recoverFailedResponse ? self::TITLE_RECOVERY_MARKER : null,
+            'response_body' => EncryptedReplayBody::encode($recoverFailedResponse ? self::TITLE_RECOVERY_MARKER : null),
             'response_status' => null,
             'tenant_id' => $tenantId,
             'user_id' => $userId,
@@ -208,7 +271,8 @@ class IdempotencyService
         ?int $tenantId,
         ?int $userId,
     ): void {
-        $encoded = self::encodeJson($payload);
+        $encoded = self::encodeJson(ApiTokenIssuanceReceipt::matches($routeKey)
+            ? ApiTokenIssuanceReceipt::withoutSecret($payload) : $payload);
         $row = self::findRow($idempotencyKey, $routeKey, $tenantId, $userId);
 
         if ($row) {
@@ -235,7 +299,7 @@ class IdempotencyService
             'idempotency_key' => $idempotencyKey,
             'route_key' => $routeKey,
             'request_hash' => $requestHash,
-            'response_body' => $encoded,
+            'response_body' => EncryptedReplayBody::encode($encoded),
             'response_status' => $status,
             'tenant_id' => $tenantId,
             'user_id' => $userId,
@@ -275,7 +339,7 @@ class IdempotencyService
             return null;
         }
 
-        $hash = self::requestHash($request->all());
+        $hash = self::hashForRequest($request);
 
         try {
             $replay = self::loadReplay($key, $routeKey, $hash, self::tenantId(), self::userId());
@@ -334,7 +398,7 @@ class IdempotencyService
         try {
             // A synchronous job can clear the mutable TenantContext while the
             // controller runs. Persist under the owner captured before dispatch.
-            self::store($key, $routeKey, self::requestHash($request->all()), $decoded,
+            self::store($key, $routeKey, self::hashForRequest($request), $decoded,
                 $response->getStatusCode(), $tenantId, $userId);
         } catch (Throwable $e) {
             // pending 预留仍在，因此即便最终响应落库失败，重复请求也不会再次进入业务。

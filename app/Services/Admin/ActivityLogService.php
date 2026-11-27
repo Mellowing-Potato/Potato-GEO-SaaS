@@ -78,6 +78,7 @@ final class ActivityLogService
         $user = $request->user();
 
         return $this->record($action, [
+            'tenant_id' => $user?->tenant_id,
             'actor_id' => $user?->id,
             'actor_type' => 'user',
             'actor_name' => $user?->name ?? $user?->email,

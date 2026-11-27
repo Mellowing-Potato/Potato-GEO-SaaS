@@ -117,6 +117,28 @@ class PortableInstanceKeyTest extends TestCase
         $this->assertSame(0, filesize($this->database));
     }
 
+    public function test_encrypted_replay_can_prove_a_legacy_key_but_plain_json_cannot(): void
+    {
+        $this->assertSame(0, $this->install(false)->getExitCode());
+        $db = new PDO('sqlite:'.$this->database);
+        $db->exec('update instance_settings set key_verification = null');
+        $legacyEnv = preg_replace('/^YANJI_INSTANCE_ID=.*\n/m', '', file_get_contents($this->envFile));
+        file_put_contents($this->envFile, $legacyEnv);
+        $this->assertSame(1, preg_match('/^APP_KEY=base64:(.+)$/m', $legacyEnv, $key));
+        $cipher = new Encrypter(base64_decode($key[1], true), 'AES-256-CBC');
+        $db->prepare('insert into api_idempotency_keys (idempotency_key, route_key, request_hash, response_body) values (?, ?, ?, ?)')
+            ->execute(['test-legacy-replay', 'api/v1/test-draft/start', 'hash', '{"message":"legacy"}']);
+        $this->assertNotSame(0, $this->command(['yanji:ready', '--portable'])->getExitCode());
+        $db->prepare('update api_idempotency_keys set response_body = ?')
+            ->execute([$cipher->encryptString('{"token":"sk-test-replay"}')]);
+        $this->assertSame(0, $this->command(['yanji:ready', '--portable'])->getExitCode());
+        file_put_contents($this->envFile, 'APP_KEY=base64:'.base64_encode(random_bytes(32))."\n");
+        foreach ([['yanji:ready'], ['yanji:ready', '--portable']] as $args) {
+            $this->assertNotSame(0, $this->command($args)->getExitCode());
+        }
+        $this->assertNull($db->query('select key_verification from instance_settings')->fetchColumn());
+    }
+
     public function test_legacy_install_with_an_existing_account_and_missing_key_preserves_the_environment(): void
     {
         $db = new PDO('sqlite:'.$this->database);

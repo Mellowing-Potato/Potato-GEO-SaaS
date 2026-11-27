@@ -80,7 +80,7 @@ class ProjectKnowledgeIsolationTest extends TestCase
         $this->getJson("/api/v1/knowledge-bases/{$b->id}/documents")->assertNotFound();
         $this->deleteJson("/api/v1/knowledge-bases/{$b->id}")->assertNotFound();
         $this->getJson("/api/v1/knowledge-bases/{$legacy->id}")->assertStatus(409);
-        $this->postJson("/api/v1/knowledge-bases/{$a->id}/ingest-url", ['url' => 'https://example.com', 'project_id' => $this->b->id])->assertUnprocessable();
+        $this->postJson("/api/v1/knowledge-bases/{$a->id}/ingest-url", ['url' => 'https://example.com', 'project_id' => $this->b->id], ['X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()])->assertUnprocessable();
         $this->postJson("/api/v1/knowledge-bases/{$a->id}/search-test", ['query' => '说明', 'knowledge_base_ids' => [$b->id]])->assertNotFound();
         $this->postJson('/api/v1/knowledge-bases', ['name' => '新库'])->assertCreated()->assertJsonPath('data.project_id', $this->a->id);
         $this->withHeader('X-Project-Id', '')->getJson('/api/v1/knowledge-bases')->assertUnprocessable();

@@ -107,7 +107,7 @@ class KnowledgeDocumentAttributionTest extends TestCase
         $this->withServerVariables(['HTTP_HOST' => 'attr-a.geo.example.test'])
             ->postJson("/api/v1/knowledge-bases/{$kb->id}/documents", [
                 'file' => UploadedFile::fake()->createWithContent('note.txt', '正文内容'),
-            ])
+            ], ['X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['project_id']);
 
@@ -139,7 +139,7 @@ class KnowledgeDocumentAttributionTest extends TestCase
             ->postJson("/api/v1/knowledge-bases/{$kb->id}/documents", [
                 'file' => UploadedFile::fake()->createWithContent('note.txt', '正文内容'),
                 'project_id' => $foreignProject->id,
-            ])
+            ], ['X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['project_id']);
 
@@ -156,7 +156,7 @@ class KnowledgeDocumentAttributionTest extends TestCase
             ->postJson("/api/v1/knowledge-bases/{$kb->id}/documents", [
                 'file' => UploadedFile::fake()->createWithContent('note.txt', '正文内容'),
                 'project_id' => $project->id,
-            ])
+            ], ['X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()])
             ->assertStatus(202);
 
         $document = KnowledgeDocument::query()->sole();
@@ -171,7 +171,7 @@ class KnowledgeDocumentAttributionTest extends TestCase
         $this->withServerVariables(['HTTP_HOST' => 'attr-d.geo.example.test'])
             ->postJson("/api/v1/knowledge-bases/{$kb->id}/ingest-url", [
                 'url' => 'https://example.com/page',
-            ])
+            ], ['X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['project_id']);
 
@@ -185,7 +185,7 @@ class KnowledgeDocumentAttributionTest extends TestCase
             ->postJson("/api/v1/knowledge-bases/{$kb->id}/ingest-url", [
                 'url' => 'http://1.2.3.4/page',
                 'project_id' => $project->id,
-            ]);
+            ], ['X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()]);
         $response->assertStatus(202);
 
         $document = KnowledgeDocument::query()->sole();

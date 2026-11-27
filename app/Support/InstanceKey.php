@@ -243,6 +243,16 @@ final class InstanceKey
                 }
             }
         }
+        // Older instances may have only encrypted idempotency responses. Legacy
+        // JSON is not a key witness, but ciphertext must verify before any write.
+        if ($schema->hasColumn('api_idempotency_keys', 'response_body')) {
+            foreach ($db->table('api_idempotency_keys')->whereNotNull('response_body')->orderBy('id')->cursor() as $row) {
+                if (! is_array(json_decode($row->response_body, true))) {
+                    $cipher->decryptString($row->response_body);
+                    return;
+                }
+            }
+        }
         if ($portable) {
             throw new RuntimeException(self::MESSAGE);
         }

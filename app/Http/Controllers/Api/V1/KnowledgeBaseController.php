@@ -13,9 +13,9 @@ use App\Services\DTOs\RetrievedChunk;
 use App\Services\Knowledge\DocumentIngestionService;
 use App\Support\TenantContext;
 use App\Support\ProjectKnowledge;
+use App\Support\KnowledgeUploadValidation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -196,7 +196,7 @@ class KnowledgeBaseController extends Controller
      * 只改这里不生效 —— PHP 在接收阶段就把超限文件拒了，请求根本进不到这个方法。
      * post_max_size 必须严格大于 upload_max_filesize，给表单其余字段留空间。
      */
-    private const MAX_UPLOAD_KB = 10240;
+    private const MAX_UPLOAD_KB = KnowledgeUploadValidation::MAX_UPLOAD_KB;
 
     public function uploadDocument(Request $request, KnowledgeBase $knowledgeBase): JsonResponse
     {
@@ -266,6 +266,8 @@ class KnowledgeBaseController extends Controller
             // 其它异常一律通用提示，原文只进上面的日志。
             return response()->json([
                 'message' => IngestionFailure::messageFor($e, '文档保存失败，请重试。'),
+                // 登记/派发可能已发生；客户端须保留原键，不能把 422 当作零副作用。
+                'action' => 'knowledge_ingestion_result_unknown',
             ], 422);
         }
     }
@@ -283,47 +285,7 @@ class KnowledgeBaseController extends Controller
      */
     private function uploadSizeError(Request $request): ?string
     {
-        $contentLength = (int) $request->server('CONTENT_LENGTH', 0);
-
-        // 情况一：整个表单超过 post_max_size —— PHP 把 $_POST / $_FILES 都清空了。
-        // 这一条必须要求 CONTENT_LENGTH > 0，否则「压根没选文件」也会被误判成超限。
-        $postDiscarded = $contentLength > 0
-            && $request->post() === []
-            && $request->allFiles() === [];
-
-        // 情况二：单个文件超过 upload_max_filesize —— 文件对象还在，带着错误码。
-        //
-        // 必须用 $request->file()，不能用 $request->files->get()：后者读的是 Symfony
-        // 原始 FileBag，返回 Symfony\...\UploadedFile；本文件 import 的是
-        // Illuminate\Http\UploadedFile（Symfony 那个的**子类**）。父类实例 instanceof
-        // 子类恒为 false，于是这个分支从落地起就没生效过 —— 2026-08-11 实测发现。
-        $file = $request->file('file');
-        $tooLarge = $file instanceof UploadedFile
-            && $file->getError() === UPLOAD_ERR_INI_SIZE;
-
-        if (! $postDiscarded && ! $tooLarge) {
-            return null;
-        }
-
-        $limitMb = intdiv(self::MAX_UPLOAD_KB, 1024);
-
-        // PHP 在这两种情况下都会把 file size 清零，只能拿整个请求体大小近似 ——
-        // 单文件表单里两者只差几百字节的分隔符，够用来告诉用户「你这份多大」。
-        // 拿不到 CONTENT_LENGTH（如分块传输）时就不写大小，不编一个数字出来。
-        return $contentLength > 0
-            ? sprintf(
-                '文件约 %s，超过 %d MB 上限，请压缩或拆分后再传。',
-                $this->humanSize($contentLength),
-                $limitMb,
-            )
-            : sprintf('文件超过 %d MB 上限，请压缩或拆分后再传。', $limitMb);
-    }
-
-    private function humanSize(int $bytes): string
-    {
-        return $bytes >= 1048576
-            ? round($bytes / 1048576, 1) . ' MB'
-            : max(1, (int) round($bytes / 1024)) . ' KB';
+        return KnowledgeUploadValidation::sizeError($request);
     }
 
     /**
@@ -556,6 +518,7 @@ class KnowledgeBaseController extends Controller
             // 回一句「请重试」是骗人：这种地址重试一百次也不会成功。
         return response()->json([
             'message' => IngestionFailure::messageFor($e, '网页入库失败，请重试。'),
+            'action' => 'knowledge_ingestion_result_unknown',
         ], 422);
     }
 }

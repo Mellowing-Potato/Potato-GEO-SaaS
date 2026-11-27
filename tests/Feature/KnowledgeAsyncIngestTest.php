@@ -96,7 +96,7 @@ class KnowledgeAsyncIngestTest extends TestCase
         ])->postJson("/api/v1/knowledge-bases/{$kb->id}/documents", [
             'file' => $file,
             'project_id' => $this->attributionProjectId($kb),
-        ]);
+        ], ['X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()]);
     }
 
     private function ingestUrl(KnowledgeBase $kb, string $url)
@@ -106,7 +106,7 @@ class KnowledgeAsyncIngestTest extends TestCase
         ])->postJson("/api/v1/knowledge-bases/{$kb->id}/ingest-url", [
             'url' => $url,
             'project_id' => $this->attributionProjectId($kb),
-        ]);
+        ], ['X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()]);
     }
 
     /** 取出当前测试里唯一那条入队的入库 job 并手动跑完（queue 必须是 fake 状态）。 */

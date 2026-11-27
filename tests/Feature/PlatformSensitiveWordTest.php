@@ -52,10 +52,7 @@ class PlatformSensitiveWordTest extends TestCase
 
     private function platformAdmin(): User
     {
-        return User::factory()->create([
-            'tenant_id' => null,
-            'role' => 'platform_admin',
-        ]);
+        return $this->makeTenantUser('platform-'.strtolower(\Illuminate\Support\Str::random(8)), 'platform_admin')[1];
     }
 
     private function makeTenantUser(string $subdomain, string $role): array
@@ -339,7 +336,7 @@ class PlatformSensitiveWordTest extends TestCase
     #[Test]
     public function hit_summary_aggregates_by_word_and_is_403_for_non_privileged(): void
     {
-        [$tenant] = $this->makeTenantUser('hit-tenant', 'admin');
+        [$tenant, $platformAdmin] = $this->makeTenantUser('hit-tenant', 'platform_admin');
 
         SensitiveWordHit::query()->create([
             'tenant_id' => $tenant->id, 'article_id' => 11, 'word' => '聚合词',
@@ -352,7 +349,7 @@ class PlatformSensitiveWordTest extends TestCase
             'surface' => 'title', 'context' => '另一篇命中', 'trigger' => 'create',
         ]);
 
-        Sanctum::actingAs($this->platformAdmin(), ['*']);
+        Sanctum::actingAs($platformAdmin, ['*']);
         $this->getJson('/api/v1/platform/sensitive-word-hits/summary')
             ->assertStatus(200)
             ->assertJsonPath('data.0.word', '聚合词')
@@ -465,7 +462,7 @@ class PlatformSensitiveWordTest extends TestCase
         $this->assertNotNull($id);
 
         // 同步跑掉队列任务（测试环境不依赖 worker）
-        (new DryRunPlatformSensitiveWordsJob($id))->handle(app(ArticleRiskScanner::class));
+        (new DryRunPlatformSensitiveWordsJob($id, (int) auth()->user()->tenant_id))->handle(app(ArticleRiskScanner::class));
 
         $this->getJson('/api/v1/platform/sensitive-words/dry-run/'.$id)
             ->assertStatus(200)

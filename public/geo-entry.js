@@ -785,7 +785,7 @@
     platform: {
       eyebrow: "平台管理",
       title: "运营面板",
-      description: "跨租户平台运营概览，含租户列表、商业数据和系统健康。",
+      description: "当前工作区运营概览与审计，另提供系统健康和设置。",
     },
     // 2026-09-21 工作台功能补齐（计划 §5）：三个新视图的自带页头文案。
     // 三页都在 selfTitledViews 名单里（面板自带 panel-heading），这份 meta 只在兜底态用得上。

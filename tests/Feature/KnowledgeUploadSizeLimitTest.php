@@ -91,7 +91,7 @@ class KnowledgeUploadSizeLimitTest extends TestCase
         ])->postJson("/api/v1/knowledge-bases/{$kb->id}/documents", [
             'file' => $file,
             'project_id' => $this->attributionProjectId($kb),
-        ]);
+        ], ['X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()]);
     }
 
     public function test_oversized_file_is_rejected_in_chinese_naming_the_limit(): void

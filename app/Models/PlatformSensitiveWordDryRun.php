@@ -5,15 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * 加词前试算记录（执行书 T8 的安全阀）。
- *
- * ⚠️ 与 PlatformSensitiveWord 同理：**绝对不许 use BelongsToTenant**。
- * 试算本身就是跨租户全表扫描，挂上租户作用域会让查询带上 where tenant_id（列不存在
- * → SQL 报错），或在 null 上下文下 fail-open —— 两种都让运营捞不回自己的试算结果。
- *
- * 状态机：pending → running → completed | failed。
- * failed 也要留着：试算失败必须让运营看见「这次没扫成」，
- * 否则他会把「没有结果」误读成「没有命中」，然后放心把词加进去。
+ * Workspace-owned sensitive-word trial results.
+ * Legacy rows without tenant_id contain cross-workspace results and must not be exposed.
  */
 class PlatformSensitiveWordDryRun extends Model
 {
@@ -34,6 +27,7 @@ class PlatformSensitiveWordDryRun extends Model
     protected $table = 'platform_sensitive_word_dry_runs';
 
     protected $fillable = [
+        'tenant_id',
         'requested_by',
         'candidates',
         'status',
@@ -54,6 +48,7 @@ class PlatformSensitiveWordDryRun extends Model
             'by_tenant' => 'array',
             'by_word' => 'array',
             'requested_by' => 'integer',
+            'tenant_id' => 'integer',
             'articles_scanned' => 'integer',
             'articles_skipped' => 'integer',
             'hit_articles' => 'integer',
