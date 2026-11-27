@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import test from 'node:test';
 import vm from 'node:vm';
 
 const mgmtSource = fs.readFileSync(new URL('../../public/geo-entry-management.js', import.meta.url), 'utf8');
@@ -166,5 +167,76 @@ listeners.get('urlImportRows:click')({
 });
 await flush();
 assert.doesNotMatch(nodes.urlImportDetail.innerHTML, /打开原网页/, 'Detail must omit external anchor for non-HTTP(S) URLs');
+
+async function copyFixture(navigator) {
+  context.navigator = navigator;
+  listeners.get('urlImportRows:click')({
+    preventDefault() {},
+    target: { closest: (sel) => (sel === '[data-url-import-detail]' ? { dataset: { urlImportDetail: '101' } } : null) },
+  });
+  await flush();
+  assert.match(nodes.urlImportDetail.innerHTML, /class="url-import-full-url"[^>]*>https:\/\/example\.com\/%E7%A4%BA%E4%BE%8B%E6%94%BB%E7%95%A5<\/span>/, 'Manual copy must retain the complete original URL');
+  const button = { dataset: { urlImportCopy: encodedUrl }, textContent: '复制链接' };
+  return {
+    button,
+    click: () => listeners.get('urlImportDetail:click')({
+      target: { closest: (sel) => (sel === '[data-url-import-copy]' ? button : null) },
+    }),
+  };
+}
+
+for (const [name, navigator] of [
+  ['missing clipboard', {}],
+  ['missing writeText', { clipboard: {} }],
+  ['non-callable writeText', { clipboard: { writeText: true } }],
+]) {
+  await test(`${name} offers manual copy without claiming success`, async () => {
+    const copy = await copyFixture(navigator);
+    await copy.click();
+    assert.equal(copy.button.textContent, '复制链接', 'An unavailable clipboard must not claim a copy happened');
+    assert.equal(nodes.urlImportDetailMessage.textContent, '浏览器未允许自动复制，请直接选中上方网页地址复制。');
+  });
+}
+
+await test('rejected clipboard write keeps the full URL and offers manual copy', async () => {
+  const calls = [];
+  const copy = await copyFixture({ clipboard: { async writeText(value) {
+    calls.push(value);
+    throw new Error('Synthetic clipboard permission denial');
+  } } });
+  await copy.click();
+  assert.deepEqual(calls, [encodedUrl]);
+  assert.equal(copy.button.textContent, '复制链接');
+  assert.equal(nodes.urlImportDetailMessage.textContent, '浏览器未允许自动复制，请直接选中上方网页地址复制。');
+});
+
+await test('delayed clipboard success is acknowledged only after the write resolves', async () => {
+  let finishWrite;
+  const calls = [];
+  const clipboard = { writeText(value) {
+    assert.equal(this, clipboard, 'writeText must retain the browser clipboard receiver');
+    calls.push(value);
+    return new Promise((resolve) => { finishWrite = resolve; });
+  } };
+  const copy = await copyFixture({ clipboard });
+  const pending = copy.click();
+  await flush();
+  assert.deepEqual(calls, [encodedUrl]);
+  assert.equal(copy.button.textContent, '复制链接', 'Pending writes are not completed copies');
+  finishWrite();
+  await pending;
+  assert.equal(copy.button.textContent, '已复制');
+  assert.doesNotMatch(nodes.urlImportDetailMessage.textContent, /未允许自动复制/);
+});
+
+await test('a failed attempt after success clears the previous success label', async () => {
+  const copy = await copyFixture({ clipboard: { async writeText() {} } });
+  await copy.click();
+  assert.equal(copy.button.textContent, '已复制');
+  context.navigator = {};
+  await copy.click();
+  assert.equal(copy.button.textContent, '复制链接', 'Previous success must not represent an unperformed new copy');
+  assert.equal(nodes.urlImportDetailMessage.textContent, '浏览器未允许自动复制，请直接选中上方网页地址复制。');
+});
 
 console.log('URL import link summary: hostname/path decoding, Scheme A detail trigger, safe external links, copy action and XSS scheme guard passed.');

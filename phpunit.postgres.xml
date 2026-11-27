@@ -46,6 +46,7 @@
             <file>tests/Feature/TitleAiGenerationTest.php</file>
             <file>tests/Feature/SkillEmbeddingCheckpointTest.php</file>
             <file>tests/Feature/KnowledgeModelIdentityTest.php</file>
+            <file>tests/Feature/KnowledgeRecencyRankingTest.php</file>
             <file>tests/Feature/ReportAssetFlowTest.php</file>
             <file>tests/Feature/ProjectDeleteKeepsCallLogsTest.php</file>
         </testsuite>

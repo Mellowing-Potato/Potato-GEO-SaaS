@@ -123,10 +123,13 @@
     if (copyBtn) {
       const value = copyBtn.dataset.urlImportCopy || "";
       try {
-        await navigator.clipboard?.writeText(value);
+        const clipboard = navigator.clipboard;
+        if (typeof clipboard?.writeText !== "function") throw new Error("Clipboard unavailable");
+        await clipboard.writeText(value);
         copyBtn.textContent = "已复制";
         setTimeout(() => { copyBtn.textContent = "复制链接"; }, 1800);
       } catch {
+        copyBtn.textContent = "复制链接";
         const message = byId("urlImportDetailMessage");
         if (message) message.textContent = "浏览器未允许自动复制，请直接选中上方网页地址复制。";
       }
