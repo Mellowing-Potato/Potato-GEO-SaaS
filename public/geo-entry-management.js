@@ -91,6 +91,8 @@
       }
       setMessage(elements.urlImportMessage, managementListErrorMessage(error, "查看 URL 导入记录"), "danger");
       return false;
+    } finally {
+      if (projInput) projInput.value = currentProjectDisplay();
     }
   }
 

@@ -69,6 +69,10 @@
     return requestWorkspaceDialog("notice", message);
   }
   const config = window.GEO_ENTRY_CONFIG || {};
+  // interactive includes the defer-script phase: every module must register before bootstrap.
+  const workspaceModulesReady = document.readyState === "complete"
+    ? Promise.resolve()
+    : new Promise(resolve => document.addEventListener("DOMContentLoaded", resolve, { once: true }));
   // 内联配置是否真的执行了 —— 挂一个可观测标记（CSP 强制模式下的关键判据）。
   //
   // 为什么需要它：`window.GEO_ENTRY_CONFIG` 由**带 nonce 的内联脚本**注入。CSP 转强制之后，
@@ -4476,6 +4480,7 @@
     projectsReady = false;
     showState("connectingState");
     try {
+      await workspaceModulesReady;
       const response = await fetch(config.sessionLoginEndpoint || "/api/v1/auth/session-login", {
         method: "POST",
         credentials: "include",

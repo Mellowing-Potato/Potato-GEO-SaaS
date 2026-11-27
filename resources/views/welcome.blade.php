@@ -307,8 +307,8 @@
     <script src="/geo-report-editor.js?v={{ \App\Support\PublicAssetVersion::for('geo-report-editor.js') }}" defer></script>
     {{-- 计划 §7：geo-entry.js 拆出来的各块。
          ⚠️ 顺序两件事（2026-09-21 第九刀补）：
-         1. 全部必须排在 geo-entry.js 之后 —— 它们读 window.GEO。都是 defer，按顺序执行完，
-            bootstrap() 取加载器时一定已注册。
+         1. 全部必须排在 geo-entry.js 之后 —— 它们读 window.GEO。全部使用 defer，
+            bootstrap() 等待 DOMContentLoaded 后才启动，确保各块已注册加载器。
          2. **前三块有固定顺序：projects → reports → skills**：
             项目块提供 openWorkspaceView / openResultPage（主文件与所有拆出块都要用），排最前；
             报告块提供 renderExecutionGlance / skillExecutionText / copySkillExecution 等，
