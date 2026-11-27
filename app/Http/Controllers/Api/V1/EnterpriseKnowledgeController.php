@@ -20,6 +20,7 @@ use App\Support\TenantContext;
 use App\Support\ProjectKnowledge;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -200,7 +201,7 @@ class EnterpriseKnowledgeController extends Controller
     /**
      * 触发草稿生成（入队，阶段 1.5d 的 Job）。
      */
-    public function generate(int $projectId): JsonResponse
+    public function generate(Request $request, int $projectId): JsonResponse
     {
         $project = $this->findProject($projectId);
         if (! $project) {
@@ -211,9 +212,12 @@ class EnterpriseKnowledgeController extends Controller
             return response()->json(['message' => '项目没有来源，无法生成草稿。'], 422);
         }
 
-        $project->update(['status' => EnterpriseKnowledgeProject::STATUS_QUEUED]);
+        DB::transaction(function () use ($request, $project) {
+            $this->claimDraft($request, $project);
+            $project->update(['status' => EnterpriseKnowledgeProject::STATUS_QUEUED]);
+        });
 
-        GenerateEnterpriseKnowledgeDraftJob::dispatch($project->id, (int) request()->user()->id)
+        GenerateEnterpriseKnowledgeDraftJob::dispatch($project->id, (int) request()->user()->id, (int) $project->draft_version)
             ->onQueue('knowledge');
 
         return response()->json([
@@ -240,24 +244,28 @@ class EnterpriseKnowledgeController extends Controller
         $content = trim((string) $payload['content']);
         $validationItems = $this->draftService->validateDraft($content);
 
-        $project->update([
-            'draft_content' => $content,
-            'validation_json' => json_encode($validationItems, JSON_UNESCAPED_UNICODE),
-            'status' => $project->status === EnterpriseKnowledgeProject::STATUS_PUBLISHED
-                ? EnterpriseKnowledgeProject::STATUS_REVIEWING
-                : $project->status,
-        ]);
+        DB::transaction(function () use ($request, $project, $content, $validationItems) {
+            $this->claimDraft($request, $project);
+            $project->update([
+                'draft_content' => $content,
+                'validation_json' => json_encode($validationItems, JSON_UNESCAPED_UNICODE),
+                'status' => in_array($project->status, [EnterpriseKnowledgeProject::STATUS_PUBLISHED, EnterpriseKnowledgeProject::STATUS_QUEUED, EnterpriseKnowledgeProject::STATUS_PROCESSING], true)
+                    ? EnterpriseKnowledgeProject::STATUS_REVIEWING
+                    : $project->status,
+            ]);
 
-        $this->draftService->recordRevisionIfChanged(
-            $project,
-            $content,
-            EnterpriseKnowledgeRevision::SOURCE_MANUAL,
-            '手动保存',
-            (int) $request->user()->id
-        );
+            $this->draftService->recordRevisionIfChanged(
+                $project,
+                $content,
+                EnterpriseKnowledgeRevision::SOURCE_MANUAL,
+                '手动保存',
+                (int) $request->user()->id
+            );
+        });
 
         return response()->json([
             'saved_at' => now()->toISOString(),
+            'draft_version' => $project->draft_version,
             'validation_count' => count($validationItems),
             'validation_items' => $validationItems,
         ]);
@@ -276,12 +284,17 @@ class EnterpriseKnowledgeController extends Controller
         $content = trim((string) $request->input('content', $project->draft_content ?? ''));
         $validationItems = $this->draftService->validateDraft($content);
 
-        $project->update([
-            'draft_content' => $content,
-            'validation_json' => json_encode($validationItems, JSON_UNESCAPED_UNICODE),
-        ]);
+        DB::transaction(function () use ($request, $project, $content, $validationItems) {
+            $this->claimDraft($request, $project);
+            $project->update([
+                'draft_content' => $content,
+                'validation_json' => json_encode($validationItems, JSON_UNESCAPED_UNICODE),
+            ]);
+            $this->draftService->recordRevisionIfChanged($project, $content, EnterpriseKnowledgeRevision::SOURCE_MANUAL, '校验并保存', (int) $request->user()->id);
+        });
 
         return response()->json([
+            'draft_version' => $project->draft_version,
             'validation_count' => count($validationItems),
             'validation_items' => $validationItems,
         ]);
@@ -290,7 +303,7 @@ class EnterpriseKnowledgeController extends Controller
     /**
      * 恢复某个历史修订到当前草稿。
      */
-    public function restoreRevision(int $projectId, int $revisionId): JsonResponse
+    public function restoreRevision(Request $request, int $projectId, int $revisionId): JsonResponse
     {
         $project = $this->findProject($projectId);
         if (! $project) {
@@ -306,18 +319,21 @@ class EnterpriseKnowledgeController extends Controller
         }
 
         $content = (string) $revision->content;
-        $project->update([
-            'draft_content' => $content,
-            'validation_json' => json_encode($this->draftService->validateDraft($content), JSON_UNESCAPED_UNICODE),
-            'status' => EnterpriseKnowledgeProject::STATUS_REVIEWING,
-        ]);
-        $this->draftService->recordRevision(
-            $project,
-            $content,
-            EnterpriseKnowledgeRevision::SOURCE_RESTORE,
-            '恢复修订 #'.$revisionId,
-            (int) request()->user()->id
-        );
+        DB::transaction(function () use ($request, $project, $content, $revisionId) {
+            $this->claimDraft($request, $project);
+            $project->update([
+                'draft_content' => $content,
+                'validation_json' => json_encode($this->draftService->validateDraft($content), JSON_UNESCAPED_UNICODE),
+                'status' => EnterpriseKnowledgeProject::STATUS_REVIEWING,
+            ]);
+            $this->draftService->recordRevision(
+                $project,
+                $content,
+                EnterpriseKnowledgeRevision::SOURCE_RESTORE,
+                '恢复修订 #'.$revisionId,
+                (int) request()->user()->id
+            );
+        });
 
         return response()->json([
             'object' => 'enterprise_knowledge_project',
@@ -336,6 +352,7 @@ class EnterpriseKnowledgeController extends Controller
         }
 
         $payload = $request->validate([
+            'base_version' => ['required', 'integer', 'min:0'],
             'content' => ['nullable', 'string'],
             'knowledge_base_id' => ['nullable', 'integer', 'min:1'],
             'create_knowledge_base' => ['nullable', 'boolean'],
@@ -356,7 +373,8 @@ class EnterpriseKnowledgeController extends Controller
         }
 
         $result = DB::transaction(function () use ($project, $content, $target, $payload, $request) {
-            $locked = EnterpriseKnowledgeProject::query()->lockForUpdate()->findOrFail($project->id);
+            $this->claimDraft($request, $project);
+            $locked = $project;
             $result = $this->draftService->publishToKnowledgeBase($locked, $content, $target, ! empty($payload['create_knowledge_base']));
             $knowledgeBase = $result['knowledge_base'];
             $document = $result['document'];
@@ -415,6 +433,24 @@ class EnterpriseKnowledgeController extends Controller
             ->paginate(min((int) request()->query('per_page', 50), 200));
 
         return response()->json($revisions);
+    }
+
+    private function claimDraft(Request $request, EnterpriseKnowledgeProject $project): void
+    {
+        $payload = $request->validate(['base_version' => ['required', 'integer', 'min:0']]);
+        if ($project->claimDraftVersion((int) $payload['base_version'])) {
+            return;
+        }
+
+        throw new HttpResponseException(response()->json([
+            'message' => '草稿已在其他操作中更新，本地编辑已保留，请比较后再保存。',
+            'action' => 'enterprise_draft_conflict',
+            'current' => [
+                'draft_version' => $project->draft_version,
+                'draft_content' => $project->draft_content ?? '',
+                'validation_items' => $project->validationItems(),
+            ],
+        ], 409));
     }
 
     private function findProject(int $projectId): ?EnterpriseKnowledgeProject

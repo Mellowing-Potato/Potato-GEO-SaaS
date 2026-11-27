@@ -103,6 +103,17 @@ assert('syncWordSaveGate 根据入参切换 disabled', /btn\.disabled\s*=\s*!all
 const blade = readFileSync(resolve(HERE, '../..', 'resources/views/platform-ops.blade.php'), 'utf8');
 assert('blade 中 swSaveBtn 默认 disabled', /id="swSaveBtn"[^>]*\bdisabled/.test(blade));
 
+/* The scan covers only the current workspace, while the saved baseline remains system-wide. */
+const scanUi = Object.fromEntries(['swBulk', 'swDryResult', 'swDryTitle', 'swDryMeta', 'swDryBody'].map(id => [id, { value: 'fixture-candidate' }]));
+new Function('$', 'splitSwCandidates', 'toast', 'syncWordSaveGate', 'apiPost',
+    extractFunction(source, 'submitDryRun') + '; submitDryRun();')(
+    selector => scanUi[selector.slice(1)], () => ['fixture-candidate'], () => {}, () => {}, () => ({ then() {} }),
+);
+assert('试算标题说明当前工作区范围', scanUi.swDryTitle.textContent.includes('当前工作区') && !scanUi.swDryTitle.textContent.includes('跨租户'));
+assert('试算等待态不声称扫描全平台', scanUi.swDryBody.innerHTML.includes('当前工作区文章') && !scanUi.swDryBody.innerHTML.includes('全平台'));
+assert('试算说明不将本区结果扩为其他工作区', blade.includes('结果不代表其他工作区'));
+assert('系统级词表范围仍如实保留', blade.includes('保存的基线词仍对整个系统生效'));
+
 /* nav spy 必须观察 sec-words 分区 */
 assert('分区导航保留敏感词入口并由 href 匹配面板', blade.includes('href="#sec-words"') && /getAttribute\('href'\)\.slice\(1\)/.test(extractFunction(source, 'initNavSpy')));
 

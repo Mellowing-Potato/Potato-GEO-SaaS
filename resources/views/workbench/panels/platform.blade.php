@@ -13,12 +13,12 @@
                             <button class="button secondary small" id="reloadPlatformButton" type="button">刷新</button>
                         </div>
                     </div>
-                    <p class="muted" id="platformMessage">跨租户平台运营概览。</p>
+                    <p class="muted" id="platformMessage">业务数据仅限当前工作区；系统健康显示匿名汇总。</p>
                     <form id="instanceRegistrationForm"><label><input type="checkbox" id="instanceRegistrationEnabled" disabled>允许新用户注册（每人独立工作区）</label><button type="submit" id="saveInstanceRegistration" disabled>保存注册设置</button><p id="instanceRegistrationMessage" role="status"></p></form>
                     <div class="platform-tabs" id="platformTabs">
                         <div class="skill-filters">
                             <button class="filter-chip" type="button" data-platform-tab="overview" aria-pressed="true">概览</button>
-                            <button class="filter-chip" type="button" data-platform-tab="tenants" aria-pressed="false">租户列表</button>
+                            <button class="filter-chip" type="button" data-platform-tab="tenants" aria-pressed="false">当前工作区</button>
                             <button class="filter-chip" type="button" data-platform-tab="health" aria-pressed="false">系统健康</button>
                             <button class="filter-chip" type="button" data-platform-tab="operations" aria-pressed="false">运营看板</button>
                         </div>

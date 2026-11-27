@@ -252,11 +252,12 @@ class PlatformSensitiveWordController extends Controller
     /**
      * POST /v1/platform/sensitive-words/dry-run —— 加词前试算（本批的安全阀）。
      *
-     * 返回 202 + 试算记录 id，实际扫描在队列里跑（跨租户全表，同步扫必超时）。
+     * 返回 202 + 试算记录 id，实际扫描仅针对当前账号工作区，在队列里运行。
      * 前端用 GET .../dry-run/{id} 轮询结果。
      */
     public function dryRun(Request $request): JsonResponse
     {
+        $tenantId = $this->workspaceId($request);
         $validated = $request->validate([
             'word' => ['nullable', 'string', 'max:255'],
             'words' => ['nullable', 'string'],
@@ -282,24 +283,28 @@ class PlatformSensitiveWordController extends Controller
         }
 
         $dryRun = PlatformSensitiveWordDryRun::query()->create([
-            'requested_by' => $request->user()?->getKey(),
+            'tenant_id' => $tenantId,
+            'requested_by' => $request->user()->getKey(),
             'candidates' => $candidates,
             'status' => PlatformSensitiveWordDryRun::STATUS_PENDING,
         ]);
 
-        DryRunPlatformSensitiveWordsJob::dispatch((int) $dryRun->getKey());
+        DryRunPlatformSensitiveWordsJob::dispatch((int) $dryRun->getKey(), $tenantId);
 
         return response()->json([
             'object' => 'platform_sensitive_word_dry_run',
             'data' => $this->dryRunPayload($dryRun),
-            'message' => '试算已入队，跨租户扫描完成后返回结果。',
+            'message' => '试算已入队，当前工作区扫描完成后返回结果。',
         ], 202);
     }
 
     /** GET /v1/platform/sensitive-words/dry-run/{id} —— 捞试算结果（前端轮询）。 */
-    public function dryRunShow(int $id): JsonResponse
+    public function dryRunShow(Request $request, int $id): JsonResponse
     {
-        $dryRun = PlatformSensitiveWordDryRun::query()->whereKey($id)->firstOrFail();
+        $dryRun = PlatformSensitiveWordDryRun::query()->whereKey($id)
+            ->where('tenant_id', $this->workspaceId($request))
+            ->where('requested_by', $request->user()->getKey())
+            ->firstOrFail();
 
         return response()->json([
             'object' => 'platform_sensitive_word_dry_run',
@@ -315,6 +320,7 @@ class PlatformSensitiveWordController extends Controller
      */
     public function hits(Request $request): JsonResponse
     {
+        $tenantId = $this->workspaceId($request);
         $validated = $request->validate([
             'article_id' => ['nullable', 'integer', 'min:1'],
             'tenant_id' => ['nullable', 'integer', 'min:1'],
@@ -330,7 +336,7 @@ class PlatformSensitiveWordController extends Controller
         $limit = (int) ($validated['limit'] ?? 100);
         $offset = (int) ($validated['offset'] ?? 0);
 
-        $query = SensitiveWordHit::query();
+        $query = SensitiveWordHit::query()->where('tenant_id', $tenantId);
 
         foreach (['article_id', 'tenant_id', 'origin', 'trigger'] as $field) {
             if (! empty($validated[$field])) {
@@ -353,7 +359,7 @@ class PlatformSensitiveWordController extends Controller
         $total = (clone $query)->count();
 
         $rows = $query->orderByDesc('id')->offset($offset)->limit($limit)->get();
-        $tenantNames = Tenant::query()->pluck('name', 'id');
+        $tenantNames = Tenant::query()->whereKey($tenantId)->pluck('name', 'id');
 
         return response()->json([
             'object' => 'sensitive_word_hit_list',
@@ -387,6 +393,7 @@ class PlatformSensitiveWordController extends Controller
      */
     public function hitsSummary(Request $request): JsonResponse
     {
+        $tenantId = $this->workspaceId($request);
         $validated = $request->validate([
             'days' => ['nullable', 'integer', 'min:1', 'max:365'],
             'origin' => ['nullable', 'string', 'in:'.SensitiveWordHit::ORIGIN_PLATFORM.','.SensitiveWordHit::ORIGIN_TENANT],
@@ -397,6 +404,7 @@ class PlatformSensitiveWordController extends Controller
         $days = isset($validated['days']) ? (int) $validated['days'] : null;
 
         $query = SensitiveWordHit::query()
+            ->where('tenant_id', $tenantId)
             ->select('word', 'origin')
             ->selectRaw('count(*) as hit_count')
             ->selectRaw('count(distinct article_id) as article_count')
@@ -460,6 +468,15 @@ class PlatformSensitiveWordController extends Controller
         );
 
         return array_values(array_unique($candidates));
+    }
+
+    private function workspaceId(Request $request): int
+    {
+        $tenantId = (int) $request->user()->tenant_id;
+        abort_unless($tenantId > 0, 403, '当前账号没有有效工作区。');
+        abort_unless(Tenant::query()->whereKey($tenantId)->where('status', 'active')->exists(), 404);
+
+        return $tenantId;
     }
 
     /** @return array<string, mixed> */

@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Models\PublishingChannel;
 use App\Models\Tenant;
 use App\Support\OperationalTextRedactor;
+use App\Support\TenantScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,7 +27,11 @@ class PlatformOperationsController extends Controller
         $recent = (int) ($validated['recent'] ?? 10);
         $since = now()->subDays($days);
 
-        $tenants = Tenant::query()->orderBy('id')->get();
+        // Platform permissions never grant access to another account's workspace.
+        $tenantId = (int) $request->user()->tenant_id;
+        abort_unless($tenantId > 0, 403, '当前账号没有有效工作区。');
+        $tenant = Tenant::query()->whereKey($tenantId)->where('status', 'active')->firstOrFail();
+        $tenants = collect([$tenant]);
         $tenantSummaries = $tenants
             ->map(fn (Tenant $tenant): array => $this->tenantSummary($tenant, $since))
             ->values();
@@ -43,32 +48,32 @@ class PlatformOperationsController extends Controller
                 'tenants_total' => $tenants->count(),
                 'tenants_active' => $tenants->where('status', 'active')->count(),
                 'tenants_with_risks' => $tenantSummaries->filter(fn (array $tenant): bool => $tenant['summary']['risk_flags'] !== [])->count(),
-                'projects_total' => Project::withoutGlobalScopes()->count(),
-                'articles_total' => Article::withoutGlobalScopes()->count(),
-                'publishing_channels_total' => PublishingChannel::withoutGlobalScopes()->count(),
-                'publishing_channels_active' => PublishingChannel::withoutGlobalScopes()->where('is_active', true)->count(),
-                'publications_total' => ArticlePublication::withoutGlobalScopes()->where('created_at', '>=', $since)->count(),
-                'publications_published' => ArticlePublication::withoutGlobalScopes()->where('created_at', '>=', $since)->where('status', ArticlePublication::STATUS_PUBLISHED)->count(),
-                'publications_failed' => ArticlePublication::withoutGlobalScopes()->where('created_at', '>=', $since)->where('status', ArticlePublication::STATUS_FAILED)->count(),
-                'model_calls_total' => ModelCallLog::withoutGlobalScopes()->where('created_at', '>=', $since)->count(),
-                'model_calls_failed' => ModelCallLog::withoutGlobalScopes()->where('created_at', '>=', $since)->where('status', 'failed')->count(),
+                'projects_total' => Project::withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenantId)->count(),
+                'articles_total' => Article::withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenantId)->count(),
+                'publishing_channels_total' => PublishingChannel::withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenantId)->count(),
+                'publishing_channels_active' => PublishingChannel::withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenantId)->where('is_active', true)->count(),
+                'publications_total' => ArticlePublication::withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenantId)->where('created_at', '>=', $since)->count(),
+                'publications_published' => ArticlePublication::withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenantId)->where('created_at', '>=', $since)->where('status', ArticlePublication::STATUS_PUBLISHED)->count(),
+                'publications_failed' => ArticlePublication::withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenantId)->where('created_at', '>=', $since)->where('status', ArticlePublication::STATUS_FAILED)->count(),
+                'model_calls_total' => ModelCallLog::withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenantId)->where('created_at', '>=', $since)->count(),
+                'model_calls_failed' => ModelCallLog::withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenantId)->where('created_at', '>=', $since)->where('status', 'failed')->count(),
             ],
             'tenants' => $tenantSummaries
                 ->sortByDesc(fn (array $tenant): int => count($tenant['summary']['risk_flags']))
                 ->values()
                 ->take($recent)
                 ->all(),
-            'recent_publications' => $this->recentPublications($since, $recent),
+            'recent_publications' => $this->recentPublications($tenantId, $since, $recent),
         ]);
     }
 
     private function tenantSummary(Tenant $tenant, \DateTimeInterface $since): array
     {
-        $publications = ArticlePublication::withoutGlobalScopes()
+        $publications = ArticlePublication::withoutGlobalScope(TenantScope::class)
             ->where('tenant_id', $tenant->id)
             ->where('created_at', '>=', $since)
             ->get();
-        $modelLogs = ModelCallLog::withoutGlobalScopes()
+        $modelLogs = ModelCallLog::withoutGlobalScope(TenantScope::class)
             ->where('tenant_id', $tenant->id)
             ->where('created_at', '>=', $since)
             ->get();
@@ -87,9 +92,9 @@ class PlatformOperationsController extends Controller
                 'risk_flags' => $riskFlags,
             ],
             'counts' => [
-                'projects' => Project::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count(),
-                'articles' => Article::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count(),
-                'channels' => PublishingChannel::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count(),
+                'projects' => Project::withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenant->id)->count(),
+                'articles' => Article::withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenant->id)->count(),
+                'channels' => PublishingChannel::withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenant->id)->count(),
                 'publications' => $publications->count(),
                 'published_publications' => $publications->where('status', ArticlePublication::STATUS_PUBLISHED)->count(),
                 'failed_publications' => $publications->where('status', ArticlePublication::STATUS_FAILED)->count(),
@@ -98,13 +103,14 @@ class PlatformOperationsController extends Controller
         ];
     }
 
-    private function recentPublications(\DateTimeInterface $since, int $recent): array
+    private function recentPublications(int $tenantId, \DateTimeInterface $since, int $recent): array
     {
-        return ArticlePublication::withoutGlobalScopes()
+        return ArticlePublication::withoutGlobalScope(TenantScope::class)
+            ->where('tenant_id', $tenantId)
             ->with([
-                'article' => fn ($query) => $query->withoutGlobalScopes()->select('id', 'tenant_id', 'project_id', 'title', 'slug', 'status'),
-                'article.project' => fn ($query) => $query->withoutGlobalScopes()->select('id', 'tenant_id', 'name'),
-                'channel' => fn ($query) => $query->withoutGlobalScopes()->select('id', 'tenant_id', 'name', 'type'),
+                'article' => fn ($query) => $query->withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenantId)->select('id', 'tenant_id', 'project_id', 'title', 'slug', 'status'),
+                'article.project' => fn ($query) => $query->withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenantId)->select('id', 'tenant_id', 'name'),
+                'channel' => fn ($query) => $query->withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenantId)->select('id', 'tenant_id', 'name', 'type'),
                 'tenant:id,subdomain',
             ])
             ->where('created_at', '>=', $since)

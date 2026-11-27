@@ -92,9 +92,15 @@ class KnowledgeDocument extends Model
 
     public function markFailed(string $error): void
     {
-        $this->update([
+        // A late queue failure or reaper must not make a partially deleted
+        // document ingestible again. The delete operation owns that state.
+        $changes = [
             'status' => 'failed',
             'error_message' => $error,
-        ]);
+        ];
+        if (self::query()->where('tenant_id', $this->tenant_id)->whereKey($this->id)
+            ->where('status', '!=', 'deleting')->update($changes)) {
+            $this->forceFill($changes);
+        }
     }
 }

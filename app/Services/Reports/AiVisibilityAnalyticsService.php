@@ -71,7 +71,7 @@ final class AiVisibilityAnalyticsService
     }
 
     /**
-     * 页头统计（当前租户全量，读 BelongsToTenant 作用域下的查询）。
+     * 页头统计（当前租户筛选后的全部运行，不受列表分页影响）。
      *
      * @return array<string, mixed>
      */
@@ -85,7 +85,9 @@ final class AiVisibilityAnalyticsService
             'metadata',
         ])->get();
 
-        $sourceCount = AiVisibilitySource::query()->count();
+        $sourceCount = AiVisibilitySource::query()
+            ->whereIn('run_id', (clone $runsQuery)->select('ai_visibility_runs.id'))
+            ->count();
 
         return [
             'total_questions' => $runs->count(),

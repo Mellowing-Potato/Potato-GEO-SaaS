@@ -33,14 +33,12 @@ class PlatformOperationsDashboardTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_platform_admin_can_view_cross_tenant_operations_with_redaction(): void
+    public function test_platform_admin_can_only_view_own_workspace_operations_with_redaction(): void
     {
         [$tenantA, $adminA, $projectA] = $this->tenantProject('platform-a');
         [$tenantB, $adminB, $projectB] = $this->tenantProject('platform-b');
-        $platformAdmin = User::factory()->create([
-            'tenant_id' => null,
-            'role' => 'platform_admin',
-        ]);
+        $platformAdmin = $adminA;
+        $platformAdmin->forceFill(['role' => 'platform_admin'])->save();
 
         $channelA = $this->channel($tenantA, 'Tenant A Webhook');
         $channelB = $this->channel($tenantB, 'Tenant B Webhook');
@@ -51,6 +49,7 @@ class PlatformOperationsDashboardTest extends TestCase
             'attempt_count' => 1,
             'remote_url' => 'https://target.example.test/a',
             'published_at' => now(),
+            'last_error' => 'publish token=sk-test-platform-secret-123456 failed for fixture-user-18@example.com phone 13800000027',
         ]);
         $this->publication($tenantB, $articleB, $channelB, [
             'status' => ArticlePublication::STATUS_FAILED,
@@ -80,16 +79,20 @@ class PlatformOperationsDashboardTest extends TestCase
             ->getJson('/api/v1/platform/operations?days=30&recent=5')
             ->assertOk()
             ->assertJsonPath('object', 'geo_platform_operations_dashboard')
-            ->assertJsonPath('metrics.tenants_total', 2)
-            ->assertJsonPath('metrics.tenants_active', 2)
-            ->assertJsonPath('metrics.publishing_channels_total', 2)
-            ->assertJsonPath('metrics.publications_total', 2)
+            ->assertJsonPath('metrics.tenants_total', 1)
+            ->assertJsonPath('metrics.tenants_active', 1)
+            ->assertJsonPath('metrics.publishing_channels_total', 1)
+            ->assertJsonPath('metrics.publications_total', 1)
             ->assertJsonPath('metrics.publications_published', 1)
-            ->assertJsonPath('metrics.publications_failed', 1)
+            ->assertJsonPath('metrics.publications_failed', 0)
             ->assertJsonPath('recent_publications.0.last_error', 'publish token=[redacted_secret] failed for [redacted_email] phone [redacted_phone]');
 
-        $tenantBPayload = collect($response->json('tenants'))->firstWhere('tenant.subdomain', 'platform-b');
-        $this->assertContains('failed_publications', $tenantBPayload['summary']['risk_flags']);
+        $response->assertJsonCount(1, 'tenants')->assertJsonCount(1, 'recent_publications')
+            ->assertJsonPath('recent_publications.0.article_title', 'Tenant A Article')
+            ->assertJsonPath('metrics.model_calls_total', 0);
+        $this->assertNotContains('platform-b', array_column(array_column($response->json('tenants'), 'tenant'), 'subdomain'));
+        $this->assertStringNotContainsString('Tenant B', $response->getContent());
+        $this->assertStringNotContainsString('PLATFORM-B', $response->getContent());
 
         $content = $response->getContent();
         $this->assertStringNotContainsString('platform-secret-123456', $content);

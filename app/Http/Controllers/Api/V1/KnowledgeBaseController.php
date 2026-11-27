@@ -13,9 +13,9 @@ use App\Services\DTOs\RetrievedChunk;
 use App\Services\Knowledge\DocumentIngestionService;
 use App\Support\TenantContext;
 use App\Support\ProjectKnowledge;
+use App\Support\KnowledgeUploadValidation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -152,35 +152,14 @@ class KnowledgeBaseController extends Controller
     public function destroy(KnowledgeBase $knowledgeBase): JsonResponse
     {
         ProjectKnowledge::assertOwnership($knowledgeBase);
+        $documentCount = $knowledgeBase->documents()->count();
+        app(\App\Services\Knowledge\KnowledgeDeletion::class)->base($knowledgeBase);
         // 敏感操作审计（计划 §9.7）：知识库连同文档一起删，事后必须查得到删了什么。
         $this->auditSensitive('knowledge_base.deleted', $knowledgeBase, [
             'name' => (string) $knowledgeBase->name,
-            'documents' => (int) $knowledgeBase->documents()->count(),
+            'documents' => $documentCount,
         ]);
-        $directories = $knowledgeBase->documents()->get()->map->storageDirectory()->unique();
-        \Illuminate\Support\Facades\DB::transaction(function () use ($knowledgeBase) {
-            $documentIds = $knowledgeBase->documents()->pluck('id');
-
-            // Delete all chunks belonging to documents in this knowledge base
-            \App\Models\KnowledgeChunk::whereIn('document_id', $documentIds)->delete();
-
-            // Delete all documents
-            $knowledgeBase->documents()->delete();
-
-            // Delete the knowledge base itself
-            $knowledgeBase->delete();
-
-            Log::info('Knowledge base deleted', [
-                'id' => $knowledgeBase->id,
-                'documents_deleted' => count($documentIds),
-            ]);
-        });
-
-        // 磁盘上的文件也要清掉。删单个文档时是清的（destroyDocument），
-        // 但整库删除此前只清了数据库，文件永远留在 storage 里没人认领 ——
-        // 企业知识库发布现在也会往这里写 content.md，不清会越积越多。
-        // 放在事务提交之后：事务回滚了就不该动文件。
-        foreach ($directories as $directory) Storage::disk('local')->deleteDirectory($directory);
+        Log::info('Knowledge base deleted', ['id' => $knowledgeBase->id, 'documents_deleted' => $documentCount]);
 
         return response()->json(['message' => '知识库已删除。']);
     }
@@ -196,7 +175,7 @@ class KnowledgeBaseController extends Controller
      * 只改这里不生效 —— PHP 在接收阶段就把超限文件拒了，请求根本进不到这个方法。
      * post_max_size 必须严格大于 upload_max_filesize，给表单其余字段留空间。
      */
-    private const MAX_UPLOAD_KB = 10240;
+    private const MAX_UPLOAD_KB = KnowledgeUploadValidation::MAX_UPLOAD_KB;
 
     public function uploadDocument(Request $request, KnowledgeBase $knowledgeBase): JsonResponse
     {
@@ -266,6 +245,8 @@ class KnowledgeBaseController extends Controller
             // 其它异常一律通用提示，原文只进上面的日志。
             return response()->json([
                 'message' => IngestionFailure::messageFor($e, '文档保存失败，请重试。'),
+                // 登记/派发可能已发生；客户端须保留原键，不能把 422 当作零副作用。
+                'action' => 'knowledge_ingestion_result_unknown',
             ], 422);
         }
     }
@@ -283,47 +264,7 @@ class KnowledgeBaseController extends Controller
      */
     private function uploadSizeError(Request $request): ?string
     {
-        $contentLength = (int) $request->server('CONTENT_LENGTH', 0);
-
-        // 情况一：整个表单超过 post_max_size —— PHP 把 $_POST / $_FILES 都清空了。
-        // 这一条必须要求 CONTENT_LENGTH > 0，否则「压根没选文件」也会被误判成超限。
-        $postDiscarded = $contentLength > 0
-            && $request->post() === []
-            && $request->allFiles() === [];
-
-        // 情况二：单个文件超过 upload_max_filesize —— 文件对象还在，带着错误码。
-        //
-        // 必须用 $request->file()，不能用 $request->files->get()：后者读的是 Symfony
-        // 原始 FileBag，返回 Symfony\...\UploadedFile；本文件 import 的是
-        // Illuminate\Http\UploadedFile（Symfony 那个的**子类**）。父类实例 instanceof
-        // 子类恒为 false，于是这个分支从落地起就没生效过 —— 2026-08-11 实测发现。
-        $file = $request->file('file');
-        $tooLarge = $file instanceof UploadedFile
-            && $file->getError() === UPLOAD_ERR_INI_SIZE;
-
-        if (! $postDiscarded && ! $tooLarge) {
-            return null;
-        }
-
-        $limitMb = intdiv(self::MAX_UPLOAD_KB, 1024);
-
-        // PHP 在这两种情况下都会把 file size 清零，只能拿整个请求体大小近似 ——
-        // 单文件表单里两者只差几百字节的分隔符，够用来告诉用户「你这份多大」。
-        // 拿不到 CONTENT_LENGTH（如分块传输）时就不写大小，不编一个数字出来。
-        return $contentLength > 0
-            ? sprintf(
-                '文件约 %s，超过 %d MB 上限，请压缩或拆分后再传。',
-                $this->humanSize($contentLength),
-                $limitMb,
-            )
-            : sprintf('文件超过 %d MB 上限，请压缩或拆分后再传。', $limitMb);
-    }
-
-    private function humanSize(int $bytes): string
-    {
-        return $bytes >= 1048576
-            ? round($bytes / 1048576, 1) . ' MB'
-            : max(1, (int) round($bytes / 1024)) . ' KB';
+        return KnowledgeUploadValidation::sizeError($request);
     }
 
     /**
@@ -351,8 +292,10 @@ class KnowledgeBaseController extends Controller
 
         [$replacement, $created] = DB::transaction(function () use ($document, $knowledgeBase, $request) {
             $original = KnowledgeDocument::query()->lockForUpdate()->findOrFail($document->id);
+            abort_if($original->status === 'deleting', 409, '材料正在删除，请先完成删除。');
             $existingId = (int) (($original->metadata ?? [])['replacement_document_id'] ?? 0);
             $existing = $existingId ? KnowledgeDocument::query()->find($existingId) : null;
+            abort_if($existing?->status === 'deleting', 409, '上次重抓材料正在删除，请先完成删除。');
             if ($existing && in_array($existing->status, ['pending', 'processing', 'ready'], true)) {
                 return [$existing, false];
             }
@@ -374,6 +317,7 @@ class KnowledgeBaseController extends Controller
     {
         ProjectKnowledge::assertOwnership($knowledgeBase);
         abort_unless((int) $document->knowledge_base_id === (int) $knowledgeBase->id, 404);
+        abort_if($document->status === 'deleting', 409, '材料正在删除，请先完成删除。');
         $document->update(['review_status' => 'archived']);
         return response()->json(['data' => $document->fresh(), 'message' => '文档已归档，历史仍可查看。']);
     }
@@ -392,21 +336,13 @@ class KnowledgeBaseController extends Controller
             ], 404);
         }
 
-        // Delete chunks first
-        $document->chunks()->delete();
+        app(\App\Services\Knowledge\KnowledgeDeletion::class)->document($knowledgeBase, $document);
 
         // 敏感操作审计（计划 §9.7）：删数据类动作留痕（只记文件名，不记正文/切片内容）。
         $this->auditSensitive('knowledge_document.deleted', $document, [
             'name' => (string) ($document->title ?? $document->file_name ?? ''),
             'knowledge_base_id' => (int) $knowledgeBase->id,
         ]);
-
-        // Delete stored file if it exists
-        if ($document->file_path) {
-            \Illuminate\Support\Facades\Storage::disk('local')->delete($document->file_path);
-        }
-
-        $document->delete();
 
         Log::info('Document deleted', [
             'document_id' => $document->id,
@@ -556,6 +492,7 @@ class KnowledgeBaseController extends Controller
             // 回一句「请重试」是骗人：这种地址重试一百次也不会成功。
         return response()->json([
             'message' => IngestionFailure::messageFor($e, '网页入库失败，请重试。'),
+            'action' => 'knowledge_ingestion_result_unknown',
         ], 422);
     }
 }

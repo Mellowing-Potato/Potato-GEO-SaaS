@@ -91,7 +91,7 @@ class KnowledgeUploadOversizeResponseTest extends TestCase
             ->post(
                 "/api/v1/knowledge-bases/{$kb->id}/documents",
                 ['file' => $file, 'project_id' => $project->id],
-                ['Accept' => 'application/json'],
+                ['Accept' => 'application/json', 'X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()],
             );
     }
 

@@ -21,8 +21,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * 平台超管运营面板（P1-4 商业运营后台）
  *
- * 所有方法绕过租户作用域，提供跨租户的全局运营视图。
- * 路由组需配合 admin:platform 中间件保护。
+ * 业务内容与操作日志只返回当前账号工作区；系统健康和设置保留平台权限。
+ * 路由组由 auth:sanctum 与 can:platform:operations 保护。
  */
 class PlatformAdminController extends Controller
 {
@@ -32,32 +32,33 @@ class PlatformAdminController extends Controller
      */
     public function overview(Request $request): JsonResponse
     {
+        $tenantId = $this->workspaceId($request);
         $days = max(1, min((int) ($request->query('days', 30)), 366));
         $since = now()->subDays($days);
 
-        return TenantContext::bypassScope(function () use ($since, $days) {
-            $tenantCount = Tenant::count();
-            $activeTenants = Tenant::where('status', 'active')->count();
+        return TenantContext::bypassScope(function () use ($since, $days, $tenantId) {
+            $tenantCount = Tenant::whereKey($tenantId)->count();
+            $activeTenants = Tenant::whereKey($tenantId)->where('status', 'active')->count();
 
-            $userCount = User::where('created_at', '>=', $since)->count();
-            $totalUsers = User::count();
+            $userCount = User::where('tenant_id', $tenantId)->where('created_at', '>=', $since)->count();
+            $totalUsers = User::where('tenant_id', $tenantId)->count();
 
-            $projectCount = Project::whereNull('deleted_at')->count();
+            $projectCount = Project::where('tenant_id', $tenantId)->whereNull('deleted_at')->count();
 
-            $articleCount = Article::where('created_at', '>=', $since)->count();
-            $publishedArticles = Article::where('status', 'published')->count();
+            $articleCount = Article::where('tenant_id', $tenantId)->where('created_at', '>=', $since)->count();
+            $publishedArticles = Article::where('tenant_id', $tenantId)->where('status', 'published')->count();
 
-            $executionCount = SkillExecution::where('created_at', '>=', $since)->count();
-            $successfulExecutions = SkillExecution::where('created_at', '>=', $since)
+            $executionCount = SkillExecution::where('tenant_id', $tenantId)->where('created_at', '>=', $since)->count();
+            $successfulExecutions = SkillExecution::where('tenant_id', $tenantId)->where('created_at', '>=', $since)
                 ->where('status', 'completed')
                 ->count();
-            $totalTokens = SkillExecution::where('created_at', '>=', $since)->sum('token_usage');
+            $totalTokens = SkillExecution::where('tenant_id', $tenantId)->where('created_at', '>=', $since)->sum('token_usage');
 
-            $modelCallCount = ModelCallLog::where('created_at', '>=', $since)->count();
-            $modelTokens = ModelCallLog::where('created_at', '>=', $since)->sum('total_tokens');
+            $modelCallCount = ModelCallLog::where('tenant_id', $tenantId)->where('created_at', '>=', $since)->count();
+            $modelTokens = ModelCallLog::where('tenant_id', $tenantId)->where('created_at', '>=', $since)->sum('total_tokens');
 
-            $publicationCount = ArticlePublication::where('created_at', '>=', $since)->count();
-            $publishedPublications = ArticlePublication::where('created_at', '>=', $since)
+            $publicationCount = ArticlePublication::where('tenant_id', $tenantId)->where('created_at', '>=', $since)->count();
+            $publishedPublications = ArticlePublication::where('tenant_id', $tenantId)->where('created_at', '>=', $since)
                 ->where('status', ArticlePublication::STATUS_PUBLISHED)
                 ->count();
 
@@ -89,10 +90,11 @@ class PlatformAdminController extends Controller
 
     /**
      * GET /api/v1/platform/audit
-     * 平台操作审计日志（阶段 3.4）。平台级全局视图，绕过租户作用域。
+     * 当前工作区操作审计日志。历史未归属工作区的日志不回填、不展示。
      */
     public function audit(Request $request): JsonResponse
     {
+        $tenantId = $this->workspaceId($request);
         $validated = $request->validate([
             'action' => ['nullable', 'string', 'max:80'],
             'actor_id' => ['nullable', 'integer'],
@@ -102,8 +104,8 @@ class PlatformAdminController extends Controller
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
-        return TenantContext::bypassScope(function () use ($validated) {
-            $query = AdminActivityLog::query();
+        return TenantContext::bypassScope(function () use ($validated, $tenantId) {
+            $query = AdminActivityLog::query()->where('tenant_id', $tenantId);
 
             if (! empty($validated['action'])) {
                 $query->where('action', 'like', '%'.$validated['action'].'%');
@@ -193,11 +195,12 @@ class PlatformAdminController extends Controller
      */
     public function tenants(Request $request): JsonResponse
     {
+        $tenantId = $this->workspaceId($request);
         $page = max(1, (int) $request->query('page', 1));
         $perPage = max(1, min((int) $request->query('per_page', 20), 50));
 
-        return TenantContext::bypassScope(function () use ($page, $perPage) {
-            $tenants = Tenant::query()
+        return TenantContext::bypassScope(function () use ($page, $perPage, $tenantId) {
+            $tenants = Tenant::query()->whereKey($tenantId)
                 ->withCount([
                     'projects',
                     'users',
@@ -326,7 +329,7 @@ class PlatformAdminController extends Controller
                 'reason' => $validated['reason'], 'note' => OperationalTextRedactor::redact($validated['note'] ?? null),
                 'paused_at' => now()->toISOString()];
             $target->update(['status' => 'paused', 'settings' => $settings]);
-            $result = ['status' => 'paused', 'tenant' => $target->fresh()];
+            $result = ['status' => 'paused', 'tenant' => ['id' => $target->id, 'status' => $target->status]];
 
             return response()->json($result);
         });
@@ -362,10 +365,18 @@ class PlatformAdminController extends Controller
                 'recovered_at' => now()->toISOString()]);
             $target->update(['status' => in_array($previous, ['active', 'trialing', 'suspended'], true) ? $previous : 'active',
                 'settings' => $settings]);
-            $result = ['status' => 'recovered', 'tenant' => $target->fresh()];
+            $result = ['status' => 'recovered', 'tenant' => ['id' => $target->id, 'status' => $target->status]];
 
             return response()->json($result);
         });
     }
 
+    private function workspaceId(Request $request): int
+    {
+        $tenantId = (int) $request->user()->tenant_id;
+        abort_unless($tenantId > 0, 403, '当前账号没有有效工作区。');
+        abort_unless(Tenant::query()->whereKey($tenantId)->where('status', 'active')->exists(), 404);
+
+        return $tenantId;
+    }
 }

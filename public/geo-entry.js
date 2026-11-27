@@ -69,6 +69,10 @@
     return requestWorkspaceDialog("notice", message);
   }
   const config = window.GEO_ENTRY_CONFIG || {};
+  // interactive includes the defer-script phase: every module must register before bootstrap.
+  const workspaceModulesReady = document.readyState === "complete"
+    ? Promise.resolve()
+    : new Promise(resolve => document.addEventListener("DOMContentLoaded", resolve, { once: true }));
   // 内联配置是否真的执行了 —— 挂一个可观测标记（CSP 强制模式下的关键判据）。
   //
   // 为什么需要它：`window.GEO_ENTRY_CONFIG` 由**带 nonce 的内联脚本**注入。CSP 转强制之后，
@@ -785,7 +789,7 @@
     platform: {
       eyebrow: "平台管理",
       title: "运营面板",
-      description: "跨租户平台运营概览，含租户列表、商业数据和系统健康。",
+      description: "当前工作区运营概览与审计，另提供系统健康和设置。",
     },
     // 2026-09-21 工作台功能补齐（计划 §5）：三个新视图的自带页头文案。
     // 三页都在 selfTitledViews 名单里（面板自带 panel-heading），这份 meta 只在兜底态用得上。
@@ -1686,6 +1690,8 @@
     try {
       await api("/api/v1/auth/logout", { method: "POST" });
       ["geo_token", "geo_user", "geo_tenant"].forEach(key => sessionStorage.removeItem(key));
+      globalThis.GEO?.discardEnterpriseDrafts?.();
+      globalThis.GEO?.closeKnowledgePreview?.();
       document.getElementById("workspaceState").hidden = true;
       window.location.replace(config.accountLoginUrl + "?redirect_to=" + encodeURIComponent(window.location.origin + "/"));
     } catch (error) { button.disabled = false; showWorkspaceNotice(error.message || "退出未完成，请重试。"); }
@@ -3839,6 +3845,7 @@
     processing: "解析中",
     ready: "已解析",
     failed: "失败",
+    deleting: "清理未完成",
   };
 
   const KB_DOC_STATUS_VARIANTS = {
@@ -3846,6 +3853,7 @@
     processing: "info",
     ready: "success",
     failed: "danger",
+    deleting: "warning",
   };
 
   async function loadKnowledgeBases() {
@@ -3920,6 +3928,7 @@
       item.innerHTML = `
         <strong>${escapeHtml(kb.name || "未命名知识库")}</strong>
         <span>${escapeHtml(kb.description || "无描述")} · ${formatNumber(kb.documents_count || 0)} 篇文档</span>
+        ${kb.status === "deleting" ? '<span class="kb-doc-error">清理未完成，请进入知识库重试删除。</span>' : ""}
         <span>创建：${escapeHtml(formatKnowledgeDate(kb.created_at))}</span>
       `;
       item.addEventListener("click", () => globalThis.GEO?.openKnowledgeBase?.(kb.id));
@@ -4471,6 +4480,7 @@
     projectsReady = false;
     showState("connectingState");
     try {
+      await workspaceModulesReady;
       const response = await fetch(config.sessionLoginEndpoint || "/api/v1/auth/session-login", {
         method: "POST",
         credentials: "include",

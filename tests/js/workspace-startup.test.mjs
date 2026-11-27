@@ -38,6 +38,7 @@ function harness() {
   };
   const context = {
     $, console, AbortSignal, Promise, Map, JSON, Number, String,
+    workspaceModulesReady: Promise.resolve(),
     state: { session: null, activeView: 'projects', activeViewParam: '', skills: [], selectedProject: { id: 1 } },
     stateIds: ['connectingState', 'signedOutState', 'errorState', 'workspaceState'],
     elements: { workspaceViews: ['projects', 'skill', 'asset', 'content-library', 'usage'].map(view => { const n = $(view); n.dataset.workspaceView = view; return n; }), newProjectButton: $('newProjectButton'), errorMessage: $('errorMessage') },

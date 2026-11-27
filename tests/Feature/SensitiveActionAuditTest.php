@@ -164,10 +164,10 @@ class SensitiveActionAuditTest extends TestCase
                 'knowledge_base_id' => $base->id,
                 'title' => '待删文档',
                 'file_name' => 'doc.txt',
-                'file_path' => 'knowledge/doc.txt',
                 'source_type' => 'upload',
                 'status' => 'ready',
             ]);
+            $document->update(['file_path' => $document->storageDirectory().'/doc.txt']);
         } finally {
             TenantContext::forget();
         }

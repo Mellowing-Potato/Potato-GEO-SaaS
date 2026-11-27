@@ -83,7 +83,7 @@ class KnowledgeSearchTest extends TestCase
         ])->postJson("/api/v1/knowledge-bases/{$kb->id}/documents", [
             'file' => UploadedFile::fake()->createWithContent('note.txt', $content),
             'project_id' => $kb->project_id,
-        ])->assertStatus(202);
+        ], ['X-Idempotency-Key' => (string) \Illuminate\Support\Str::uuid()])->assertStatus(202);
 
         $docId = KnowledgeDocument::query()->where('knowledge_base_id', $kb->id)->orderByDesc('id')->first()->id;
 

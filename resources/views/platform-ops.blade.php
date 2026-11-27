@@ -1,5 +1,5 @@
 @php
-    /* GEO 平台运营台 · 平台侧跨租户商业控制台
+    /* GEO 平台运营台 · 当前工作区运营与系统管理
        复用 workbench.blade 的 filemtime 版本号 + IIFE 约定；与 /workbench（租户侧）完全隔离。
        红线：环境标签必须真实反映 config('app.env')；不渲染任何非 platform:operations 可见数据。 */
 @endphp
@@ -47,9 +47,9 @@
 </header>
 
 <nav class="section-nav" aria-label="分区跳转">
-    <a href="#sec-subs">租户管理</a>
+    <a href="#sec-subs">当前工作区</a>
     <a href="#sec-health">系统健康</a>
-    <a href="#sec-risk">风险租户</a>
+    <a href="#sec-risk">工作区风险</a>
     <a href="#sec-words">敏感词基线</a>
     {{-- 2026-09-21 工作台功能补齐（计划 §5）：平台审计与安全设置此前只有后端路由
          （/api/v1/platform/audit、/api/v1/platform/security-settings），运营台没接线。
@@ -62,7 +62,7 @@
 <main class="wrap">
     <div class="view-title">
         <h1>平台运营台</h1>
-        <span class="vt-sub">跨租户 · 近 30 天 · 用户、执行与发布状态</span>
+        <span class="vt-sub">当前工作区 · 近 30 天 · 用户、执行与发布状态</span>
     </div>
 
     <!-- 持久操作横幅挂载位 -->
@@ -85,7 +85,7 @@
     <!-- ============ 四、租户管理 ============ -->
     <section id="sec-subs">
         <div class="panel">
-            <div class="panel-head"><h2>租户管理</h2><div class="spacer"></div><span class="pill ok" id="subActive" hidden>active 0</span><span class="pill neutral" id="subPaused" hidden>已暂停 0</span></div>
+            <div class="panel-head"><h2>当前工作区</h2><div class="spacer"></div><span class="pill ok" id="subActive" hidden>active 0</span><span class="pill neutral" id="subPaused" hidden>已暂停 0</span></div>
             <div class="panel-body" style="padding-top:0;">
                 <div class="tbl-wrap">
                     <table class="tbl">
@@ -113,7 +113,7 @@
     <!-- ============ 七、风险租户 ============ -->
     <section id="sec-risk">
         <div class="panel">
-            <div class="panel-head"><h2>风险租户</h2><span class="hint">需要人工跟进的租户，处理后自动移出</span></div>
+            <div class="panel-head"><h2>工作区风险</h2><span class="hint">当前工作区需要人工跟进的状态</span></div>
             <div class="panel-body" style="padding-top:0;">
                 <div class="tbl-wrap">
                     <table class="tbl">
@@ -167,7 +167,7 @@
                         <button class="btn" id="swDryRunBtn">试算影响面</button>
                         <button class="btn primary-fill" id="swSaveBtn" disabled title="必须先跑一次试算，看到影响面之后才能保存">保存到基线库</button>
                     </div>
-                    <p class="sw-gate-note" id="swGateNote">保存前必须先试算：平台词命中即拦，且租户无法自行停用，误伤代价全部由平台承担。</p>
+                    <p class="sw-gate-note" id="swGateNote">保存前先对当前工作区试算；结果不代表其他工作区。保存的基线词仍对整个系统生效。</p>
                 </details>
 
                 {{-- 试算结果 --}}
@@ -209,7 +209,7 @@
         <div class="panel">
             <div class="panel-head">
                 <h2>按词聚合</h2>
-                <span class="hint">命中篇数倒序 · 加错的常用词会浮到最上面</span>
+                <span class="hint">当前工作区 · 按命中篇数倒序</span>
                 <div class="spacer"></div>
                 <select id="swSummaryDays" aria-label="时间窗">
                     <option value="">全部时间</option>
@@ -221,7 +221,7 @@
             <div class="panel-body" style="padding-top:0;">
                 <div class="tbl-wrap">
                     <table class="tbl">
-                        <thead><tr><th>词</th><th>来源</th><th>命中篇数</th><th>涉及租户</th><th>命中次数</th><th>最近命中</th><th class="cell-actions">操作</th></tr></thead>
+                        <thead><tr><th>词</th><th>来源</th><th>命中篇数</th><th>命中工作区数</th><th>命中次数</th><th>最近命中</th><th class="cell-actions">操作</th></tr></thead>
                         <tbody id="swSummaryBody"></tbody>
                     </table>
                 </div>
@@ -232,7 +232,7 @@
         <div class="panel">
             <div class="panel-head">
                 <h2>命中日志</h2>
-                <span class="hint">平台唯一的烟雾报警器 · 租户侧读不到任何一行</span>
+                <span class="hint">仅展示当前工作区的命中记录</span>
                 <div class="spacer"></div>
                 <div class="toolbar">
                     <input type="search" id="swHitArticle" placeholder="文章 ID" aria-label="按文章 ID 筛选" inputmode="numeric">
@@ -300,7 +300,7 @@
         <div class="panel">
             <div class="panel-head">
                 <h2>审计日志</h2>
-                <span class="hint">平台管理员的关键操作记录 · 只读</span>
+                <span class="hint">当前工作区的关键操作记录 · 只读</span>
                 <div class="spacer"></div>
                 <button class="btn ghost" id="auditRefreshBtn">刷新</button>
             </div>

@@ -228,7 +228,7 @@
     "upstream_file": "app/Services/Outbound/SafeOutboundHttpClient.php",
     "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
     "license": "Apache-2.0",
-    "modifications": "Adapted outbound validation and transport for Yanji model and workspace requests."
+    "modifications": "Adapted outbound validation and transport for Yanji model and workspace requests; corrected relative redirect URI resolution using an existing dependency while preserving per-hop security checks."
   },
   {
     "file": "app/Services/Outbound/SafeOutboundRequest.php",

@@ -307,8 +307,8 @@
     <script src="/geo-report-editor.js?v={{ \App\Support\PublicAssetVersion::for('geo-report-editor.js') }}" defer></script>
     {{-- 计划 §7：geo-entry.js 拆出来的各块。
          ⚠️ 顺序两件事（2026-09-21 第九刀补）：
-         1. 全部必须排在 geo-entry.js 之后 —— 它们读 window.GEO。都是 defer，按顺序执行完，
-            bootstrap() 取加载器时一定已注册。
+         1. 全部必须排在 geo-entry.js 之后 —— 它们读 window.GEO。全部使用 defer，
+            bootstrap() 等待 DOMContentLoaded 后才启动，确保各块已注册加载器。
          2. **前三块有固定顺序：projects → reports → skills**：
             项目块提供 openWorkspaceView / openResultPage（主文件与所有拆出块都要用），排最前；
             报告块提供 renderExecutionGlance / skillExecutionText / copySkillExecution 等，
@@ -324,7 +324,10 @@
     <script src="/geo-entry-magpie.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-magpie.js') }}" defer></script>
     <script src="/geo-entry-onboarding.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-onboarding.js') }}" defer></script>
     <script src="/geo-entry-usage.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-usage.js') }}" defer></script>
+    <script src="/geo-enterprise-draft.js?v={{ \App\Support\PublicAssetVersion::for('geo-enterprise-draft.js') }}" defer></script>
     <script src="/geo-entry-enterprise-knowledge.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-enterprise-knowledge.js') }}" defer></script>
+    <script src="/geo-knowledge-import.js?v={{ \App\Support\PublicAssetVersion::for('geo-knowledge-import.js') }}" defer></script>
+    <script src="/geo-entry-knowledge-preview.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-knowledge-preview.js') }}" defer></script>
     <script src="/geo-entry-knowledge-base.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-knowledge-base.js') }}" defer></script>
     <script src="/geo-entry-content-library.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-content-library.js') }}" defer></script>
     <script src="/geo-entry-publishing.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-publishing.js') }}" defer></script>

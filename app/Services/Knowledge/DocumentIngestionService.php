@@ -132,6 +132,12 @@ class DocumentIngestionService
      */
     public function stageFile(int $knowledgeBaseId, UploadedFile $file, ?string $title = null, ?int $projectId = null, ?int $uploadedBy = null): KnowledgeDocument
     {
+        return app(KnowledgeLifecycle::class)->register($knowledgeBaseId,
+            fn () => $this->stageFileWithinBase($knowledgeBaseId, $file, $title, $projectId, $uploadedBy));
+    }
+
+    private function stageFileWithinBase(int $knowledgeBaseId, UploadedFile $file, ?string $title, ?int $projectId, ?int $uploadedBy): KnowledgeDocument
+    {
         // 兜底体积闸门。走网页上传时它确实是死的（php.ini 的 upload_max_filesize=10M
         // 和 MAX_UPLOAD_KB 都在前面先拒了），但 ingestFile 还能被 tinker / 测试 / 命令行
         // 直接调用，那条路上没有任何上限。留着它，成本是三行。
@@ -196,6 +202,12 @@ class DocumentIngestionService
      * @param  int|null  $uploadedBy B7/§7 扣谁的钱包
      */
     public function stageUrl(int $knowledgeBaseId, string $url, ?string $title = null, ?int $projectId = null, ?int $uploadedBy = null): KnowledgeDocument
+    {
+        return app(KnowledgeLifecycle::class)->register($knowledgeBaseId,
+            fn () => $this->stageUrlWithinBase($knowledgeBaseId, $url, $title, $projectId, $uploadedBy));
+    }
+
+    private function stageUrlWithinBase(int $knowledgeBaseId, string $url, ?string $title, ?int $projectId, ?int $uploadedBy): KnowledgeDocument
     {
         // fragment 从不发给服务器，剥离后再校验、再入库，避免误杀带锚点的合法网页。
         $url = $this->stripFragment($url);
@@ -390,6 +402,12 @@ class DocumentIngestionService
      */
     public function stageText(int $knowledgeBaseId, string $title, string $content, array $metadata = []): KnowledgeDocument
     {
+        return app(KnowledgeLifecycle::class)->register($knowledgeBaseId,
+            fn () => $this->stageTextWithinBase($knowledgeBaseId, $title, $content, $metadata));
+    }
+
+    private function stageTextWithinBase(int $knowledgeBaseId, string $title, string $content, array $metadata): KnowledgeDocument
+    {
         $tenantId = TenantContext::id();
 
         $kb = KnowledgeBase::where('id', $knowledgeBaseId)
@@ -443,10 +461,12 @@ class DocumentIngestionService
     {
         // 认领计费主体：入库走队列（IngestKnowledgeDocumentJob），那里 Auth 是空的。
         // uploaded_by 就是下面 assistRecorder->charge() 扣的那个人，两处必须同一个。
-        return BillingContext::scoped(
-            $document->uploaded_by !== null ? (int) $document->uploaded_by : null,
-            'knowledge:ingest',
-            fn (): KnowledgeDocument => $this->processWithinBillingContext($document),
+        return app(KnowledgeLifecycle::class)->process($document,
+            fn (KnowledgeDocument $current): KnowledgeDocument => BillingContext::scoped(
+                $current->uploaded_by !== null ? (int) $current->uploaded_by : null,
+                'knowledge:ingest',
+                fn (): KnowledgeDocument => $this->processWithinBillingContext($current),
+            ),
         );
     }
 

@@ -15,6 +15,8 @@ use App\Services\AI\MagpieTargets;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
+use League\Uri\Exceptions\SyntaxError;
+use League\Uri\UriString;
 
 final class SafeOutboundHttpClient
 {
@@ -573,28 +575,13 @@ final class SafeOutboundHttpClient
 
     private function redirectUrl(string $baseUrl, string $location): string
     {
-        if (preg_match('#^https?://#i', $location) === 1) {
-            return $location;
-        }
-
-        $base = parse_url($baseUrl);
-        if (! is_array($base)) {
+        try {
+            // Preserve query-only references (including an empty query), UTF-8 and
+            // encoded path segments. Every resolved hop still passes resolveTarget().
+            return UriString::resolve($location, $baseUrl);
+        } catch (SyntaxError) {
+            // Parser messages can contain the Location value; never expose it.
             throw new OutboundRequestBlockedException('invalid_redirect');
         }
-        $origin = (string) $base['scheme'].'://'.(string) $base['host'];
-        if (isset($base['port'])) {
-            $origin .= ':'.(int) $base['port'];
-        }
-        if (str_starts_with($location, '//')) {
-            return (string) $base['scheme'].':'.$location;
-        }
-        if (str_starts_with($location, '/')) {
-            return $origin.$location;
-        }
-
-        $path = (string) ($base['path'] ?? '/');
-        $directory = str_ends_with($path, '/') ? $path : dirname($path).'/';
-
-        return $origin.$directory.$location;
     }
 }

@@ -208,7 +208,7 @@
     if (!body) return;
     setPill('#subActive', '活跃', list.filter(function (t) { return t.status === 'active'; }).length);
     setPill('#subPaused', '已暂停', list.filter(function (t) { return t.status === 'paused'; }).length);
-    if (!list.length) { body.innerHTML = emptyRow(5, '暂无租户数据'); return; }
+    if (!list.length) { body.innerHTML = emptyRow(5, '暂无当前工作区数据'); return; }
     body.innerHTML = list.map(function (t) {
       var action = t.status === 'paused' ? 'resume' : 'suspend';
       var label = t.status === 'paused' ? '恢复账号' : '暂停账号';
@@ -324,7 +324,7 @@
     });
     body.innerHTML = list.length ? list.map(function (t) {
       return '<tr><td>' + esc(t.name || t.subdomain) + '</td><td>已暂停，近 30 天无执行</td></tr>';
-    }).join('') : emptyRow(2, '当前没有需要跟进的风险租户');
+    }).join('') : emptyRow(2, '当前工作区没有需要跟进的风险');
   }
 
   var dmMask, dmReason, dmConfirm, dmNote, dmNoteLabel, dmAction;
@@ -617,9 +617,9 @@
     if (cand.length > 200) { toast('一次最多试算 200 个候选词，请分批'); return; }
     syncWordSaveGate(false);
     var box = $('#swDryResult'); if (box) box.hidden = false;
-    var title = $('#swDryTitle'); if (title) title.textContent = '试算中…（跨租户扫描，可能需要一会儿）';
+    var title = $('#swDryTitle'); if (title) title.textContent = '试算中…（扫描当前工作区，可能需要一会儿）';
     var meta = $('#swDryMeta'); if (meta) meta.textContent = cand.length + ' 个候选词';
-    var body = $('#swDryBody'); if (body) body.innerHTML = '<div class="st-icon">○</div><p>已入队，正在扫描全平台文章…</p>';
+    var body = $('#swDryBody'); if (body) body.innerHTML = '<div class="st-icon">○</div><p>已入队，正在扫描当前工作区文章…</p>';
 
     apiPost('/api/v1/platform/sensitive-words/dry-run', { words: cand.join('\n') })
       .then(function (res) {
@@ -669,7 +669,7 @@
 
   function renderDryRun(p) {
     var box = $('#swDryResult'); if (box) box.hidden = false;
-    var title = $('#swDryTitle'); if (title) title.textContent = '试算完成';
+    var title = $('#swDryTitle'); if (title) title.textContent = '当前工作区试算完成';
     var meta = $('#swDryMeta');
     if (meta) meta.textContent = '扫描 ' + fmtInt(p.articles_scanned) + ' 篇' +
       (p.articles_skipped ? '，跳过 ' + fmtInt(p.articles_skipped) + ' 篇' : '') +
@@ -680,7 +680,7 @@
     var byWord = p.by_word || [];
     if (byWord.length) {
       html += '<div class="sw-dry-sub">按候选词（命中 ' + byWord.length + ' 个）</div>';
-      html += '<table class="tbl"><thead><tr><th>词</th><th>命中篇数</th><th>涉及租户</th><th>样本文章</th></tr></thead><tbody>';
+      html += '<table class="tbl"><thead><tr><th>词</th><th>命中篇数</th><th>命中工作区数</th><th>样本文章</th></tr></thead><tbody>';
       html += byWord.map(function (w) {
         var samples = (w.samples || []).slice(0, 3).map(function (s) {
           return '#' + s.article_id + (s.field ? '(' + s.field + ')' : '');
@@ -689,11 +689,11 @@
       }).join('');
       html += '</tbody></table>';
     } else {
-      html += '<p class="sw-dry-empty">候选词均未命中现有文章（影响面为空）。</p>';
+      html += '<p class="sw-dry-empty">候选词均未命中当前工作区文章。</p>';
     }
     var byTenant = p.by_tenant || [];
     if (byTenant.length) {
-      html += '<div class="sw-dry-sub">按租户</div>';
+      html += '<div class="sw-dry-sub">当前工作区</div>';
       html += '<table class="tbl"><thead><tr><th>租户</th><th>命中篇数</th></tr></thead><tbody>';
       html += byTenant.map(function (t) {
         return '<tr><td>' + esc(t.tenant_name || ('租户 #' + t.tenant_id)) + '</td><td>' + fmtInt(t.hit_articles) + '</td></tr>';
@@ -867,8 +867,8 @@
       renderSubs(d);
       renderRisk(d);
     }).catch(function () {
-      showError('#subsBody', 6, loadTenants, '租户数据加载失败');
-      showError('#riskBody', 4, loadTenants, '风险租户加载失败');
+      showError('#subsBody', 6, loadTenants, '当前工作区数据加载失败');
+      showError('#riskBody', 4, loadTenants, '工作区风险加载失败');
     });
   }
 

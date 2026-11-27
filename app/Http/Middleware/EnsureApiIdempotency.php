@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\Api\IdempotencyService;
+use App\Support\KnowledgeUploadValidation;
 use Closure;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
@@ -33,9 +34,19 @@ class EnsureApiIdempotency
             && $request->is('api/v1/materials/titles/generate');
         $recoverableSkillAttempt = $request->isMethod('POST')
             && $routeKey === 'api/v1/skills/execute-async';
+        $knowledgeImport = $request->isMethod('POST') && preg_match(
+            '#^api/v1/knowledge-bases/[^/]+/(documents|ingest-url|documents/[^/]+/recrawl)$#',
+            $routeKey,
+        );
 
         // 未携带幂等键的请求保持原行为，也不为普通 GET/DELETE 请求增加锁开销。
         if ($idempotencyKey === null) {
+            if ($knowledgeImport) {
+                return response()->json([
+                    'message' => '导入材料需要稳定的请求编号，本次未受理。请刷新页面后重试。',
+                    'action' => 'idempotency_key_required',
+                ], Response::HTTP_CONFLICT);
+            }
             if ($request->isMethod('POST') && $routeKey === 'api/v1/skills/execute-async'
                 && config('geo.skill_execution_claim_required', true)) {
                 return response()->json(['message' => '请先认领当前账号的技能任务，本次未入队。'], 409);
@@ -49,6 +60,11 @@ class EnsureApiIdempotency
                 return response()->json(['message' => '请先认领当前账号的监测请求，本次未发送。'], 409);
             }
             return $next($request);
+        }
+
+        if ($knowledgeImport && str_ends_with($routeKey, '/documents')
+            && ($message = KnowledgeUploadValidation::sizeError($request))) {
+            return response()->json(['message' => $message, 'errors' => ['file' => [$message]]], 422);
         }
 
         if ($request->isMethod('POST') && $routeKey === 'api/v1/skills/execute-async'
@@ -165,7 +181,7 @@ class EnsureApiIdempotency
                 $reserved = IdempotencyService::reserve(
                     $idempotencyKey,
                     $routeKey,
-                    IdempotencyService::requestHash($request->all()),
+                    IdempotencyService::hashForRequest($request),
                     $tenantId,
                     $userId,
                     recoverFailedResponse: $recoverableTitleAttempt,

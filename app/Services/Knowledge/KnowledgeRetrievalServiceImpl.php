@@ -207,6 +207,7 @@ class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalContract
 
         // 3. Build RetrievedChunk DTOs with hybrid scoring
         $results = [];
+        $scoringNow = now();
         foreach ($chunks as $chunk) {
             $similarity = $chunk->similarity ?? 0;
             if ($similarity < $threshold) {
@@ -249,10 +250,11 @@ class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalContract
 
             // Recency bonus: documents created more recently get a small boost
             if ($chunk->document?->created_at) {
-                $daysAgo = now()->diffInDays($chunk->document->created_at);
-                if ($daysAgo < 30) {
+                $daysAgo = $chunk->document->created_at->diffInDays($scoringNow, absolute: false);
+                // Future timestamps are not evidence of freshness; do not reward clock skew.
+                if ($daysAgo >= 0 && $daysAgo < 30) {
                     $relevanceScore += 0.03;
-                } elseif ($daysAgo < 90) {
+                } elseif ($daysAgo >= 30 && $daysAgo < 90) {
                     $relevanceScore += 0.01;
                 }
             }

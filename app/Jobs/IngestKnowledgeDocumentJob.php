@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Exceptions\IngestionFailure;
+use App\Exceptions\KnowledgeDocumentUnavailable;
 use App\Models\KnowledgeDocument;
 use App\Models\Tenant;
 use App\Services\Knowledge\DocumentIngestionService;
@@ -66,6 +67,10 @@ class IngestKnowledgeDocumentJob implements ShouldQueue
             }
 
             $ingestion->process($document);
+        } catch (KnowledgeDocumentUnavailable) {
+            // Another worker or a deletion owns this document. Never release
+            // the job for an automatic retry or restart a paid model request.
+            return;
         } finally {
             TenantContext::forget();
         }

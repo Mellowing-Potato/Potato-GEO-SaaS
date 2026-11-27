@@ -14,10 +14,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class EnterpriseKnowledgeProject extends Model
 {
     use HasFactory, BelongsToTenant;
+
+    protected $attributes = ['draft_version' => 0];
 
     protected $fillable = [
         'tenant_id',
@@ -36,6 +39,7 @@ class EnterpriseKnowledgeProject extends Model
 
     protected $casts = [
         'validation_json' => 'array',
+        'draft_version' => 'integer',
         'project_id' => 'integer',
         'structured_json' => 'array',
         'published_knowledge_base_id' => 'integer',
@@ -49,6 +53,18 @@ class EnterpriseKnowledgeProject extends Model
     public const STATUS_REVIEWING = 'reviewing';
     public const STATUS_PUBLISHED = 'published';
     public const STATUS_FAILED = 'failed';
+
+    /** Call inside the transaction that writes the draft and its revision. */
+    public function claimDraftVersion(int $expectedVersion): bool
+    {
+        $claimed = static::query()->whereKey($this->id)
+            ->where('tenant_id', $this->tenant_id)->where('project_id', $this->project_id)
+            ->where('draft_version', $expectedVersion)
+            ->update(['draft_version' => DB::raw('draft_version + 1')]);
+        $this->refresh();
+
+        return $claimed === 1;
+    }
 
     public function sources(): HasMany
     {

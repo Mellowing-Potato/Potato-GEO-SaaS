@@ -11,6 +11,7 @@ use App\Support\BillingContext;
 use App\Support\TenantContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class GenerateEnterpriseKnowledgeDraftJob implements ShouldQueue
@@ -31,6 +32,7 @@ class GenerateEnterpriseKnowledgeDraftJob implements ShouldQueue
     public function __construct(
         public readonly int $projectId,
         public readonly ?int $userId = null,
+        public readonly ?int $draftVersion = null,
     ) {}
 
     public function handle(EnterpriseKnowledgeDraftService $draftService): void
@@ -44,6 +46,10 @@ class GenerateEnterpriseKnowledgeDraftJob implements ShouldQueue
             $project = EnterpriseKnowledgeProject::query()->with('sources')
                 ->whereKey($this->projectId)->first();
             if (! $project) {
+                return;
+            }
+            $baseVersion = (int) $project->draft_version;
+            if (isset($this->draftVersion) && $this->draftVersion !== $baseVersion) {
                 return;
             }
             if ($this->userId !== null && ! User::query()
@@ -60,7 +66,12 @@ class GenerateEnterpriseKnowledgeDraftJob implements ShouldQueue
                 return;
             }
 
-            $project->update(['status' => EnterpriseKnowledgeProject::STATUS_PROCESSING]);
+            $started = EnterpriseKnowledgeProject::query()->whereKey($project->id)
+                ->where('draft_version', $baseVersion)->update(['status' => EnterpriseKnowledgeProject::STATUS_PROCESSING]);
+            if ($started !== 1) {
+                return;
+            }
+            $project->status = EnterpriseKnowledgeProject::STATUS_PROCESSING;
 
             // 认领计费主体：队列里 Auth 是空的，事前余额闸认不出该扣谁的钱。
             $draft = BillingContext::scoped(
@@ -71,29 +82,34 @@ class GenerateEnterpriseKnowledgeDraftJob implements ShouldQueue
             $content = trim((string) $draft['content']);
             $validationItems = $draftService->validateDraft($content);
 
-            $project->forceFill([
-                'status' => EnterpriseKnowledgeProject::STATUS_REVIEWING,
-                'draft_content' => $content,
-                'validation_json' => json_encode($validationItems, JSON_UNESCAPED_UNICODE),
-                'error_message' => $draft['error'],
-            ])->save();
-
-            $draftService->recordRevision(
-                $project,
-                $content,
-                $draft['source'] === 'ai'
-                    ? \App\Models\EnterpriseKnowledgeRevision::SOURCE_AI
-                    : \App\Models\EnterpriseKnowledgeRevision::SOURCE_SYSTEM,
-                '系统生成草稿',
-                $this->userId
-            );
+            DB::transaction(function () use ($project, $baseVersion, $content, $validationItems, $draft, $draftService) {
+                $claimed = $project->claimDraftVersion($baseVersion);
+                if ($claimed) {
+                    $project->forceFill([
+                        'status' => EnterpriseKnowledgeProject::STATUS_REVIEWING,
+                        'draft_content' => $content,
+                        'validation_json' => json_encode($validationItems, JSON_UNESCAPED_UNICODE),
+                        'error_message' => $draft['error'],
+                    ])->save();
+                }
+                // A completed result is retained, but cannot replace a newer manual draft.
+                $draftService->recordRevision(
+                    $project, $content,
+                    $draft['source'] === 'ai'
+                        ? \App\Models\EnterpriseKnowledgeRevision::SOURCE_AI
+                        : \App\Models\EnterpriseKnowledgeRevision::SOURCE_SYSTEM,
+                    $claimed ? '系统生成草稿' : '生成期间草稿已更新；生成结果仅保留为修订',
+                    $this->userId
+                );
+            });
         } catch (Throwable $exception) {
             $message = mb_substr($exception->getMessage(), 0, 2000);
             if (isset($project)) {
-                $project->forceFill([
+                EnterpriseKnowledgeProject::query()->whereKey($project->id)
+                    ->where('draft_version', $baseVersion)->update([
                     'status' => EnterpriseKnowledgeProject::STATUS_FAILED,
                     'error_message' => $message,
-                ])->save();
+                ]);
             }
         } finally {
             TenantContext::forget();
@@ -108,11 +124,12 @@ class GenerateEnterpriseKnowledgeDraftJob implements ShouldQueue
         try {
             TenantContext::set($tenant);
             $project = EnterpriseKnowledgeProject::query()->whereKey($this->projectId)->first();
-            if ($project) {
-                $project->forceFill([
+            if ($project && isset($this->draftVersion)) {
+                EnterpriseKnowledgeProject::query()->whereKey($project->id)
+                    ->where('draft_version', $this->draftVersion)->update([
                     'status' => EnterpriseKnowledgeProject::STATUS_FAILED,
                     'error_message' => mb_substr($exception->getMessage(), 0, 2000),
-                ])->save();
+                ]);
             }
         } finally {
             TenantContext::forget();

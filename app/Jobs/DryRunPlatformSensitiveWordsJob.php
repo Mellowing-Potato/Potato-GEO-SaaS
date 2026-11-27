@@ -5,6 +5,10 @@ namespace App\Jobs;
 use App\Models\Article;
 use App\Models\PlatformSensitiveWordDryRun;
 use App\Models\Tenant;
+use App\Models\User;
+use App\Support\TenantContext;
+use App\Support\TenantScope;
+use App\Support\OperationalTextRedactor;
 use App\Services\Publishing\ArticleRiskScanner;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -15,16 +19,16 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * 加词前试算：跨租户扫一遍现有文章，算出「这批候选词会拦掉多少篇稿子」（执行书 T8）。
+ * 加词前试算：仅扫描申请人工作区的现有文章，算出「这批候选词会拦掉多少篇稿子」（执行书 T8）。
  *
  * ⚠️ 为什么必须走队列，不许在 HTTP 请求里同步扫：
- * 这是**跨租户全表**扫描。文章数随平台增长线性上涨，同步扫必然演化成
+ * 这是**工作区文章**扫描。文章数随平台增长线性上涨，同步扫必然演化成
  * 「运营台点一下试算 → 请求超时 → 运营以为坏了 → 干脆跳过试算直接加词」。
  * 试算被跳过，安全阀就等于不存在。
  *
  * ⚠️ 单篇失败不许拖垮整次试算：
  * 正文超长（> MAX_CONTENT_CHARACTERS）会让扫描器抛 LengthException。
- * 全平台只要有一篇超长稿，整次试算就永远出不来结果 —— 于是运营永远看不到误伤面。
+ * 工作区只要有一篇超长稿，整次试算就永远出不来结果 —— 于是运营永远看不到误伤面。
  * 所以逐篇 catch，把这类稿子计进 articles_skipped 并如实回给运营看
  * （「有 N 篇没扫到」是必须让人知道的事实，不能静默吞掉）。
  */
@@ -33,7 +37,7 @@ class DryRunPlatformSensitiveWordsJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
-     * 跨租户全表扫要给足时间，但**必须 < 队列 retry_after（600s）**。
+     * 工作区文章扫要给足时间，但**必须 < 队列 retry_after（600s）**。
      *
      * 仓库里 QueueJobTimeoutInvariantTest 会守这条：timeout ≥ retry_after 时，
      * 任务跑到边界会被第二个 worker 重新领取 —— 两个 worker 同时扫同一批词、
@@ -49,44 +53,50 @@ class DryRunPlatformSensitiveWordsJob implements ShouldQueue
     /** 分片大小：一次取太多篇正文会把 worker 内存打满。 */
     private const CHUNK = 100;
 
-    public function __construct(public readonly int $dryRunId)
+    public function __construct(public readonly int $dryRunId, public readonly ?int $tenantId = null)
     {
         $this->onQueue('default');
     }
 
     public function handle(ArticleRiskScanner $scanner): void
     {
-        $dryRun = PlatformSensitiveWordDryRun::query()->find($this->dryRunId);
-
-        if (! $dryRun instanceof PlatformSensitiveWordDryRun) {
-            Log::warning('DryRunPlatformSensitiveWordsJob: dry-run record not found', [
-                'dry_run_id' => $this->dryRunId,
-            ]);
-
+        TenantContext::forget();
+        $dryRun = $this->ownedRun();
+        if (! $dryRun || $dryRun->status !== PlatformSensitiveWordDryRun::STATUS_PENDING) {
             return;
         }
 
-        $dryRun->forceFill([
-            'status' => PlatformSensitiveWordDryRun::STATUS_RUNNING,
-            'started_at' => now(),
-        ])->save();
+        $tenant = Tenant::query()->whereKey($this->tenantId)->where('status', 'active')->first();
+        $ownerExists = User::withoutGlobalScopes()->whereKey($dryRun->requested_by)
+            ->where('tenant_id', $this->tenantId)->where('role', 'platform_admin')->exists();
+        if (! $tenant || ! $ownerExists) {
+            $this->failed(new \RuntimeException('试算工作区或申请人权限已变化，任务未执行。'));
+            return;
+        }
 
+        TenantContext::set($tenant);
         try {
+            $dryRun->forceFill([
+                'status' => PlatformSensitiveWordDryRun::STATUS_RUNNING,
+                'started_at' => now(),
+            ])->save();
             $this->scan($scanner, $dryRun);
         } catch (Throwable $e) {
             // 失败必须落成 failed 并带上原因：留在 running 上，运营台会一直转圈，
             // 最后他会当成「没命中」放行 —— 这正是要避免的误读。
             $dryRun->forceFill([
                 'status' => PlatformSensitiveWordDryRun::STATUS_FAILED,
-                'error' => mb_substr($e->getMessage(), 0, 2000),
+                'error' => OperationalTextRedactor::redact(mb_substr($e->getMessage(), 0, 2000)),
                 'finished_at' => now(),
             ])->save();
 
             Log::error('DryRunPlatformSensitiveWordsJob failed', [
                 'dry_run_id' => $dryRun->getKey(),
                 'exception' => $e::class,
-                'message' => $e->getMessage(),
+                'message' => OperationalTextRedactor::redact($e->getMessage()),
             ]);
+        } finally {
+            TenantContext::forget();
         }
     }
 
@@ -101,7 +111,7 @@ class DryRunPlatformSensitiveWordsJob implements ShouldQueue
      */
     public function failed(?Throwable $e): void
     {
-        $dryRun = PlatformSensitiveWordDryRun::query()->find($this->dryRunId);
+        $dryRun = $this->ownedRun();
 
         if (! $dryRun instanceof PlatformSensitiveWordDryRun || $dryRun->isFinished()) {
             return;
@@ -111,9 +121,20 @@ class DryRunPlatformSensitiveWordsJob implements ShouldQueue
             'status' => PlatformSensitiveWordDryRun::STATUS_FAILED,
             'error' => $e === null
                 ? '试算任务被队列中止（可能超时）。请缩小候选词批量后重试。'
-                : mb_substr($e->getMessage(), 0, 2000),
+                : OperationalTextRedactor::redact(mb_substr($e->getMessage(), 0, 2000)),
             'finished_at' => now(),
         ])->save();
+    }
+
+    private function ownedRun(): ?PlatformSensitiveWordDryRun
+    {
+        // Jobs serialized before workspace ownership was added must never run a global scan.
+        if (($this->tenantId ?? null) === null || $this->tenantId <= 0) {
+            return null;
+        }
+
+        return PlatformSensitiveWordDryRun::query()->whereKey($this->dryRunId)
+            ->where('tenant_id', $this->tenantId)->first();
     }
 
     private function scan(ArticleRiskScanner $scanner, PlatformSensitiveWordDryRun $dryRun): void
@@ -133,7 +154,8 @@ class DryRunPlatformSensitiveWordsJob implements ShouldQueue
         $byWord = [];
 
         Article::query()
-            ->withoutGlobalScopes()
+            ->withoutGlobalScope(TenantScope::class)
+            ->where('tenant_id', $this->tenantId)
             ->orderBy('id')
             ->chunkById(self::CHUNK, function ($articles) use (
                 $scanner, $candidates, &$scanned, &$skipped, &$hitArticles, &$byTenant, &$byWord
@@ -190,7 +212,7 @@ class DryRunPlatformSensitiveWordsJob implements ShouldQueue
                 }
             });
 
-        $tenantNames = Tenant::query()->pluck('name', 'id');
+        $tenantNames = Tenant::query()->whereKey($this->tenantId)->pluck('name', 'id');
 
         $byTenantPayload = [];
         foreach ($byTenant as $tenantId => $count) {

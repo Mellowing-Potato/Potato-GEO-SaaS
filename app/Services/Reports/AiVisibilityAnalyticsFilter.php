@@ -44,7 +44,9 @@ final class AiVisibilityAnalyticsFilter
 
         $q = trim((string) $request->query('q', ''));
         if ($q !== '') {
-            $query->where('question', 'like', '%'.str_replace(['%', '_'], ['\%', '\_'], $q).'%');
+            // Explicit escape semantics keep literal searches identical on SQLite and PostgreSQL.
+            $literal = strtr($q, ['!' => '!!', '%' => '!%', '_' => '!_']);
+            $query->whereRaw("question LIKE ? ESCAPE '!'", ['%'.$literal.'%']);
         }
 
         return $query;
