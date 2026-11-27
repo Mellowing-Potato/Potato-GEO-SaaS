@@ -40,6 +40,8 @@
             <file>tests/Feature/ModelEndpointProtocolTest.php</file>
             <file>tests/Feature/ArkDirectResponsesTest.php</file>
             <file>tests/Feature/AiVisibilityRunTest.php</file>
+            <file>tests/Feature/AiVisibilityLiteralSearchTest.php</file>
+            <file>tests/Feature/AiVisibilitySourceOverviewTest.php</file>
             <file>tests/Feature/UnknownModelAttemptRecoveryTest.php</file>
             <file>tests/Feature/TitleAiGenerationTest.php</file>
             <file>tests/Feature/SkillEmbeddingCheckpointTest.php</file>
