@@ -37,7 +37,7 @@ $application = Application::configure(basePath: dirname(__DIR__))
          *      → 任何按 IP 的限流都退化成「全平台共用一个桶」；
          *   ② 协议被认成 http → asset() / url() 在 https 页面上吐 http:// 绝对地址，
          *      被浏览器当混合内容拦掉；
-         *   ③ lead_submissions / lead_form_visits / 管理员操作审计日志记的 IP 全是代理地址，
+         *   ③ 访问统计与管理员操作审计日志记的 IP 全是代理地址，
          *      滥用取证和安全审计都用不了。
          *
          * 只信内网段：边缘 Caddy 与本容器同在 yanji-local（docker 网，172.16/12），

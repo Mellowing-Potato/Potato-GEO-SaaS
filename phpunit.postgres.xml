@@ -75,6 +75,5 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="GEO_MANUAL_PUBLISH_ENABLED" value="true"/>
-        <env name="GEO_LEAD_FORM_ENABLED" value="true"/>
     </php>
 </phpunit>

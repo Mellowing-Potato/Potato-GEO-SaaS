@@ -771,41 +771,6 @@ Route::prefix('v1')
                 });
             });
         }
-
-        // ─── 线索表单模块（单 8）───────────────────────────────────────────
-        // 总开关：与 web.php 的 /forms/{tenantSlug}/{slug} 同闸（评审收尾，2026-08-30）。
-        // 关掉时不注册 → 请求 404（路由不存在），不用 403——403 等于告诉外面
-        // 「这儿有个模块，只是没开」。口径与单 7 手动发布一致（见本文件上方同款 if）。
-        //
-        // 为什么 API 也必须同闸：开关是本模块的第一道回滚（执行书 §七 红线 8）。
-        // 只闸公开页、不闸 API，回滚后 admin/editor 拿 token 仍能建表单，
-        // 拿到的公开链接却是 404 —— 那不是回滚，是把模块留在一个更坏的半开状态。
-        //
-        // 测试环境经 phpunit.xml 固定 GEO_LEAD_FORM_ENABLED=true（管理台与 API 用例需要路由在）。
-        if (config('geo.lead_form_enabled', false)) {
-            // 全部端点挂 can:lead:manage（admin + editor）。tenant 中间件已设上下文，
-            // BelongsToTenant 自动填 tenant_id；查询走 TenantScope（执行书 §五-4）。
-            // idempotency 沿用 v1 组（访客不带幂等键的是公开页，不在这里）。
-            Route::prefix('lead-forms')->middleware('can:lead:manage')->group(function () {
-                Route::get('/', [App\Http\Controllers\Api\V1\LeadFormController::class, 'index']);
-                Route::post('/', [App\Http\Controllers\Api\V1\LeadFormController::class, 'store']);
-                Route::get('{id}', [App\Http\Controllers\Api\V1\LeadFormController::class, 'show'])->whereNumber('id');
-                Route::put('{id}', [App\Http\Controllers\Api\V1\LeadFormController::class, 'update'])->whereNumber('id');
-                Route::delete('{id}', [App\Http\Controllers\Api\V1\LeadFormController::class, 'destroy'])->whereNumber('id');
-                Route::post('{id}/toggle-status', [App\Http\Controllers\Api\V1\LeadFormController::class, 'toggleStatus'])->whereNumber('id');
-            });
-
-            Route::prefix('leads')->middleware('can:lead:manage')->group(function () {
-                // export 必须排在 {id} 之前，否则被 {id} 路由捕获。
-                Route::get('export', [App\Http\Controllers\Api\V1\LeadController::class, 'export']);
-                Route::get('/', [App\Http\Controllers\Api\V1\LeadController::class, 'index']);
-                Route::get('{id}', [App\Http\Controllers\Api\V1\LeadController::class, 'show'])->whereNumber('id');
-                Route::put('{id}', [App\Http\Controllers\Api\V1\LeadController::class, 'update'])->whereNumber('id');
-            });
-
-            Route::get('lead-analytics', [App\Http\Controllers\Api\V1\LeadAnalyticsController::class, '__invoke'])
-                ->middleware('can:lead:manage');
-        }
     });
 
 // ─── 平台超管运营面板（P1-4，跨租户）───

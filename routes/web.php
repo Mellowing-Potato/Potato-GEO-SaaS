@@ -80,22 +80,3 @@ if (config('geo.manual_publish_enabled', false)) {
         return view('manual-publish');
     });
 }
-
-/* 单 8：线索表单公开页（租户侧，无登录、无租户中间件）
-   默认隐藏，仅当 GEO_LEAD_FORM_ENABLED=true 才注册 /forms/{tenantSlug}/{slug} 两条路由
-   （防未接线前对客户露出，且是回滚开关：关掉路由即不存在 → 匿名访问 404，L10）。
-   红线（执行书 §一 / §二-4）：
-   - GET 公开页 + POST 提交都经 LeadFormDeliveryService 显式按 tenant_id 定位，绝不靠
-     全局作用域 fail-open（否则 A 租户链接能开 B 租户表单，L2）；
-   - POST 挂 throttle:lead-form-submit（双维度 IP + 表单，限流计数走共享 cache，多容器生效）；
-   - 不挂 tenant 中间件（按 URL slug 判租户）、不挂 idempotency（访客不带幂等键）。 */
-if (config('geo.lead_form_enabled', false)) {
-    Route::get('/forms/{tenantSlug}/{slug}', [App\Http\Controllers\Web\LeadFormPageController::class, 'show'])
-        // 评审修复 H2：GET 也挂限流（此前零限流但每次访问都落 visit 行，匿名刷 GET = 无限写库）。
-        ->middleware(['throttle:lead-form-view', App\Http\Middleware\LeadFormVisitMiddleware::class]) // terminable 记真实 status_code（含 404）
-        ->name('lead-form.show');
-
-    Route::post('/forms/{tenantSlug}/{slug}', [App\Http\Controllers\Web\LeadFormPageController::class, 'submit'])
-        ->middleware('throttle:lead-form-submit')
-        ->name('lead-form.submit');
-}
