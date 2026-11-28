@@ -133,7 +133,7 @@ The screenshots below use **sample project data** to illustrate UI layout (not l
 | Doubao Visibility Monitoring | Direct Volcengine Ark web-search calls displaying answers and upstream references (references may not map 1:1 to inline citations) |
 | Publish Management | Strictly distinguishes drafts, platform drafts, and verified public URLs; never marks an item "published" without a real public URL |
 | Usage & Fault Tolerance | Tracks call counts, tokens, latency, and succeeded/failed/unknown states; unknown-outcome calls are never auto-retried |
-| Analytics, Leads & Theme Packs | Retains analytics panels, lead forms, theme packs, and queue health entry points where project data/config exists |
+| Analytics & Queue Health | Retains project/crawler analytics panels and platform queue health entry points where project data or permissions exist |
 
 - **Workspace Isolation**: Each account gets one private workspace and can manage multiple client projects inside it. **Neither agencies nor platform administrators can view other accounts' workspaces; shared multi-user workspaces are not provided.**
 - **Embedding Model Lock**: Vector embeddings are keyed by `provider + model name`. Switching embedding models while materials are indexed is blocked (even between two 1024-dim models); delete existing indexed materials first (no one-click purge yet).
@@ -143,12 +143,12 @@ The screenshots below use **sample project data** to illustrate UI layout (not l
 
 ## Yanji vs. GEOFlow
 
-**Attribution**: Yanji ports and adapts selected code and capabilities from Yao Jingang's [GEOFlow](https://github.com/yaojingang/GEOFlow) and uses skills, methods, and report assets from [yao-geo-skills](https://github.com/yaojingang/yao-geo-skills). Thank you to Yao Jingang and upstream contributors.
+**Attribution & Independent Evolution**: Yanji originally ported and adapted selected code and capabilities from historical Apache-2.0 releases of Yao Jingang's [GEOFlow](https://github.com/yaojingang/GEOFlow) and integrates pinned MIT-licensed skills, methods, and report assets from [yao-geo-skills](https://github.com/yaojingang/yao-geo-skills). Thank you to Yao Jingang and upstream contributors. **Yanji has frozen that early Apache-2.0 historical baseline and now evolves completely independently around client project delivery—it no longer tracks or ports newer upstream GEOFlow code.**
 
-- **Yanji GEO-SaaS** centers on **client project delivery**—organizing materials, 6-stage GEO workflows, skill reports, drafts, and visibility records per project, with no-Docker portable packages and an **Apache-2.0** license.
-- **GEOFlow** focuses on **continuous corporate website and multi-site content operations**—combining multi-site publishing, managed sites, `llms.txt` / sitemap tooling, editorial task assignments, and team review workflows.
+- **Yanji GEO-SaaS** centers on **client project delivery**—organizing materials, 6-stage GEO workflows, skill reports, drafts, AI visibility and crawler analytics, queue health, WordPress/HTTP/manual publishing, and the browser draft assistant per project, with no-Docker portable packages and an **Apache-2.0** license (theme pack generation, public lead forms, legacy target-site Agent packages, and hosted reading/sitemap previews have been retired).
+- **GEOFlow** focuses on **continuous corporate website and multi-site content operations**—combining multi-site publishing, managed sites, target-site Agents, theme packs, lead forms, `llms.txt` / sitemap tooling, editorial task assignments, and team review workflows.
 
-**Baseline**: Yanji source (2026-11-14, with Magpie and `v0.1.0` portable updates through 2026-11-24) compared against GEOFlow 3.2.1 pinned at commit [`6976eec`](https://github.com/yaojingang/GEOFlow/tree/6976eec849cc8be7829f15723c600b111552d99c). See [README.md](README.md#言及与-geoflow-的区别) for the full 22-row comparison table, [licenses/ported-files.json](licenses/ported-files.json), and [NOTICE](NOTICE) for file-level provenance. No comparative benchmark of performance, generation quality, or GEO effectiveness has been performed.
+**Baseline**: Yanji's scope reflects the current project workbench (for formal release verification status, see the `v0.1.0`–`v0.1.3` records below), while GEOFlow remains pinned to the historical GEOFlow 3.2.1 snapshot at commit [`6976eec`](https://github.com/yaojingang/GEOFlow/tree/6976eec849cc8be7829f15723c600b111552d99c) checked on 2026-11-14 without further upstream tracking. See [README.md](README.md#言及与-geoflow-的区别) for the full 22-row comparison table, [licenses/ported-files.json](licenses/ported-files.json), and [NOTICE](NOTICE) for file-level provenance. No comparative benchmark of performance, generation quality, or GEO effectiveness has been performed.
 
 ---
 
@@ -214,7 +214,7 @@ Traditional SEO tools target classic keyword rankings and backlinks. Yanji targe
 
 Yanji source code is licensed under [Apache-2.0](LICENSE). Third-party code, dependencies, fonts and skills retain their licenses; see [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Corresponding source and relink kits for portable runtimes are distributed with [GitHub Release v0.1.3](https://github.com/Mellowing-Potato/Potato-GEO-SaaS/releases/tag/v0.1.3).
 
-Ported GEOFlow code originates from Apache-2.0 historical commits `7a8f6ff2643222cadbfb9b2bbb4252284df6ea72` and v2.3.0 (`97119662325b1d6d88ff6a3f390567bcfa91eedd`). Pinned `yao-geo-skills` assets come from commit `136eb92c90946ea56ec63f912d5025bcbc884f39` (MIT).
+Retained GEOFlow-derived code originates from Apache-2.0 historical commits `7a8f6ff2643222cadbfb9b2bbb4252284df6ea72` and v2.3.0 (`97119662325b1d6d88ff6a3f390567bcfa91eedd`), and pinned `yao-geo-skills` assets come from commit `136eb92c90946ea56ec63f912d5025bcbc884f39` (MIT). Yanji has frozen this early Apache-2.0 historical baseline and evolves completely independently without tracking or porting newer upstream code; retained derived files and immutable historical migrations continue to preserve their original copyright, license, and modification notices.
 
 Apache-2.0 does not grant trademark rights. Third-party operators deploying Yanji must not present their instance as an official service and remain solely responsible for compliance, privacy notices, and instance security.
 
