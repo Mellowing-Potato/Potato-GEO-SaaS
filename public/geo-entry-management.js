@@ -8,7 +8,7 @@
      UI   URL 文章导入     /api/v1/url-imports
      CAT  文章分类管理     /api/v1/categories
 
-   接入方式照仓库已有先例（geo-workbench.js 暴露 window.GW、geo-workbench-views.js 消费）：
+   接入方式（主入口脚本暴露共享命名空间、独立拆出脚本按需消费）：
    geo-entry.js 暴露 window.GEO（共享 state / elements / 辅助函数 + 两个注册表），
    本文件只做三件事：注册视图加载器、注册财务面的一块附加加载器、绑定自己的表单与行内动作。
 

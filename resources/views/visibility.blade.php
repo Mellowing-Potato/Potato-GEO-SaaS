@@ -1,6 +1,6 @@
 @php
     /* GEO AI 可见性监测面板 · 租户侧净新增看板（Phase 1）
-       同构 workbench / platform-ops / analytics：blade 空壳 + public/geo-visibility.js（vanilla fetch）+ config 门控。
+       同构 platform-ops / analytics：blade 空壳 + public/geo-visibility.js（vanilla fetch）+ config 门控。
        红线：
          - 真实权限门在 API 层（/v1/visibility/* 已挂 auth:sanctum）；
          - 页面首屏先显「连接中」，前端 session-login 后切台面或 403 守卫态；
@@ -66,7 +66,7 @@
     </div>
     <p class="monitoring-scope">这里观察品牌是否出现在智能回答及其信源中；结果与站点的爬虫访问量分别统计。</p>
 
-    <p class="form-msg" id="monitoringConfigNotice">未配置豆包监测，请先在<a href="{{ url('/workbench?view=aikeys') }}">设置中填写模型配置</a>。</p>
+    <p class="form-msg" id="monitoringConfigNotice">未配置豆包监测，请先在<a href="{{ url('/#aikeys') }}">设置中填写模型配置</a>。</p>
     <p class="form-msg" id="formMsg" role="status" aria-live="polite"></p>
 
     <!-- ============ 一、监测历史 ============ -->

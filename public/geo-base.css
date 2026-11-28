@@ -50,7 +50,7 @@
    display 都盖得过它 —— 而这个文件里 40 多条零件都写了 display。
    于是 el.hidden = true 在这些零件上是**无声失效**的：属性设上了、
    DOM 对、JS 对，元素照样显示。
-   geo-entry.css / geo-workbench.css / geo-platform-ops.css 三张表早就各写了
+   geo-entry.css / geo-platform-ops.css 等页面样式表早就各写了
    一条通杀的 [hidden]{display:none!important}，这里把那条共识收到零件层，
    让搬过来的视图不必再各踩一次。
    作用域仍在 .md-app 之下，本文件「无一条裸选择器」的规矩不破。 */
