@@ -168,10 +168,8 @@ assert(`${ENTRY_JS} · 取不到角色时保持隐藏（不把空 role 算放行
      - 先剥注释，否则被注释掉的调用照样被算作调用；
      - lookbehind 排除 `function` 定义本身，否则"只有一个定义、零个调用"也会过关。 */
 const codeOnly = stripJsComments(entry);
-/* 2026-09-21 §7 第七刀把线索管理台（`applyManualPublishVisibility` 住在它旁边）搬去了
-   geo-entry-leads.js，主文件那句调用改走 `globalThis.GEO?.applyManualPublishVisibility?.()`
-   —— 与其他拆出块的回挂口径一致。所以这里要同时认「直接调用」和「可选链调用」两种形态，
-   否则断言会因为 `?.()` 里的 `?.` 而假红（函数明明被调了）。 */
+/* 兼容主文件直接调用与跨模块可选链调用（`applyManualPublishVisibility()` 或
+   `globalThis.GEO?.applyManualPublishVisibility?.()`）两种形态，避免因调用写法调整而误报。 */
 const callSites = [...codeOnly.matchAll(/(?<!function\s+)applyManualPublishVisibility\s*(?:\?\.)?\s*\(\s*\)/g)].length;
 assert(`${ENTRY_JS} · applyManualPublishVisibility() 真的被调用（剥注释 + 排除函数定义）`, callSites >= 1, true);
 

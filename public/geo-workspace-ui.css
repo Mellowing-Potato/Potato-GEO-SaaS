@@ -1,4 +1,4 @@
-/* Local review batches 1–6: shell, forms, reports, management, account, publishing and leads.
+/* Local review batches 1–6: shell, forms, reports, management, account and publishing.
    Rules: docs/ui-review/2026-09-09-ui-design-rules.md.
    Keep this migration layer scoped; other business views retain their own styles. */
 /* Navigation roles share one typography scale; selection never changes metrics. */
@@ -486,81 +486,6 @@ body.geo-app :is(.publishing-panel, .analytics-panel) :is(h3, h4) { font-size: v
   .analytics-panel .usage-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .analytics-panel .usage-card { padding: 12px; }
   .analytics-panel .usage-card strong { font-size: var(--md-fs-xl); }
-}
-.leads-panel { padding: var(--md-space-6); min-width: 0; font-size: var(--md-fs-base); font-weight: var(--md-weight-normal); line-height: var(--md-leading-snug); }
-.leads-panel :is(.view-title, .panel-head) { display: flex; flex-wrap: wrap; align-items: center; gap: var(--md-space-3); margin-bottom: var(--md-space-6); }
-.leads-panel .view-title { align-items: baseline; }
-.leads-panel .spacer { flex: 1 1 auto; }
-.leads-panel :is(h1, h2) { font-size: var(--md-fs-xl); font-weight: var(--md-weight-semibold); line-height: var(--md-leading-tight); }
-.leads-panel h3 { font-size: var(--md-fs-md); font-weight: var(--md-weight-semibold); }
-.leads-panel :is(.vt-sub, .hint, .lead-muted, .lead-notify-current, .at-form-error) { font-size: var(--md-fs-xs); font-weight: var(--md-weight-normal); line-height: var(--md-leading-snug); }
-.leads-panel .hint { color: var(--md-text-muted); margin-top: var(--md-space-2); }
-.leads-panel .hint strong { font-weight: var(--md-weight-medium); }
-
-.leads-panel .callout:empty { display: none; }
-
-.leads-panel :is(.link-btn){ min-height: 40px; font-size: var(--md-fs-base); font-weight: var(--md-weight-medium); }
-.leads-panel :is(.link-btn){ min-height: 34px; font-size: var(--md-fs-xs); }
-.leads-panel .mat-seg-tabs{  max-width: 100%; overflow-x: auto;}
-.leads-panel .mat-seg-tabs button{ flex: 0 0 auto; white-space: nowrap;}
-
-.leads-panel :is(input, select, textarea) { min-width: 0; max-width: 100%; font-family: var(--md-font-sans); font-size: var(--md-fs-base); font-weight: var(--md-weight-normal); line-height: var(--md-leading-snug); }
-.leads-panel :is(input:not([type="checkbox"]), select) { min-height: 40px; }
-.leads-panel .lead-filter-bar { gap: var(--md-space-3); padding: 0; margin-bottom: var(--md-space-6); background: transparent; border: 0; }
-.leads-panel .lead-filter-bar :is(input, select) { flex: 1 1 150px; width: auto; }
-.leads-panel .lead-stat-row { gap: var(--md-space-4); margin-bottom: var(--md-space-6); }
-.leads-panel .lead-stat { padding: var(--md-space-4); box-shadow: none; min-width: 0; }
-.leads-panel .lead-stat-label { font-size: var(--md-fs-xs); font-weight: var(--md-weight-normal); }
-.leads-panel .lead-stat-value { font-size: var(--md-fs-2xl); font-weight: var(--md-weight-semibold); overflow-wrap: anywhere; }
-.leads-panel .cl-tbl-scroll { max-width: 100%; min-width: 0; overflow-x: auto; }
-.leads-panel .cl-tbl { min-width: 760px; font-size: var(--md-fs-xs); }
-.leads-panel .cl-tbl th { font-size: var(--md-fs-xs); font-weight: var(--md-weight-medium); }
-.leads-panel .cl-tbl td { font-size: var(--md-fs-xs); font-weight: var(--md-weight-normal); line-height: var(--md-leading-ui); }
-.leads-panel .cl-tbl td strong { font-size: var(--md-fs-base); font-weight: var(--md-weight-medium); overflow-wrap: anywhere; }
-.leads-panel .badge { font-size: var(--md-fs-xs); font-weight: var(--md-weight-medium); }
-.leads-panel .cl-state-tpl { padding: var(--md-space-8) var(--md-space-4); min-height: 0; }
-.leads-panel .cl-state-tpl p { font-size: var(--md-fs-base); font-weight: var(--md-weight-normal); }
-.leads-panel .lead-pager { flex-wrap: wrap; }
-.leads-panel .lead-form-editor { max-width: 760px; margin: 0 auto; padding: 0; border: 0; background: transparent; box-shadow: none; }
-.leads-panel .form-sheet { max-width: 100%; }
-.leads-panel .frow { grid-template-columns: minmax(0, 1fr); gap: var(--md-space-2); padding: 0; margin: 0 0 var(--md-space-6); border: 0; }
-.leads-panel .frow > :is(label, .lead-field-group-label) { display: block; padding: 0; font-size: var(--md-fs-base); font-weight: var(--md-weight-medium); }
-.leads-panel .frow :is(input:not([type="checkbox"]), select, textarea) { width: 100%; max-width: 100%; font-size: var(--md-fs-base); font-weight: var(--md-weight-normal); }
-.leads-panel .lead-fields-editor { gap: var(--md-space-4); }
-.leads-panel .lead-field-row { padding: var(--md-space-4); gap: var(--md-space-3); background: transparent; align-items: end; }
-.leads-panel .lead-field-control { gap: var(--md-space-2); font-weight: var(--md-weight-normal); }
-.leads-panel .lead-field-control > span { font-size: var(--md-fs-xs); font-weight: var(--md-weight-medium); line-height: var(--md-leading-snug); color: var(--md-text-muted); }
-.leads-panel .lead-field-required { display: flex; flex-direction: row; font-size: var(--md-fs-xs); font-weight: var(--md-weight-normal); }
-.leads-panel :is(.lead-field-required, .lead-notify-clear) input { width: 16px; height: 16px; min-height: 0; padding: 0; flex: 0 0 auto; }
-.leads-panel .lead-notify-clear { font-size: var(--md-fs-xs); font-weight: var(--md-weight-normal); }
-.leads-panel [data-lead-pane="forms"]:has(#leadFormEditorPanel:not([hidden])) #leadFormsHost { display: none; }
-.leads-panel:has([data-lead-pane="forms"]:not([hidden]) #leadFormEditorPanel:not([hidden])) #leadAddFormButton { display: none; }
-.leads-panel .lead-drawer-body { width: min(680px, 100%); padding: var(--md-space-6); }
-.leads-panel .lead-drawer-content { margin: 0 0 var(--md-space-6); font-size: var(--md-fs-base); font-weight: var(--md-weight-normal); }
-.leads-panel .lead-kv { grid-template-columns: minmax(88px, 140px) minmax(0, 1fr); gap: var(--md-space-3) var(--md-space-6); margin-bottom: var(--md-space-6); }
-.leads-panel .lead-kv dt { font-size: var(--md-fs-xs); font-weight: var(--md-weight-normal); overflow-wrap: anywhere; }
-.leads-panel .lead-kv dd { font-size: var(--md-fs-base); font-weight: var(--md-weight-normal); line-height: var(--md-leading-ui); }
-.leads-panel .lead-kv-meta { padding-top: var(--md-space-6); }
-.leads-panel .lead-analytics-grid { grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: var(--md-space-4); margin-bottom: var(--md-space-4); }
-.leads-panel .lead-card { min-width: 0; padding: var(--md-space-6); box-shadow: none; }
-.leads-panel #leadSources { max-width: 100%; overflow-x: auto; }
-.leads-panel #leadSources .cl-tbl { min-width: 360px; }
-.leads-panel .lead-funnel-head { font-size: var(--md-fs-base); }
-.leads-panel .lead-funnel-head strong { font-weight: var(--md-weight-medium); }
-.leads-panel .lead-trend { max-width: 100%; overflow-x: auto; }
-.leads-panel .lead-trend-col { flex: 1 0 44px; }
-.leads-panel .lead-trend-sub { font-size: var(--md-fs-xs); font-weight: var(--md-weight-normal); }
-.leads-panel .lead-recent li { flex-wrap: wrap; overflow-wrap: anywhere; }
-@media (max-width: 640px) {
-  .leads-panel, .leads-panel .lead-drawer-body { padding: 16px; }
-  .leads-panel :is(.button, .button.small, .link-btn, .mat-seg-tabs button) { min-height: 44px; }
-  .leads-panel .lead-stat-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .leads-panel .lead-stat { padding: 12px; }
-  .leads-panel .lead-stat-value { font-size: var(--md-fs-xl); }
-  .leads-panel .lead-field-control { flex-basis: 100%; }
-  .leads-panel .lead-card { padding: 16px; }
-  .leads-panel .lead-kv { grid-template-columns: minmax(0, 1fr); gap: 4px; }
-  .leads-panel .lead-kv dd { margin-bottom: 12px; }
 }
 /* UI batch 11: main workbench platform summary (O02). */
 #platformPanel :is(h3, h4) { font-size: var(--md-fs-md); font-weight: var(--md-weight-semibold); }

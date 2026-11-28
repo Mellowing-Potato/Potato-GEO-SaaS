@@ -46,8 +46,6 @@ export const CEILINGS = Object.freeze({
   // → public/geo-entry-content-library.js。11837 → 10485 行。
   // 2026-09-21：第六块搬出去 —— 发布与渠道（发布面 + 渠道密钥/Agent 包 + 站点文件）
   // → public/geo-entry-publishing.js。10485 → 10073 行。
-  // 2026-09-21：第七块搬出去 —— 线索表单管理台（三个页签 + 两条前端可见性）
-  // → public/geo-entry-leads.js。10073 → 9243 行。
   // 2026-09-21：第八块搬出去 —— 平台运营台（概览/租户/商业/健康/运营四页签）
   // → public/geo-entry-platform.js。9243 → 9069 行。
   // 2026-09-21：第九块搬出去 —— 技能工作区（技能目录 / AI 建议 / 执行表单 / 轮询 / 结果卡）
@@ -156,8 +154,6 @@ export const CEILINGS = Object.freeze({
   // 2026-10-02：站点文件实际生效检查及渠道状态留在现有发布模块。
   // 2026-10-17：项目绑定加入第三方账号，并防止切项目后的迟到响应覆盖绑定。
   'public/geo-entry-publishing.js': 487,
-  // 拆出来的第七块：线索表单管理台（线索列表/详情抽屉/导出、表单管理、转化统计）。
-  'public/geo-entry-leads.js': 872,
   // 拆出来的第八块：平台运营台（仅 platform_admin；五个端点 Promise.allSettled）。
   'public/geo-entry-platform.js': 209,
   // 拆出来的第九块：技能工作区（含 brief_fields 动态表单、执行轮询、结果卡与「下一步」）。
@@ -326,7 +322,6 @@ export function inventory() {
     ['public/geo-entry-knowledge-preview.js', jsPieces],
     ['public/geo-entry-content-library.js', jsPieces],
     ['public/geo-entry-publishing.js', jsPieces],
-    ['public/geo-entry-leads.js', jsPieces],
     ['public/geo-entry-platform.js', jsPieces],
     ['public/geo-entry-skills.js', jsPieces],
     ['public/geo-entry-reports.js', jsPieces],

@@ -6,7 +6,7 @@
 
 /* [hidden] 必须先复位，覆盖本文件的 flex/grid/inline-flex。 */
 .geo-app :is(.billing-metric, .billing-metric-label, .btn, .button, .callout, .cl-seg-tabs,
-  .cl-state-empty, .empty, .filter-chip, .kb-seg-tab, .kb-seg-tabs, .lead-drawer-empty,
+  .cl-state-empty, .empty, .filter-chip, .kb-seg-tab, .kb-seg-tabs,
   .mat-seg-tabs, .md-alert, .md-alert--danger, .md-alert--info, .md-alert--success, .md-alert--warning,
   .md-badge, .md-badge--danger, .md-badge--info, .md-badge--neutral, .md-badge--primary, .md-badge--success,
   .md-badge--warning, .md-btn, .md-btn--danger, .md-btn--full, .md-btn--ghost, .md-btn--primary,
@@ -16,7 +16,7 @@
   .md-tab, .md-tab-count, .md-tabs, .segmented, .segmented-item, .skill-workspace-tabs,
   .usage-card)[hidden],
 .geo-app :is(.billing-metric, .billing-metric-label, .btn, .button, .callout, .cl-seg-tabs,
-  .cl-state-empty, .empty, .filter-chip, .kb-seg-tab, .kb-seg-tabs, .lead-drawer-empty,
+  .cl-state-empty, .empty, .filter-chip, .kb-seg-tab, .kb-seg-tabs,
   .mat-seg-tabs, .md-alert, .md-alert--danger, .md-alert--info, .md-alert--success, .md-alert--warning,
   .md-badge, .md-badge--danger, .md-badge--info, .md-badge--neutral, .md-badge--primary, .md-badge--success,
   .md-badge--warning, .md-btn, .md-btn--danger, .md-btn--full, .md-btn--ghost, .md-btn--primary,
@@ -268,7 +268,7 @@
 
 /* Empty states: cl-state-tpl remains untouched. The conjunctive alias only
    targets its authorized empty variant and wins over later generic tpl rules. */
-.geo-app :is(.md-empty, .cl-state-empty, .lead-drawer-empty),
+.geo-app :is(.md-empty, .cl-state-empty),
 .geo-app .cl-state-tpl.cl-state-empty {
   display: grid;
   justify-items: center;

@@ -76,11 +76,6 @@
   const runningExecution = { id: 702, project_id: 901, skill_id: 'yao-geo-intent-miner', skill_name: '意图挖掘（本地运行中样例）', status: 'running', created_at: '2026-09-29T03:45:00Z', result_text: null, available_formats: [] };
   const previewRunning = new URL(location.href).searchParams.has('preview-running');
   window.__uiPreviewRequests = [];
-  const leadFormSamples = [
-    { id: 971, name: '文旅活动咨询（本地样例）', slug: 'preview-travel', status: 'active', description: '收集活动兴趣与联系意愿，内容均为虚构示例。', submissions_count: 2, created_at: '2026-09-09T01:00:00Z' },
-    { id: 972, name: '历史活动报名（本地样例）', slug: 'preview-old', status: 'inactive', description: '', submissions_count: 0, created_at: '2026-09-08T01:00:00Z' },
-  ];
-  const leadSamples = ['new', 'contacted'].map((status, i) => ({ id: 981 + i, form: leadFormSamples[0], status, source_url: 'https://example.invalid/travel/family', notify_status: i ? 'failed' : 'sent', notify_error: i ? '样例：通知服务暂不可用' : '', handler_name: i ? '示例编辑' : '', created_at: '2026-09-09T01:00:00Z', note: i ? '示例备注，可在此记录跟进情况。' : '', payload: { 姓名: '示例访客', 出游意向: '亲子活动与李白文化体验', 同意联系: true }, ip_address: '192.0.2.1' }));
   const visibilitySamples = ['completed', 'failed', 'running'].map((status, i) => ({
     id: 991 + i, project_id: 901, status, is_terminal: status !== 'running',
     question: ['示例两日游如何安排文化体验与亲子活动？（本地样例）', '选择研学活动前应确认哪些资料？（失败样例）', '示例有哪些适合家庭的文化体验？（运行中样例）'][i],
@@ -268,23 +263,6 @@
     const visibilityId = path.match(/^\/api\/v1\/visibility\/runs\/(99[1-3])$/);
     if (visibilityId) return response({ data: visibilitySamples.find(run => run.id === Number(visibilityId[1])) });
     if (path === '/api/v1/visibility/question-suggestions') return response({ data: [{ question: '示例两日游如何安排行程？', category: '出游规划' }, { question: '带孩子体验李白文化需要提前准备什么？', category: '亲子活动' }] });
-    if (path === '/api/v1/lead-forms') return response({ data: leadFormSamples });
-    const leadFormId = path.match(/^\/api\/v1\/lead-forms\/(97[12])$/);
-    if (leadFormId) return response({ data: { ...leadFormSamples.find(f => f.id === Number(leadFormId[1])), notify_webhook_configured: Number(leadFormId[1]) === 971, notify_webhook_masked: 'https://example.invalid/••••', notify_webhook_format: 'robot', fields: [
-      { name: 'name', label: '姓名', type: 'text', required: true },
-      { name: 'phone', label: '联系电话', type: 'phone', required: false },
-      { name: 'email', label: '邮箱', type: 'email', required: false },
-      { name: 'interest', label: '活动兴趣', type: 'select', required: true, options: ['文化体验', '亲子活动'] },
-      { name: 'contact', label: '联系意愿', type: 'checkbox', required: false, options: ['可邮件联系', '可电话联系'] },
-      { name: 'message', label: '补充说明', type: 'textarea', required: false },
-    ] } });
-    if (path === '/api/v1/leads') {
-      const items = leadSamples.filter(row => (!url.searchParams.get('status') || row.status === url.searchParams.get('status')) && (!url.searchParams.get('form_id') || String(row.form.id) === url.searchParams.get('form_id')) && (!url.searchParams.get('search') || `${row.note} ${row.source_url}`.includes(url.searchParams.get('search'))) && (!url.searchParams.get('date_from') || row.created_at.slice(0, 10) >= url.searchParams.get('date_from')) && (!url.searchParams.get('date_to') || row.created_at.slice(0, 10) <= url.searchParams.get('date_to')));
-      return response({ data: items, meta: { current_page: 1, last_page: 1, total: items.length }, stats: { total: 2, new: 1, pending: 1, converted: 0 } });
-    }
-    const leadId = path.match(/^\/api\/v1\/leads\/(98[12])$/);
-    if (leadId) return response({ data: leadSamples.find(row => row.id === Number(leadId[1])) });
-    if (path === '/api/v1/lead-analytics') return response({ summary: { kpis: { submissions: 2, new: 1, pending: 1, converted: 0, conversion_rate: 0 }, funnel: { views_tracked: true, views: 20, submissions: 2, converted: 0, view_to_submission_rate: 10, submission_to_converted_rate: 0 }, trend: [{ date: '2026-09-08', views: 12, submissions: 1, converted: 0 }, { date: '2026-09-09', views: 8, submissions: 1, converted: 0 }], sources: [{ source: 'https://example.invalid/travel/family', submissions: 2, converted: 0 }], recent: leadSamples } });
     const projectSamples = [project, ...['城市文旅内容研究', '研学活动资料整理', '亲子出游信息服务', '文化体验推广', '景区官方资料项目', '出游问题与答案库', '用于检查长名称显示与搜索的项目样例'].map((name, i) => ({ ...project, id: 902 + i, name, brand_name: '示例品牌 ' + (i + 1) }))];
     if (path === '/api/v1/projects') return response({ data: projectSamples, current_page: 1, last_page: 1, total: projectSamples.length });
     // 全局回收站（计划 §9.5；2026-10-01 起前端读 /api/v1/trash）：按 ProjectController::trash 的真实返回形状给固定样例，

@@ -10,7 +10,7 @@
  *
  * 不依赖 playwright / puppeteer：直接用 Node 内置的 WebSocket 讲 Chrome DevTools 协议。
  * 前提（两个都已在本机跑通）：
- *   1. 静态预览沙盘：`php scripts/preview-workspace-ui.php --include-leads --include-queue`
+ *   1. 静态预览沙盘：`php scripts/preview-workspace-ui.php --include-queue`
  *      并以任意静态服务器托管临时目录（例如 `php -S 127.0.0.1:8766 -t <临时目录>`）；
  *   2. 一个 headless Chrome 的调试端点：`chrome.exe --headless=new --remote-debugging-port=9222 ...`。
  *
@@ -104,7 +104,7 @@ const SHELLS = {
 
 // 触屏 44px 属**全站口径**（R18 + 侧栏补充：触屏统一至少 44px）。本批只负责记录实测值与
 // 全站基线，不让它把"本批有没有引入回归"这件事淹掉 —— 所以单列 advisories。
-const TOUCH_BASELINE_VIEWS = ['asset', 'content-library', 'publishing', 'leads', 'sensitive-words', 'platform', 'usage'];
+const TOUCH_BASELINE_VIEWS = ['asset', 'content-library', 'publishing', 'sensitive-words', 'platform', 'usage'];
 
 // 白名单与组件层对账：geo-components.css 定义的 md-btn 类必须与工作台白名单里的 md-btn 类逐个相等。
 // 组件层加了外观而白名单没跟（或白名单里留着已删的外观），这里先红 —— 免得白名单再次悄悄过期。
@@ -426,7 +426,7 @@ const tokenSurfacePresent = await evaluate(`Boolean(document.getElementById('api
  *   3. `.small` 之外的例外一律不放行 —— 小按钮也是按钮，触屏一样要够得着。
  */
 const TOUCH_VIEWS = [
-    ...['projects', 'skill', 'asset', 'content-library', 'categories', 'materials', 'automation', 'url-imports', 'knowledge', 'publishing', 'leads', 'analytics', 'usage', ...(tokenSurfacePresent ? ['api-tokens'] : []), 'aikeys', 'sensitive-words', 'skill-prompts', 'platform', 'account-security']
+    ...['projects', 'skill', 'asset', 'content-library', 'categories', 'materials', 'automation', 'url-imports', 'knowledge', 'publishing', 'analytics', 'usage', ...(tokenSurfacePresent ? ['api-tokens'] : []), 'aikeys', 'sensitive-words', 'skill-prompts', 'platform', 'account-security']
     // ⚠️ 作用域选择器**不能写 `section.panel[...]`**：项目页与账号安全页的根节点没有 `panel`
     //    类（它们自带布局），选择器落空 → 这一条检查在下面 `if (!scope) continue` 处**静默跳过**。
     //    2026-09-21 实测：`#projects` 的触屏检查从来没真跑过（列表里有它、却一条都没量）。
@@ -442,7 +442,6 @@ const TOUCH_VIEWS = [
     { name: '爬虫统计', url: `${base}/analytics/`, scope: 'body' },
     { name: '手动发布', url: `${base}/manual-publish/`, scope: 'body' },
     { name: '公开文章', url: `${base}/read-preview/`, scope: 'body' },
-    { name: '公开表单', url: `${base}/form-preview/`, scope: 'body' },
 ];
 
 const touchResults = [];
@@ -585,7 +584,7 @@ await send('Emulation.setTouchEmulationEnabled', { enabled: false }, sessionId);
  */
 const titleBaseline = [];
 await setViewport(1440);
-for (const view of ['projects', 'skill', 'asset', 'content-library', 'materials', 'automation', 'knowledge', 'publishing', 'leads', 'analytics', 'billing-overview', 'billing-plan', 'aikeys', 'sensitive-words', 'skill-prompts', 'platform', 'url-imports', 'categories', 'api-tokens']) {
+for (const view of ['projects', 'skill', 'asset', 'content-library', 'materials', 'automation', 'knowledge', 'publishing', 'analytics', 'billing-overview', 'billing-plan', 'aikeys', 'sensitive-words', 'skill-prompts', 'platform', 'url-imports', 'categories', 'api-tokens']) {
     await send('Page.navigate', { url: `${base}/#${view}` }, sessionId);
     await new Promise((resolve) => setTimeout(resolve, 450));
     const measured = await evaluate(`JSON.stringify((() => {
@@ -928,54 +927,6 @@ await assertNoUiErrors('内容库抽屉');
 }
 
 /**
- * 线索管理台（第七刀整块搬走的视图）：页签切换 + 详情抽屉 + 表单页签渲染。
- *
- * 这一块的绑定全是顶层 `addEventListener`（跟着文件一起搬），指纹只跑首屏 ——
- * 所以这里真点：切到「表单管理」页签要求真的换了页签内容；点列表里的「详情」
- * 要求抽屉打开并渲染出内容，关掉要能关（同样看焦点有没有留在隐藏容器里）。
- */
-{
-    await send('Page.navigate', { url: `${base}/#leads` }, sessionId);
-    await new Promise((resolve) => setTimeout(resolve, 1800));
-    const leads = await evaluate(`(async () => {
-      const tabs = document.getElementById('leadTabs');
-      const formsTab = tabs?.querySelector('[data-lead-tab="forms"]');
-      if (!tabs || !formsTab) return { error: '线索视图没有渲染出页签' };
-      formsTab.click();
-      await new Promise((r) => setTimeout(r, 900));
-      const formsPane = document.querySelector('[data-lead-pane="forms"]');
-      const formsVisible = formsPane ? !formsPane.hidden : false;
-
-      const submissionsTab = tabs.querySelector('[data-lead-tab="submissions"]');
-      submissionsTab?.click();
-      await new Promise((r) => setTimeout(r, 900));
-      const detailBtn = document.querySelector('#leadRows [data-lead-action="detail"]');
-      if (!detailBtn) return { error: '线索列表里没有详情按钮', formsVisible };
-      detailBtn.click();
-      await new Promise((r) => setTimeout(r, 700));
-      const drawer = document.getElementById('leadDrawer');
-      const drawerContent = document.getElementById('leadDrawerContent');
-      const opened = drawer ? !drawer.hidden : false;
-      const chars = (drawerContent?.textContent || '').replace(/\\s+/g, ' ').trim().length;
-      document.getElementById('leadDrawerClose')?.click();
-      await new Promise((r) => setTimeout(r, 300));
-      const focusStranded = drawer ? drawer.contains(document.activeElement) : false;
-
-      return { formsVisible, opened, chars, closedAgain: drawer ? drawer.hidden : false, focusStranded };
-    })()`);
-    flows.push({ flow: '线索管理台：页签切换 + 详情抽屉开合', ...leads });
-    if (leads.error) failures.push(`线索管理台：${leads.error}`);
-    else {
-        if (!leads.formsVisible) failures.push('线索管理台：点「表单管理」页签后那页没显示（页签绑定没跟着搬过来）');
-        if (!leads.opened) failures.push('线索管理台：点「详情」没有打开抽屉');
-        if (leads.chars < 20) failures.push(`线索管理台：抽屉内容没渲染（实际 ${leads.chars} 字）`);
-        if (!leads.closedAgain) failures.push('线索管理台：点关闭后抽屉没藏起来');
-        if (leads.focusStranded) failures.push('线索管理台：关闭抽屉后焦点还留在抽屉里（隐藏容器里）');
-    }
-await assertNoUiErrors('线索管理台');
-}
-
-/**
  * 结果页（第十刀搬走的报告渲染）：`#result/<报告编号>` 直开 → 报告正文 + 三个页签 → 切页签。
  *
  * 为什么必须真跑：指纹那 30 个视图里没有带参数的结果页，而这一刀搬走的正是它的渲染器。
@@ -1247,7 +1198,7 @@ await assertNoUiErrors('结果页');
  */
 const TYPO_SWEEP_VIEWS = [
     'projects', 'skill', 'asset', 'content-library', 'categories', 'materials', 'automation',
-    'url-imports', 'knowledge', 'publishing', 'leads', 'analytics', 'billing-overview',
+    'url-imports', 'knowledge', 'publishing', 'analytics', 'billing-overview',
     'usage', ...(tokenSurfacePresent ? ['api-tokens'] : []),
     'sensitive-words', 'skill-prompts', 'platform', 'account-security', 'personal-settings',
 ];
@@ -1335,7 +1286,6 @@ const standalonePages = [
     { name: 'manual-publish', path: '/manual-publish/', product: true },
     { name: 'workbench', path: '/workbench/', product: true },
     { name: 'public-article', path: '/read-preview/', product: false },
-    { name: 'public-form', path: '/form-preview/', product: false },
 ];
 const standaloneResults = [];
 for (const page of standalonePages) {

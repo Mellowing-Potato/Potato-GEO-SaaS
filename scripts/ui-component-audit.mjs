@@ -156,7 +156,7 @@ export function parseCssRules(source) {
 
 // 只认授权组件的完整类名；.small/.mini 只有与 .button/.btn 同项时才是按钮。
 // .cl-state-tpl、.link-btn、.format-link、表单/守卫态等未授权族明确不包含。
-const COMPONENT_CLASS = /^(?:md-btn(?:--[\w-]+)?|md-iconbtn|md-link|button|btn|md-tabs?|md-tab-count|skill-workspace-tabs|mat-seg-tabs|cl-seg-tabs|kb-seg-tabs?|md-segmented|md-seg|segmented(?:-item)?|md-chip|filter-chip|md-alert(?:--[\w-]+)?|callout|md-empty(?:--[\w-]+|-title)?|empty|cl-state-empty|lead-drawer-empty|md-panel(?:-[\w-]+)?|md-stat(?:-[\w-]+)?|md-badge(?:--[\w-]+)?|billing-metric(?:-label)?|usage-card)$/;
+const COMPONENT_CLASS = /^(?:md-btn(?:--[\w-]+)?|md-iconbtn|md-link|button|btn|md-tabs?|md-tab-count|skill-workspace-tabs|mat-seg-tabs|cl-seg-tabs|kb-seg-tabs?|md-segmented|md-seg|segmented(?:-item)?|md-chip|filter-chip|md-alert(?:--[\w-]+)?|callout|md-empty(?:--[\w-]+|-title)?|empty|cl-state-empty|md-panel(?:-[\w-]+)?|md-stat(?:-[\w-]+)?|md-badge(?:--[\w-]+)?|billing-metric(?:-label)?|usage-card)$/;
 
 // :not 内的类表示排除，:has 内的类表示后代；都不是本项的组件类。
 function positiveSelector(selector, keepAttributes = false) {
@@ -316,7 +316,7 @@ export function audit(root = ROOT) {
     const walk = directory => readdirSync(directory, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(join(directory, entry.name)) : [join(directory, entry.name)]);
     const blades = walk(join(root, 'resources/views')).filter(file => file.endsWith('.blade.php'));
     const bladeInline = blades.reduce((count, file) => count + (readFileSync(file, 'utf8').match(/\sstyle="/g) || []).length, 0);
-    const js = readdirSync(join(root, 'public')).filter(file => file.endsWith('.js') && !/^geo-(workbench|platform-ops|login|lead-form)/.test(file));
+    const js = readdirSync(join(root, 'public')).filter(file => file.endsWith('.js') && !/^geo-(workbench|platform-ops|login)/.test(file));
     const jsInline = js.reduce((count, file) => count + (readFileSync(join(root, 'public', file), 'utf8').match(/style="|\.style\.(?!display\b)[a-zA-Z]+\s*=|\.style\.cssText|setProperty\(/g) || []).length, 0);
     return {
         metrics: { shadowCount: shadows.size, radiiOverCount: radiiOver.length, spaceLit, aliasCount: aliasDefs.size, bladeInline, jsInline, componentOwnershipCount: componentRules.length,

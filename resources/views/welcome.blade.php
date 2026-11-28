@@ -181,8 +181,8 @@
                      ⚠️ .panel 与 .md-app 都声明了背景，两者同为单类选择器，靠加载顺序
                         决胜（geo-entry.css 在后 → .panel 赢）。本页 CSS 里的
                         .content-library-panel.md-app 用双类显式收口，别依赖顺序。
-                     ⚠️ 旧 .cl-* 规则一条没删：cl-tbl 等被素材/自动化/知识库/线索共 5 个
-                        视图 7 张表借用，本批只让内容库脱离，其余各自那轮再迁。 --}}
+                     ⚠️ 旧 .cl-* 规则一条没删：cl-tbl 等被素材/自动化/知识库等视图借用，
+                        本批只让内容库脱离，其余各自那轮再迁。 --}}
                 @include('workbench.panels.content-library')
 
                 @include('workbench.panels.materials')
@@ -265,15 +265,6 @@
                 @include('workbench.panels.publishing')
 
 
-                @if (config('geo.lead_form_enabled', false))
-                {{-- 单 8：线索表单管理台。执行书第 5 步「并进现有工作台，不新开顶级页面」。
-                     三个页签共用一个视图：线索（提交记录）/ 表单（CRUD）/ 转化统计。
-                     权限门在 API 层（can:lead:manage = admin + editor），前端只按角色隐藏入口，
-                     member 直接调接口照样 403 —— 前端隐藏不是权限。 --}}
-                @include('workbench.panels.leads')
-                @endif
-
-
                 {{-- 订阅套餐：全程站内完成，不跳账户中心。购买流程复用充值页那套二维码 + 轮询。 --}}
 
 
@@ -329,8 +320,6 @@
     <script src="/geo-entry-knowledge-base.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-knowledge-base.js') }}" defer></script>
     <script src="/geo-entry-content-library.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-content-library.js') }}" defer></script>
     <script src="/geo-entry-publishing.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-publishing.js') }}" defer></script>
-    <script src="/geo-entry-leads.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-leads.js') }}" defer></script>
-    <script src="/geo-entry-lead-export.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-lead-export.js') }}" defer></script>
 <script src="/geo-entry-platform.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-platform.js') }}" defer></script>
 {{-- 计划 §9.5：账户注销申请（申请 + 15 天冷静期 + 期内登录即恢复）。 --}}
 <script src="/geo-entry-account.js?v={{ \App\Support\PublicAssetVersion::for('geo-entry-account.js') }}" defer></script>
