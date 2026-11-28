@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 export const CSS_FILES = Object.freeze([
     'geo-base.css', 'geo-shell.css', 'geo-page-navigation.css', 'geo-entry.css',
     'geo-workspace-ui.css', 'geo-report-reader.css', 'geo-analytics.css',
-    'geo-visibility.css', 'geo-manual-publish.css', 'geo-theme-package.css',
+    'geo-visibility.css', 'geo-manual-publish.css',
     'geo-components.css', 'geo-project-home.css',
 ]);
 
@@ -156,7 +156,7 @@ export function parseCssRules(source) {
 
 // 只认授权组件的完整类名；.small/.mini 只有与 .button/.btn 同项时才是按钮。
 // .cl-state-tpl、.link-btn、.format-link、表单/守卫态等未授权族明确不包含。
-const COMPONENT_CLASS = /^(?:md-btn(?:--[\w-]+)?|md-iconbtn|md-link|button|btn|md-tabs?|md-tab-count|skill-workspace-tabs|mat-seg-tabs|cl-seg-tabs|kb-seg-tabs?|md-segmented|md-seg|segmented(?:-item)?|md-chip|filter-chip|md-alert(?:--[\w-]+)?|callout|tp-safenotice|md-empty(?:--[\w-]+|-title)?|empty|cl-state-empty|lead-drawer-empty|md-panel(?:-[\w-]+)?|md-stat(?:-[\w-]+)?|md-badge(?:--[\w-]+)?|billing-metric(?:-label)?|usage-card)$/;
+const COMPONENT_CLASS = /^(?:md-btn(?:--[\w-]+)?|md-iconbtn|md-link|button|btn|md-tabs?|md-tab-count|skill-workspace-tabs|mat-seg-tabs|cl-seg-tabs|kb-seg-tabs?|md-segmented|md-seg|segmented(?:-item)?|md-chip|filter-chip|md-alert(?:--[\w-]+)?|callout|md-empty(?:--[\w-]+|-title)?|empty|cl-state-empty|lead-drawer-empty|md-panel(?:-[\w-]+)?|md-stat(?:-[\w-]+)?|md-badge(?:--[\w-]+)?|billing-metric(?:-label)?|usage-card)$/;
 
 // :not 内的类表示排除，:has 内的类表示后代；都不是本项的组件类。
 function positiveSelector(selector, keepAttributes = false) {

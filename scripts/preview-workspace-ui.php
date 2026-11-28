@@ -100,13 +100,6 @@ $manualHtml = str_replace('<script src="/geo-manual-publish.js', '<script src="/
 if (!is_dir($out.'/manual-publish')) mkdir($out.'/manual-publish', 0777, true);
 file_put_contents($out.'/manual-publish/index.html', $manualHtml);
 copy(dirname(__DIR__).'/public/geo-manual-publish.js', $out.'/geo-manual-publish.js');
-$themeHtml = view('theme-package')->render();
-$themeHtml = str_replace('<head>', '<head>'.$buildCspMeta(["frame-ancestors 'self';" => "frame-ancestors 'self'; frame-src 'self' about:;"]), $themeHtml);
-$themeHtml = str_replace('<body class="tp md-app geo-app">', '<body class="tp md-app geo-app"><div style="padding:12px 24px;font-size:13px;background:var(--md-primary-soft);flex-shrink:0">本地样式预览 · 示例数据 · 不生成真实主题包 <a href="/">返回工作台样板</a></div>', $themeHtml);
-$themeHtml = str_replace('<script src="/geo-theme-package.js', '<script src="/workspace-fixtures.js?v='.$fixtureVersion.'"></script><script src="/geo-theme-package.js', $themeHtml);
-if (!is_dir($out.'/theme-package')) mkdir($out.'/theme-package', 0777, true);
-file_put_contents($out.'/theme-package/index.html', $themeHtml);
-copy(dirname(__DIR__).'/public/geo-theme-package.js', $out.'/geo-theme-package.js');
 $analyticsHtml = view('analytics')->render();
 $analyticsHtml = str_replace('<head>', '<head>'.$buildCspMeta(), $analyticsHtml);
 $analyticsHtml = str_replace('<body class="geo-analytics geo-app">', '<body class="geo-analytics geo-app"><div style="padding:12px 24px;font-size:13px;background:var(--md-primary-soft)">本地样式预览 · 固定示例数据 · 非真实访问统计 <a href="/">返回工作台样板</a></div>', $analyticsHtml);
@@ -150,7 +143,7 @@ foreach (['geo-platform-ops.js', 'geo-workbench.js', 'geo-workbench-views.js', '
 $reviewGroups = [
     '主工作台' => ['用户登录' => '/login/', '项目资料' => '/#projects', '诊断与写作' => '/#skill', '历史报告' => '/#asset', '报告阅读' => '/#result/101', '文章' => '/#content-library', '文章分类' => '/#categories', '素材' => '/#materials', '自动化' => '/#automation', 'URL 导入' => '/#url-imports', '知识库与企业档案' => '/#knowledge', '发布渠道' => '/#publishing', '线索管理' => '/#leads', '项目与用量分析' => '/#analytics'],
     '账户与设置' => ['用量明细' => '/#usage', 'AI Key' => '/#aikeys', '敏感词' => '/#sensitive-words', '提示词' => '/#skill-prompts', '平台汇总' => '/#platform'],
-    '独立工具' => ['AI 监测' => '/visibility/?project_id=901#sec-new', '手动发布' => '/manual-publish/', '主题包' => '/theme-package/', '爬虫访问统计' => '/analytics/'],
+    '独立工具' => ['AI 监测' => '/visibility/?project_id=901#sec-new', '手动发布' => '/manual-publish/', '爬虫访问统计' => '/analytics/'],
     '剩余页面' => ['平台运营与敏感词（样例平台身份）' => '/platform/ops/?preview-platform-admin', '对外文章' => '/read-preview/', '公开表单' => '/form-preview/', '新版工作台（门控）' => '/workbench/'],
 ];
 $reviewHtml = '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UI 统一验收目录</title><link rel="stylesheet" href="/geo-tokens.css"><style>body{margin:0;background:var(--md-bg-page);color:var(--md-text);font:14px/1.6 var(--md-font-sans)}main{max-width:1040px;margin:auto;padding:32px 20px}h1{font-size:24px;font-weight:600}h2{font-size:16px;font-weight:600;margin-top:32px}p{color:var(--md-text-secondary)}nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}a{padding:16px;border:1px solid var(--md-border);border-radius:8px;background:var(--md-surface);color:var(--md-primary-hover);text-decoration:none}a:hover{background:var(--md-primary-soft)}a:focus-visible{outline:2px solid var(--md-primary)}</style><main><h1>UI 统一验收目录</h1><p>第 1–15 批本地样式入口。所有数据为样例，未部署；真实业务请求被阻断。第 3–15 批视觉样式由你统一确认。</p><p>建议先看：诊断与写作的提示字重、报告阅读的留白，再看各模块表单、列表与手机宽度。需要填写资料的弹窗可在发票页或删除确认入口打开，取消即可退出。</p>';

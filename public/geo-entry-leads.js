@@ -124,11 +124,6 @@
     if (elements.manualPublishMenuLink) {
       elements.manualPublishMenuLink.hidden = !["admin", "platform_admin", "editor"].includes(role);
     }
-    // 单 10 主题包生成：权限口径与手动发布相同（Permissions.php 的
-    // theme_package:manage => ['admin','editor']），失效方向同样是"看不见"。
-    if (elements.themePackageMenuLink) {
-      elements.themePackageMenuLink.hidden = !["admin", "platform_admin", "editor"].includes(role);
-    }
   }
 
   function leadActivateTab(tab) {

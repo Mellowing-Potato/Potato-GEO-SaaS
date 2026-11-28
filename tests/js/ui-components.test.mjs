@@ -19,13 +19,13 @@ check(hidden.declarations.some(d => d.property === 'display' && d.value === 'non
 for (const component of ['md-btn', 'md-link', 'button', 'btn', 'md-iconbtn', 'md-tab', 'md-seg', 'filter-chip', 'callout', 'md-panel', 'md-empty', 'billing-metric', 'usage-card']) {
     check(hidden.selector.includes('.' + component), `hidden reset includes ${component}`);
 }
-for (const page of ['welcome', 'analytics', 'visibility', 'manual-publish', 'theme-package']) {
+for (const page of ['welcome', 'analytics', 'visibility', 'manual-publish']) {
     const source = read(`resources/views/${page}.blade.php`);
     const files = [...source.matchAll(/<link\b[^>]*href="\/([^?"/]+\.css)/g)].map(m => m[1]);
     const tokens = files.indexOf('geo-tokens.css');
     check(tokens >= 0 && files[tokens + 1] === 'geo-shell.css' && files[tokens + 2] === 'geo-components.css', `${page}: tokens → shell → components`);
     const body = [...source.matchAll(/<body\s[^>]*class=[^>]*>/g)].at(-1)?.[0] || '';
-    check(/\bgeo-app\b/.test(body) && (page === 'theme-package' || !/\bmd-app\b/.test(body)), `${page}: geo-app scope, no newly added md-app`);
+    check(/\bgeo-app\b/.test(body) && !/\bmd-app\b/.test(body), `${page}: geo-app scope, no newly added md-app`);
 }
 const componentNames = [...new Set(rules.slice(1).flatMap(rule => rule.selectors.flatMap(componentClasses)))];
 for (const name of componentNames) {

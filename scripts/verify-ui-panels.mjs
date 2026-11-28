@@ -441,7 +441,6 @@ const TOUCH_VIEWS = [
     { name: '可见性看板', url: `${base}/visibility/?project_id=901`, scope: 'body' },
     { name: '爬虫统计', url: `${base}/analytics/`, scope: 'body' },
     { name: '手动发布', url: `${base}/manual-publish/`, scope: 'body' },
-    { name: '主题包', url: `${base}/theme-package/`, scope: 'body' },
     { name: '公开文章', url: `${base}/read-preview/`, scope: 'body' },
     { name: '公开表单', url: `${base}/form-preview/`, scope: 'body' },
 ];
@@ -1334,7 +1333,6 @@ const standalonePages = [
     { name: 'analytics', path: '/analytics/', product: true },
     { name: 'visibility', path: '/visibility/?project_id=901', product: true },
     { name: 'manual-publish', path: '/manual-publish/', product: true },
-    { name: 'theme-package', path: '/theme-package/', product: true },
     { name: 'workbench', path: '/workbench/', product: true },
     { name: 'public-article', path: '/read-preview/', product: false },
     { name: 'public-form', path: '/form-preview/', product: false },

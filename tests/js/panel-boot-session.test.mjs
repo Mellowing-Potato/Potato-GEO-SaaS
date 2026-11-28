@@ -10,8 +10,8 @@
  * 本批加了「用 cookie 重换 token 再重试一次」。
  *
  * 与 panel-session-reverify.test.mjs 同源的老教训：这些面板是**复制关系**，
- * 所以 PANELS 数组必须放**全部 6 个**（entry / platform-ops / analytics /
- * manual-publish / visibility / theme-package），少一个就漏一类。
+ * 所以 PANELS 数组必须放**全部 5 个**（entry / platform-ops / analytics /
+ * manual-publish / visibility），少一个就漏一类。
  *
  * 测什么（读真实源文件断言，不抄一份实现自测自话）
  * ──────────────────────────────────────────────
@@ -31,14 +31,13 @@ import { dirname, resolve } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-/** 全部 6 个自持 session 的壳页。新增同类面板时必须加进来。 */
+/** 全部 5 个自持 session 的壳页。新增同类面板时必须加进来。 */
 const PANELS = [
     { name: '主工作台', file: 'public/geo-entry.js' },
     { name: '平台运营', file: 'public/geo-platform-ops.js' },
     { name: '数据分析', file: 'public/geo-analytics.js' },
     { name: '手动发布', file: 'public/geo-manual-publish.js' },
     { name: 'AI 可见性', file: 'public/geo-visibility.js' },
-    { name: '主题包', file: 'public/geo-theme-package.js' },
 ];
 
 const ENTRY = 'public/geo-entry.js';

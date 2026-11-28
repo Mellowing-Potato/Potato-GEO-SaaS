@@ -10,7 +10,7 @@ require $argv[1].'/vendor/autoload.php';
 $app = require $argv[1].'/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 $options = json_decode($argv[2], true, 512, JSON_THROW_ON_ERROR);
-foreach (['manual_publish_enabled', 'theme_package_enabled', 'visibility_panel_enabled', 'analytics_panel_enabled', 'lead_form_enabled'] as $flag) {
+foreach (['manual_publish_enabled', 'visibility_panel_enabled', 'analytics_panel_enabled', 'lead_form_enabled'] as $flag) {
     config(['geo.'.$flag => $options['flags'][$flag] ?? true]);
 }
 $html = view('partials.workspace-nav', ['mode' => $options['mode']])->render();

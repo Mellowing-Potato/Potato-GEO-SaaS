@@ -26,12 +26,12 @@ class SkillCatalogContractTest extends TestCase
     public function test_release_catalog_contains_approved_upstream_skills_and_local_business_entry(): void
     {
         $ids = array_map(fn ($skill) => $skill->id, (new SkillRegistryService)->all());
-        $this->assertCount(18, $ids);
+        $this->assertCount(16, $ids);
         $this->assertSame(require config_path('skill-allowlist.php'), $ids);
         $lock = json_decode(file_get_contents(resource_path('skills/upstream-lock.json')), true);
         $this->assertSame(array_values(array_diff($ids, SkillRegistryService::LOCAL_ACTION_IDS)), $lock['approved_skill_ids']);
         $this->assertSame('136eb92c90946ea56ec63f912d5025bcbc884f39', $lock['upstream_commit']);
-        foreach (['yao-deepseek-crawler', 'yao-doubao-crawler', 'yao-chatgpt-crawler', 'yao-geo-article-friendly'] as $id) {
+        foreach (['yao-deepseek-crawler', 'yao-doubao-crawler', 'yao-chatgpt-crawler', 'yao-geo-article-friendly', 'yao-geoflow-template', 'yao-geoflow-design'] as $id) {
             $this->assertNotContains($id, $ids);
         }
     }

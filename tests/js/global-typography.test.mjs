@@ -41,7 +41,7 @@ for(const file of fs.readdirSync('public').filter(f=>/^geo-.*\.css$/.test(f)&&![
 assert.deepEqual(scaleViolations,[],`Typography literals outside the global scale:\n${scaleViolations.join('\n')}`);
 function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(dir+'/'+e.name):[dir+'/'+e.name]);}
 const pages=walk('resources/views').filter(f=>f.endsWith('.blade.php')&&fs.readFileSync(f,'utf8').includes('geo-tokens.css'));
-assert.equal(pages.length,11); // The desktop launch page joins the ten existing pages.
+assert.equal(pages.length,10); // Nine application/public pages plus the desktop launch page.
 assert(pages.includes('resources/views/local-start.blade.php'), 'The desktop launch page must use the shared typography');
 for(const file of pages){
   const html=fs.readFileSync(file,'utf8').replace(/\{\{--[\s\S]*?--\}\}/g,'').replace(/<!--[\s\S]*?-->/g,'');
