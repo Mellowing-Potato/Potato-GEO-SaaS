@@ -13,13 +13,13 @@ Historical Apache-2.0 references used by this project:
 7a8f6ff2643222cadbfb9b2bbb4252284df6ea72
 v2.3.0 / 97119662325b1d6d88ff6a3f390567bcfa91eedd
 
-Yanji adapts outbound request protection, manual publication, leads,
+Yanji adapts outbound request protection, manual publication,
 analytics, document export and knowledge components. Modifications
 include namespaces, project workflows, independent workspace ownership,
 local accounts, model credentials, task execution and user interfaces.
 File-level provenance is listed in licenses/ported-files.json. Related theme
-schema migrations are retained as immutable database history. Generic framework
-and HTML similarities alone are not represented as proof of authorship.
+and lead schema migrations are retained as immutable database history. Generic
+framework and HTML similarities alone are not represented as proof of authorship.
 This notice does not claim that every modified line originated upstream, or
 that later GEOFlow versions share the license of these historical snapshots.
 
