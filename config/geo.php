@@ -31,7 +31,7 @@ return [
      * 工作台安全响应头（计划 §9.1，2026-09-21）。
      *
      * 此前应用层一个安全响应头都没有：只有 theme-preview 单条路由和几个下载接口自己打，
-     * 工作台、公开阅读页、线索表单这些 HTML 页面裸奔。生产拓扑是
+     * 工作台、公开阅读页这些 HTML 页面裸奔。生产拓扑是
      * 公网 → 边缘 Caddy（终止 TLS）→ 明文 HTTP → 本容器，所以 HSTS 只能由本层在
      * 请求确实是 https 时发出（HTTP 下的 HSTS 会被浏览器忽略，发了也没意义）。
      *
@@ -276,13 +276,6 @@ return [
 
     // 知乎草稿同步依赖客户本机扩展；提供受鉴权的安装包下载，false 可紧急关闭。
     'zhihu_draft_sync_enabled' => filter_var(env('GEO_ZHIHU_DRAFT_SYNC_ENABLED', true), FILTER_VALIDATE_BOOL),
-
-    // ── 线索表单模块（单 8）────────────────────────────────────────────────
-    // 公开表单页总开关：默认关。门控 routes/web.php 的 /forms/{tenantSlug}/{slug}
-    // 两条路由（GET 公开页 + POST 提交）。置 false 时路由不注册 → 公开页 404，
-    // 是本模块第一道回滚（执行书 §七-8）。改 secrets/geo.env 的 GEO_LEAD_FORM_ENABLED
-    // 重启即生效。命名与执行书 §五-3 / L10 逐字一致。
-    'lead_form_enabled' => filter_var(env('GEO_LEAD_FORM_ENABLED', true), FILTER_VALIDATE_BOOL),
 
     'visibility' => [
         // 方舟 key 只进生产 secrets/geo.env（本地 .env 到不了生产，.dockerignore 已排除）。

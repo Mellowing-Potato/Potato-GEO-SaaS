@@ -42,8 +42,5 @@
              不置 true 则 M1–M10 全部 404 全红；关态行为由 M11 测试内 putenv+refreshApplication 单独覆盖。 -->
         <env name="GEO_MANUAL_PUBLISH_ENABLED" value="true"/>
         <env name="GEO_ZHIHU_DRAFT_SYNC_ENABLED" value="true"/>
-        <!-- 单 8：管理台 UI 挂在这个开关下，测试环境固定为 true 才测得到；
-             L10 那条「关掉开关 → 404」的用例在自己的 createApplication 里 putenv 覆盖成 false。 -->
-        <env name="GEO_LEAD_FORM_ENABLED" value="true"/>
     </php>
 </phpunit>

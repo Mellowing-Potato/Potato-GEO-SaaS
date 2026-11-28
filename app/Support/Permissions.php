@@ -93,11 +93,6 @@ class Permissions
         //            故与 channel:manage 同级收在 admin；「读」留在 manage 里，否则 editor 建不了单。
         'manual_publish:settings' => ['admin'],
 
-        // 线索表单模块（单 8）：表单 CRUD + 提交记录管理 + 转化统计。
-        // admin 天然拥有（Permissions::allows 里 role==='admin' 直接 true），
-        // 这里实际只约束 editor 与 member（editor 可管，member 不可）。
-        'lead:manage' => ['admin', 'editor'],
-
         // 平台运营（不进入租户 middleware）
         'platform:operations'  => ['platform_admin'],
     ];

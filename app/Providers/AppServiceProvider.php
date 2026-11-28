@@ -115,46 +115,6 @@ class AppServiceProvider extends ServiceProvider
             TenantContext::endQueueJob();
         });
 
-        // 单 8 · 线索表单公开提交端点限流（执行书 §二-3）。
-        // 本仓 cache 默认驱动是 database（见 config/cache.php：CACHE_STORE 默认 database，
-        // 多容器共享同一张 cache 表）——限流计数跨容器生效，不是 array/file 那种形同虚设。
-        // 双维度：同一 IP 限速 + 同一表单限速，两条都要：
-        // 只限 IP，攻击者换 IP 就能刷爆某一个表单；只限表单，一个 IP 就能把某租户的表单额度占满。
-        RateLimiter::for('lead-form-submit', function (Request $request) {
-            return [
-                Limit::perMinute(5)->by('ip:'.$request->ip()),
-                // 评审修复 A2：form 维度 key 必须带租户段。L9 已确立同 slug 跨租户合法，
-                // 不带租户段则「form:contact」是全平台共桶 —— A 租户打满后 B 租户同名表单
-                // 第一次提交就 429。两侧都 strtolower 归一（resolve 查租户本就忽略大小写，
-                // 不归一则大小写变体能 fork 出多个桶绕过限额）。
-                Limit::perMinute(60)->by('form:'
-                    .strtolower((string) $request->route('tenantSlug'))
-                    .':'
-                    .strtolower((string) $request->route('slug'))),
-            ];
-        });
-
-        // 评审修复 H2：公开 GET 页此前零限流且每次访问都落 visit 行（含 404），
-        // 匿名刷 GET 就是无限写库。挂限流封顶写放大；404 也记 visit 是从 /read 照抄的
-        // X4 设计（死链信号有价值），保留，由限流封顶。
-        //
-        // 三轮评审：TrustProxies 已在 bootstrap/app.php 配好（$request->ip() 现在是真实客户端
-        // 地址，不再是边缘 Caddy 的内网地址），所以 IP 维度加回来了——它才是挡单机狂刷的主力。
-        // 双维度：
-        //  - per IP 60/min：单个访客的写放大上限；
-        //  - per 租户+表单 600/min：分布式刷（换 IP）时每张表单的 visit 写入总闸。
-        //    600 = 10 次/秒，远高于任何真实的表单页流量，不会误伤正常访客；
-        //    真要长期超过它，那是该报警的事，不该静默写库。
-        RateLimiter::for('lead-form-view', function (Request $request) {
-            return [
-                Limit::perMinute(60)->by('view-ip:'.$request->ip()),
-                Limit::perMinute(600)->by('view-form:'
-                    .strtolower((string) $request->route('tenantSlug'))
-                    .':'
-                    .strtolower((string) $request->route('slug'))),
-            ];
-        });
-
         // 计划 §9.4 · 高成本接口限流（模型直连 / 文档摄入 / URL 抓取）。
         //
         // 设计取舍（为什么长这样）：

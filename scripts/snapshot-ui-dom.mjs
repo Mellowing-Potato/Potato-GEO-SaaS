@@ -36,7 +36,7 @@ const width = Number(args.width ?? 1440);
 
 /** 与 verify-ui-panels 同一份视图清单：工作台 22 个视图 + 8 个独立壳。 */
 const TARGETS = [
-    ...['projects', 'skill', 'asset', 'content-link', 'content-library', 'categories', 'materials', 'automation', 'url-imports', 'knowledge', 'publishing', 'leads', 'analytics', 'usage', 'api-tokens', 'aikeys', 'sensitive-words', 'skill-prompts', 'platform']
+    ...['projects', 'skill', 'asset', 'content-link', 'content-library', 'categories', 'materials', 'automation', 'url-imports', 'knowledge', 'publishing', 'analytics', 'usage', 'api-tokens', 'aikeys', 'sensitive-words', 'skill-prompts', 'platform']
         // api-tokens 于 2026-09-22 撤出租户工作台（用户口径：租户不得创建/吊销凭据），
         // 面板与侧栏入口都已移除 —— 这里同步去掉，否则会去点一个不存在的视图。
         .filter((view) => view !== 'content-link' && view !== 'api-tokens')
@@ -48,7 +48,6 @@ const TARGETS = [
     { name: '爬虫统计', url: `${base}/analytics/`, scope: 'body' },
     { name: '手动发布', url: `${base}/manual-publish/`, scope: 'body' },
     { name: '公开文章', url: `${base}/read-preview/`, scope: 'body' },
-    { name: '公开表单', url: `${base}/form-preview/`, scope: 'body' },
     { name: '运营台', url: `${base}/platform/ops/?preview-platform-admin`, scope: 'body' },
 ];
 

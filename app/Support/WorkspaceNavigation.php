@@ -36,7 +36,6 @@ final class WorkspaceNavigation
                     self::entry('发布管理', 'publishing', view: 'publishing'),
                     self::entry('手动发布', 'publishing', page: 'manual-publish', id: 'manualPublishMenuLink', flag: 'manual_publish_enabled', roles: ['admin', 'platform_admin', 'editor']),
                     self::entry('自动化任务', 'publishing', view: 'automation'),
-                    self::entry('线索表单', 'publishing', view: 'leads', id: 'leadsMenuLink', flag: 'lead_form_enabled'),
                 ]],
                 ['key' => 'monitoring', 'label' => '效果监测', 'items' => [
                     self::entry('智能回答监测', 'monitoring', page: 'visibility', id: 'visibilityMenuLink', flag: 'visibility_panel_enabled'),

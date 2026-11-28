@@ -7,20 +7,6 @@
     "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
   },
   {
-    "file": "app/Http/Controllers/Api/V1/LeadController.php",
-    "upstream_file": "app/Http/Controllers/Admin/LeadController.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
-  },
-  {
-    "file": "app/Http/Controllers/Api/V1/LeadFormController.php",
-    "upstream_file": "app/Http/Controllers/Admin/LeadFormController.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
-  },
-  {
     "file": "app/Models/AiVisibilitySource.php",
     "upstream_file": "app/Models/AiVisibilitySource.php",
     "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
@@ -30,20 +16,6 @@
   {
     "file": "app/Models/EnterpriseKnowledgeProject.php",
     "upstream_file": "app/Models/EnterpriseKnowledgeProject.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
-  },
-  {
-    "file": "app/Models/LeadForm.php",
-    "upstream_file": "app/Models/LeadForm.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
-  },
-  {
-    "file": "app/Models/LeadSubmission.php",
-    "upstream_file": "app/Models/LeadSubmission.php",
     "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
     "license": "Apache-2.0",
     "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
@@ -252,29 +224,8 @@
     "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
   },
   {
-    "file": "app/Services/Reports/LeadAnalyticsFilter.php",
-    "upstream_file": "app/Services/Admin/Analytics/LeadAnalyticsFilter.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
-  },
-  {
-    "file": "app/Services/Reports/LeadAnalyticsService.php",
-    "upstream_file": "app/Services/Admin/Analytics/LeadAnalyticsService.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
-  },
-  {
     "file": "app/Support/Analytics/TrafficClassifier.php",
     "upstream_file": "app/Support/Analytics/TrafficClassifier.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
-  },
-  {
-    "file": "app/Support/Lead/LeadFormFields.php",
-    "upstream_file": "app/Support/Lead/LeadFormFields.php",
     "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
     "license": "Apache-2.0",
     "modifications": "Adapted application interfaces, workspace ownership and execution behavior."

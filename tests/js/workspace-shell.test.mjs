@@ -20,7 +20,7 @@ const workContract = [
   ['', ['projects', 'analytics']],
   ['分析诊断', ['skill', 'asset']],
   ['内容', ['content-library', 'materials', 'knowledge', 'url-imports']],
-  ['发布', ['publishing', '/manual-publish', 'automation', 'leads']],
+  ['发布', ['publishing', '/manual-publish', 'automation']],
   ['效果监测', ['/visibility', '/analytics']],
   ['平台管理', ['platform']],
 ];
@@ -57,7 +57,6 @@ for (const [value, flag] of [
   ['/manual-publish', 'manual_publish_enabled'],
   ['/visibility', 'visibility_panel_enabled'],
   ['/analytics', 'analytics_panel_enabled'],
-  ['leads', 'lead_form_enabled'],
 ]) assert.equal(byRoute(value).flag, flag, `${value}: retain its existing feature gate`);
 for (const value of ['/manual-publish']) {
   assert.deepEqual(byRoute(value).roles, ['admin', 'platform_admin', 'editor'], `${value}: retain publisher roles`);

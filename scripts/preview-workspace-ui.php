@@ -7,8 +7,6 @@ $app = require dirname(__DIR__).'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 // Explicit, process-local opt-in for a gated module's isolated visual fixture.
 // Does not write .env/config/cache or change the application's feature gate.
-$includeLeads = in_array('--include-leads', $argv, true);
-if ($includeLeads) config(['geo.lead_form_enabled' => true]);
 if (in_array('--include-queue', $argv, true)) config(['geo.queue_health_panel_enabled' => true]);
 $outputArgs = array_values(array_filter(array_slice($argv, 1), fn ($arg) => !str_starts_with($arg, '--')));
 $out = $outputArgs[0] ?? sys_get_temp_dir().'/geo-workspace-ui-preview';
@@ -50,7 +48,6 @@ $buildCspMeta = function (array $overrides = []) use ($previewNonce, $previewCsp
 $html = view('welcome')->render();
 $html = str_replace('<head>', '<head>'.$buildCspMeta(), $html);
 $html = str_replace('<body class="geo-app">', '<body class="geo-app"><nav class="ui-preview-banner" aria-label="本地样式预览"><strong>本地样式预览 · 示例数据</strong><span>不连接真实服务，不执行任务</span><a href="#projects">项目</a><a href="#skill">诊断与专项功能</a><a href="#content-library">文章表单入口</a><a href="#result/101">报告样板</a></nav><style>.ui-preview-banner{display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:10px 24px;background:var(--md-primary-soft);font:var(--md-type-caption)}.ui-preview-banner strong{font-weight:500}.ui-preview-banner a{color:var(--md-primary-hover)}</style>', $html);
-if ($includeLeads) $html = str_replace('不连接真实服务，不执行任务</span>', '不连接真实服务，不执行任务</span><a href="#leads">线索（仅预览开启）</a>', $html);
 $fixtureVersion = filemtime(dirname(__DIR__).'/tests/fixtures/ui/workspace-fixtures.js');
 $html = str_replace('<script src="/geo-entry.js', '<script src="/workspace-fixtures.js?v='.$fixtureVersion.'"></script><script src="/geo-entry.js', $html);
 file_put_contents($out.'/index.html', $html);
@@ -129,22 +126,13 @@ $renderPreview('reading.article', [
     'article' => (object) ['title' => '文化体验与亲子出游：出发前需要确认哪些信息？'],
     'html' => '<p>这是本地排版样例，未发布为正式文章。正文采用统一阅读宽度，标题、段落、表格和引用保持清晰的层级。</p><h2>先整理出游问题</h2><p>记录同行人数、年龄、兴趣和行程时间，再逐项确认开放安排与预约信息。<strong>强调只用于关键内容。</strong></p><blockquote><p>资料中的开放时间、票价与预约要求，应以发布方的有效公告为准。</p></blockquote><h3>资料检查表</h3><table><thead><tr><th>资料</th><th>用途</th><th>确认内容</th><th>更新说明</th></tr></thead><tbody><tr><td>景点公告</td><td>安排行程</td><td>开放时间与预约方式</td><td>记录来源与更新时间</td></tr><tr><td>交通说明</td><td>安排接驳</td><td>班次、地点与同行人数</td><td>较长内容用于检查窄屏表格的局部横向滚动</td></tr></tbody></table><h3>记录格式</h3><pre><code>{ "source": "本地排版样例", "status": "待核对", "notes": "较长代码行保持局部滚动，不撑宽整页" }</code></pre><ul><li>保留信息来源。</li><li>对未确认信息标明状态。</li></ul>',
 ], 'read-preview', '固定文章样例，未对外发布');
-$fields = [];
-foreach (['text' => '称呼', 'email' => '邮箱', 'phone' => '联系电话', 'select' => '出游意向', 'textarea' => '补充说明', 'checkbox' => '同意联系'] as $type => $label) {
-    $fields[] = ['type' => $type, 'name' => 'sample_'.$type, 'label' => $label, 'required' => $type === 'text', 'options' => ['文化体验', '亲子活动']];
-}
-$renderPreview('lead-form', [
-    'form' => (object) ['name' => '出游信息登记（本地样例）'], 'siteName' => '本地表单样例', 'description' => '填写出游意向，便于整理需要确认的资料。此页面不会保存或发送真实信息。',
-    'formAction' => '/local-preview-form', 'csrfToken' => 'local-preview-only', 'fields' => $fields, 'submitLabel' => '提交资料', 'errors' => new Illuminate\Support\ViewErrorBag(),
-    'cssVersion' => filemtime(public_path('geo-lead-form.css')), 'jsVersion' => filemtime(public_path('geo-lead-form.js')),
-], 'form-preview', '六种字段样例；提交只显示预览提示');
-foreach (['geo-platform-ops.js', 'geo-workbench.js', 'geo-workbench-views.js', 'geo-lead-form.js'] as $script) copy(public_path($script), $out.'/'.$script);
+foreach (['geo-platform-ops.js', 'geo-workbench.js', 'geo-workbench-views.js'] as $script) copy(public_path($script), $out.'/'.$script);
 
 $reviewGroups = [
-    '主工作台' => ['用户登录' => '/login/', '项目资料' => '/#projects', '诊断与写作' => '/#skill', '历史报告' => '/#asset', '报告阅读' => '/#result/101', '文章' => '/#content-library', '文章分类' => '/#categories', '素材' => '/#materials', '自动化' => '/#automation', 'URL 导入' => '/#url-imports', '知识库与企业档案' => '/#knowledge', '发布渠道' => '/#publishing', '线索管理' => '/#leads', '项目与用量分析' => '/#analytics'],
+    '主工作台' => ['用户登录' => '/login/', '项目资料' => '/#projects', '诊断与写作' => '/#skill', '历史报告' => '/#asset', '报告阅读' => '/#result/101', '文章' => '/#content-library', '文章分类' => '/#categories', '素材' => '/#materials', '自动化' => '/#automation', 'URL 导入' => '/#url-imports', '知识库与企业档案' => '/#knowledge', '发布渠道' => '/#publishing', '项目与用量分析' => '/#analytics'],
     '账户与设置' => ['用量明细' => '/#usage', 'AI Key' => '/#aikeys', '敏感词' => '/#sensitive-words', '提示词' => '/#skill-prompts', '平台汇总' => '/#platform'],
     '独立工具' => ['AI 监测' => '/visibility/?project_id=901#sec-new', '手动发布' => '/manual-publish/', '爬虫访问统计' => '/analytics/'],
-    '剩余页面' => ['平台运营与敏感词（样例平台身份）' => '/platform/ops/?preview-platform-admin', '对外文章' => '/read-preview/', '公开表单' => '/form-preview/', '新版工作台（门控）' => '/workbench/'],
+    '剩余页面' => ['平台运营与敏感词（样例平台身份）' => '/platform/ops/?preview-platform-admin', '对外文章' => '/read-preview/', '新版工作台（门控）' => '/workbench/'],
 ];
 $reviewHtml = '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UI 统一验收目录</title><link rel="stylesheet" href="/geo-tokens.css"><style>body{margin:0;background:var(--md-bg-page);color:var(--md-text);font:14px/1.6 var(--md-font-sans)}main{max-width:1040px;margin:auto;padding:32px 20px}h1{font-size:24px;font-weight:600}h2{font-size:16px;font-weight:600;margin-top:32px}p{color:var(--md-text-secondary)}nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}a{padding:16px;border:1px solid var(--md-border);border-radius:8px;background:var(--md-surface);color:var(--md-primary-hover);text-decoration:none}a:hover{background:var(--md-primary-soft)}a:focus-visible{outline:2px solid var(--md-primary)}</style><main><h1>UI 统一验收目录</h1><p>第 1–15 批本地样式入口。所有数据为样例，未部署；真实业务请求被阻断。第 3–15 批视觉样式由你统一确认。</p><p>建议先看：诊断与写作的提示字重、报告阅读的留白，再看各模块表单、列表与手机宽度。需要填写资料的弹窗可在发票页或删除确认入口打开，取消即可退出。</p>';
 foreach ($reviewGroups as $group => $links) {

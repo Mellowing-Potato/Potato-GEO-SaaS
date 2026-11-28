@@ -209,19 +209,6 @@
     // 付费技能入队请求的前端互斥锁。按钮 disabled 只能挡鼠标，挡不住回车、
     // 脚本重复派发 submit，或慢网下的第二次提交事件；真正的网络重放保护还要靠
     skillSubmitInFlight: false,
-    // 线索表单（单 8）管理台
-    leadTab: "submissions",
-    leadFilters: { status: "", form_id: "", date_from: "", date_to: "", search: "" },
-    leadPage: 1,
-    leadRows: [],
-    leadMeta: null,
-    leadForms: [],
-    leadFormsLoaded: false,
-    leadEditingFormId: null,
-    leadDrawerRow: null,
-    leadAnalyticsQuery: { lead_preset: "30d", lead_date_from: "", lead_date_to: "", lead_form_id: "" },
-    leadFormSubmitInFlight: false,
-    leadDrawerSubmitInFlight: false,
   };
   const executionPollers = new Map();
   // 2026-09-21 §7 第九刀：技能执行历史的请求序号随技能工作区搬进了 geo-entry-skills.js，
@@ -806,11 +793,6 @@
       title: "自动化任务",
       description: "安排内容生成时间，按需设置自动发布与分发，并查看运行记录。",
     },
-    leads: {
-      eyebrow: "增长",
-      title: "线索表单",
-      description: "建表单收集访客线索、跟进到成交。表单页对访客公开无需登录，线索只有本租户可见。",
-    },
     // 结果页自带页头（见 selfTitledViews），这份 meta 只在没参数的兜底态用得上。
     result: {
       eyebrow: "分析诊断",
@@ -935,7 +917,7 @@
       "automation", "knowledge", "aikeys", "sensitive-words", "skill-prompts",
       // 2026-09-21：两页各自带 panel-heading（标题在自己面板里），进名单避免共享 titlebar 再写一遍标题。
       "url-imports", "categories",
-      "analytics", "publishing", "leads", "platform",
+      "analytics", "publishing", "platform",
       "result",   // 2026-09-05：结果页的页头写的是报告标题本身，共享 titlebar 会变成第二个标题
     ];
     const titlebar = document.getElementById("workspaceViewTitlebar");
@@ -4471,6 +4453,15 @@
   // Session bootstrap
   // ═══════════════════════════════════════════════
 
+  // 单 7 手动发布：前端只按角色隐藏入口，真门仍在 API 的
+  // can:manual_publish:manage（Permissions.php 里该权限只给 admin + editor）。
+  // 菜单项在 blade 里默认 hidden，取不到角色就保持隐藏 —— 失效方向必须是"看不见"。
+  function applyManualPublishVisibility() {
+    const role = state.session?.user?.role || "";
+    if (elements.manualPublishMenuLink) {
+      elements.manualPublishMenuLink.hidden = !["admin", "platform_admin", "editor"].includes(role);
+    }
+  }
 
   async function bootstrap() {
     if (bootstrapPending) return;
@@ -4505,7 +4496,7 @@
       // 单 7：会话就绪、role 已知之后才决定手动发布入口的显隐。
       // 必须挂在 bootstrap 而不是某个视图的 load 里 —— 菜单项默认 hidden，
       // 只在切到对应视图时放出的话，一进工作台它永远是藏着的。
-      globalThis.GEO?.applyManualPublishVisibility?.();
+      applyManualPublishVisibility();
       showState("workspaceState");
       setActiveWorkspaceView(currentWorkspaceRoute());
       void restoreWorkspaceProjects();

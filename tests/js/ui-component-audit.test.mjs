@@ -45,7 +45,7 @@ for (const selector of [
     '.mat-seg-tabs button', '.cl-seg-tabs button', '.kb-seg-tabs', '.kb-seg-tab',
     '.md-segmented', '.md-seg', '.segmented', '.segmented-item', '.filter-chip', '.md-chip',
     '.md-alert--danger', '.callout', '.md-empty', '.md-empty--sm',
-    '.md-empty-title', '.empty', '.cl-state-empty .st-icon', '.lead-drawer-empty',
+    '.md-empty-title', '.empty', '.cl-state-empty .st-icon',
     '.md-panel', '.md-panel-head', '.md-panel-body', '.md-badge--primary',
     '.md-stat', '.billing-metric', '.billing-metric-label', '.usage-card strong',
 ]) {
