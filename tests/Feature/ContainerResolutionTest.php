@@ -3,13 +3,13 @@
 namespace Tests\Feature;
 
 use App\Services\Billing\ModelUsageRecorder;
+use App\Services\Content\ArticleMarkdownRenderer;
 use App\Services\Contracts\AiProvider;
 use App\Services\Contracts\ContentPipeline;
 use App\Services\Contracts\KnowledgeRetrieval;
 use App\Services\Contracts\ProjectWorkflow;
 use App\Services\Contracts\SkillAgentRunner;
 use App\Services\Contracts\SkillRegistry;
-use App\Services\Distribution\DistributionHttpClient;
 use App\Services\Distribution\DistributionOrchestrator;
 use App\Services\Distribution\DistributionPayloadBuilder;
 use App\Services\Distribution\DistributionPublisherManager;
@@ -53,13 +53,13 @@ class ContainerResolutionTest extends TestCase
             'SkillAgentRunner'    => [SkillAgentRunner::class],
             'ProjectWorkflow'     => [ProjectWorkflow::class],
             'ContentPipeline'     => [ContentPipeline::class],
+            'ArticleMarkdown'     => [ArticleMarkdownRenderer::class],
             'DocumentIngestion'   => [DocumentIngestionService::class],
             'ModelUsageRecorder'  => [ModelUsageRecorder::class],
             // 分发引擎
             'DistributionSigning'   => [DistributionSigningService::class],
             'DistributionRetry'     => [DistributionRetryPolicy::class],
             'DistributionPayload'   => [DistributionPayloadBuilder::class],
-            'DistributionHttp'      => [DistributionHttpClient::class],
             'DistributionPublisher' => [DistributionPublisherManager::class],
             'DistributionOrchestrator' => [DistributionOrchestrator::class],
         ];

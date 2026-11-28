@@ -14,7 +14,7 @@ const actual = [...form.matchAll(/<(input|textarea|select)\b([^>]*)>/g)].map(([,
 });
 assert.deepEqual(actual, expected, 'all eight original channel controls retain submission constraints');
 const options = [...form.matchAll(/<option value="([^"]+)"/g)].map(m => m[1]);
-assert.deepEqual(options, ['wordpress_rest', 'http_webhook', 'geoflow_agent', 'none', 'bearer', 'basic', 'wordpress_application_password', 'hmac', 'proxy', 'static', 'hybrid']);
+assert.deepEqual(options, ['wordpress_rest', 'http_webhook', 'none', 'bearer', 'basic', 'wordpress_application_password', 'hmac', 'proxy', 'static', 'hybrid']);
 
 // Use real presentation helpers: changing modes must not reset typed values or binding choices.
 const start = source.indexOf('  function setChannelFormOpen(');

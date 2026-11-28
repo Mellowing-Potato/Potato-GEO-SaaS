@@ -9,11 +9,11 @@ use App\Models\ArticleReview;
 use App\Models\ArticleVersion;
 use App\Models\Author;
 use App\Models\Project;
+use App\Services\Content\ArticleMarkdownRenderer;
 use App\Services\Content\ArticleWordExporter;
 use App\Services\Content\ArticleTrashService;
 use App\Services\Content\EditorAssetService;
 use App\Services\Content\WeChatArticleExporter;
-use App\Services\Publishing\SiteDeliveryService;
 use App\Services\Distribution\ExternalTakedownService;
 use App\Support\OperationalTextRedactor;
 use App\Support\TenantContext;
@@ -34,7 +34,7 @@ class ArticleController extends Controller
         private readonly ArticleWordExporter $wordExporter,
         private readonly ArticleTrashService $articleTrash,
         private readonly ExternalTakedownService $takedown,
-        private readonly SiteDeliveryService $siteDelivery,
+        private readonly ArticleMarkdownRenderer $markdownRenderer,
     ) {}
 
     /**
@@ -120,7 +120,7 @@ class ArticleController extends Controller
         return response()->json([
             'article_id' => $article->id,
             'version' => $article->version,
-            'html' => $this->siteDelivery->renderMarkdown((string) $article->body_markdown),
+            'html' => $this->markdownRenderer->renderMarkdown((string) $article->body_markdown),
         ]);
     }
 

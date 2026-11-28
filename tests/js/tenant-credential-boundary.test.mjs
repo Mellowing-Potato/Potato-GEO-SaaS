@@ -48,10 +48,11 @@ for (const endpoint of ['/api/v1/api-tokens', '/secrets', '/agent-package', '/be
   assert.ok(!source.includes(endpoint), `租户前端源码不得调用 ${endpoint}`);
 }
 
-// 后端端点必须在：撤的是入口，不是能力。
-for (const route of ['api-tokens', 'publishing/channels/{channel}/secrets', 'agent-package', 'beacon-plugin']) {
+// 后端凭据端点（API 令牌 / WP 信标密钥与插件）必须在；旧站点 Agent 包端点已随协议退役删除。
+for (const route of ['api-tokens', 'publishing/channels/{channel}/secrets', 'beacon-plugin']) {
   assert.ok(routes.includes(route), `后端路由 ${route} 必须保留（运营侧仍要用）`);
 }
+assert.ok(!routes.includes('agent-package'), '旧站点 Agent 包路由应已退役移除');
 
 // ─── 二、渠道详情：按类型只放不需要凭据的按钮 ───
 
@@ -92,7 +93,7 @@ function channelDetailFor(type) {
   return { elements, factory };
 }
 
-for (const type of ['wordpress_rest', 'geoflow_agent', 'http_webhook', 'hosted_page']) {
+for (const type of ['wordpress_rest', 'http_webhook', 'hosted_page']) {
   const { elements, factory } = channelDetailFor(type);
   await factory.openChannelDetail(7);
   assert.equal(elements.channelTaxonomyButton.hidden, type !== 'wordpress_rest',
@@ -106,7 +107,7 @@ for (const type of ['wordpress_rest', 'geoflow_agent', 'http_webhook', 'hosted_p
 
 const taxonomySource = sliceBetween(
   '  // WP 分类标签预同步（阶段 4）',
-  '  // 站点文件：robots.txt / sitemap',
+  '  // ─── 项目渠道绑定 (B6.4) ───',
 );
 
 /** 最小的结果槽替身：记 innerHTML。 */

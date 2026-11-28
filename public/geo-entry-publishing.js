@@ -2,8 +2,8 @@
    GEO 工作台 · 发布与渠道（geo-entry-publishing.js）
 
    从 public/geo-entry.js 搬出来的第六块（计划 §7 前端大文件拆分，拆的是"发布"这一域）。
-   搬的是发布视图的三段：发布渠道列表/详情（含健康检查、日志、重写规则、分类标签同步）、
-   站内文件（robots.txt / sitemap）、以及项目与网站接口、平台账号的明确绑定。
+   搬的是发布视图的两段：发布渠道列表/详情（含健康检查、日志、重写规则、分类标签同步），
+   以及项目与网站接口、平台账号的明确绑定。
 
    接入方式与前五块一致：主文件暴露 window.GEO，本文件消费它；主文件还需要用的入口
    （publishingChannelTypeLabel —— 文章发布抽屉里在显示渠道类型）在文件末尾挂回 window.GEO。
@@ -41,7 +41,6 @@
       hosted_page: "站内托管页（已退役）",
       wordpress_rest: "WordPress REST",
       http_webhook: "HTTP Webhook",
-      geoflow_agent: "GEOFlow Agent",
     };
     return labels[String(type || "")] || type || "-";
   }
@@ -147,10 +146,10 @@
     if (elements.channelTaxonomyResult) elements.channelTaxonomyResult.hidden = true;
     if (elements.channelHealthButton) elements.channelHealthButton.hidden = ch.type === "hosted_page";
     if (elements.channelRewriteButton) elements.channelRewriteButton.hidden = ch.type === "hosted_page";
-    // ⛔ 这里**不再**决定「密钥管理 / Agent 包 / 信标插件」的可见性：三个按钮已从租户模板移除。
+    // ⛔ 这里**不再**决定「密钥管理 / 信标插件」的可见性：凭据按钮已从租户模板移除。
     //    2026-09-22 用户口径：租户只做积分展示，没有 key 与令牌的创建/删除；
     //    渠道密钥（生成/轮换/撤销）是运营动作，凭据入口不得出现在租户界面。
-    //    端点仍在（PublishingController::generateSecret / generateAgentPackage /
+    //    WP 信标凭据端点仍在（PublishingController::generateSecret /
     //    generateBeaconPlugin），改由运营台或运营身份的 API 调用。
     const isWordPress = ch.type === "wordpress_rest";
     if (elements.channelTaxonomyButton) elements.channelTaxonomyButton.hidden = !isWordPress;
@@ -303,52 +302,6 @@
     }
   }
 
-  // ═══════════════════════════════════════════════
-  // 站点文件：robots.txt / sitemap
-  // ═══════════════════════════════════════════════
-
-  async function generateSitemap() {
-    const projectId = state.selectedProject?.id || "";
-    if (elements.publishingSiteFilesResult) {
-      elements.publishingSiteFilesResult.hidden = false;
-      elements.publishingSiteFilesResult.innerHTML = '<p class="muted">正在生成 Sitemap...</p>';
-    }
-    try {
-      const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
-      const body = await api(`/api/v1/publishing/sitemap${query}`, { method: "POST" });
-      const data = body.data || body;
-      const live = data.live_check?.state === "live";
-      const stateText = live ? "线上已生效" : data.live_check?.state === "check_failed" ? "线上检查失败" : "已生成，线上尚未核实";
-      elements.publishingSiteFilesResult.innerHTML = `
-        <p class="muted">${escapeHtml(stateText)} · ${escapeHtml(String(data.url_count ?? 0))} 条 · 按当前公开状态实时生成；不代表已被收录。</p>
-        <p><a href="${escapeHtml(data.url || "#")}" target="_blank" rel="noopener noreferrer">打开公开 Sitemap ↗</a></p>
-        <pre class="execution-output">${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
-    } catch (error) {
-      elements.publishingSiteFilesResult.innerHTML = `<p class="inline-result" data-variant="danger">${escapeHtml(error.message || "Sitemap 生成失败")}</p>`;
-    }
-  }
-
-  async function loadRobotsTxt() {
-    const projectId = state.selectedProject?.id || "";
-    if (elements.publishingSiteFilesResult) {
-      elements.publishingSiteFilesResult.hidden = false;
-      elements.publishingSiteFilesResult.innerHTML = '<p class="muted">正在加载 robots.txt...</p>';
-    }
-    try {
-      const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
-      const body = await api(`/api/v1/publishing/robots-txt${query}`);
-      const robotState = body.live_check?.state === "live" ? "线上已生效" : body.live_check?.state === "check_failed" ? "线上检查失败" : "预览与线上不一致";
-      const pageState = body.public_page_check?.state === "live" ? "公开页响应可抓取" : body.public_page_check?.state === "no_public_page" ? "当前租户暂无可核验的公开页" : "公开页抓取状态未核实";
-      elements.publishingSiteFilesResult.innerHTML = `
-        <p class="muted">域名级 robots.txt：${escapeHtml(robotState)}。${escapeHtml(pageState)}。以下为应用预览，其他租户共用同一根文件。</p>
-        <p><a href="${escapeHtml(body.source_url || "#")}" target="_blank" rel="noopener noreferrer">打开线上 robots.txt ↗</a></p>
-        <p class="muted">线上根文件响应头：${escapeHtml(body.live_check?.x_robots_tag || "无 X-Robots-Tag")}；公开页响应头：${escapeHtml(body.public_page_check?.x_robots_tag || "未取得")}</p>
-        <pre class="execution-output">${escapeHtml(body.content || "")}</pre>`;
-    } catch (error) {
-      elements.publishingSiteFilesResult.innerHTML = `<p class="inline-result" data-variant="danger">${escapeHtml(error.message || "robots.txt 加载失败")}</p>`;
-    }
-  }
-
   // ─── 项目渠道绑定 (B6.4) ───
   let projectBindingRequest = 0;
   let loadedBindingProjectId = null;
@@ -476,8 +429,6 @@
     elements.channelRewriteButton?.addEventListener("click", loadRewriteRules);
     elements.channelTaxonomyButton?.addEventListener("click", syncWordPressTaxonomy);
     elements.channelDeleteButton?.addEventListener("click", deleteChannel);
-    elements.generateSitemapButton?.addEventListener("click", generateSitemap);
-    elements.robotsTxtButton?.addEventListener("click", loadRobotsTxt);
     elements.channelBackButton?.addEventListener("click", closeChannelDetail);
     elements.reloadProjectChannelsButton?.addEventListener("click", loadProjectChannels);
     elements.saveProjectChannelsButton?.addEventListener("click", saveProjectChannels);

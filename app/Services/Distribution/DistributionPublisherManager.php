@@ -3,7 +3,6 @@
 namespace App\Services\Distribution;
 
 use App\Models\PublishingChannel;
-use App\Services\Distribution\Publishers\GeoFlowAgentPublisher;
 use App\Services\Distribution\Publishers\GenericHttpPublisher;
 use App\Services\Distribution\Publishers\WordPressRestPublisher;
 use RuntimeException;
@@ -11,7 +10,6 @@ use RuntimeException;
 class DistributionPublisherManager
 {
     public function __construct(
-        private readonly GeoFlowAgentPublisher $agentPublisher,
         private readonly WordPressRestPublisher $wordPressPublisher,
         private readonly GenericHttpPublisher $genericHttpPublisher,
     ) {}
@@ -23,9 +21,9 @@ class DistributionPublisherManager
     {
         return match ($channel->channelType()) {
             'hosted_page' => throw new RuntimeException('站内托管渠道已退役。'),
-            'geoflow_agent' => $this->agentPublisher,
             'wordpress_rest' => $this->wordPressPublisher,
-            default => $this->genericHttpPublisher,
+            'generic_http_api' => $this->genericHttpPublisher,
+            default => throw new RuntimeException("不支持的分发渠道类型: {$channel->type}"),
         };
     }
 }

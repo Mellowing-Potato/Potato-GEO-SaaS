@@ -311,7 +311,7 @@ class DistributionEngineTest extends TestCase
         TenantContext::set($tenant);
 
         $channel = $this->channel($tenant, [
-            'type' => PublishingChannel::TYPE_GEOFLOW_AGENT,
+            'type' => PublishingChannel::TYPE_WORDPRESS_REST,
         ]);
 
         $secret = DistributionChannelSecret::generateFor($channel);
@@ -320,8 +320,7 @@ class DistributionEngineTest extends TestCase
         $this->assertStringStartsWith('gfk_', $secret->key_id);
         $this->assertStringStartsWith('gfsec_', $secret->decryptSecret());
         $this->assertSame($channel->id, $secret->publishing_channel_id);
-        // W1：geoflow_agent 渠道密钥默认带 beacon scope（1.1.0 起 Agent 包本就支持信标）
-        $this->assertSame(['article.publish', 'article.delete', 'health.check', 'beacon'], $secret->scopes);
+        $this->assertSame(['beacon'], $secret->scopes);
 
         TenantContext::forget();
     }
@@ -332,7 +331,7 @@ class DistributionEngineTest extends TestCase
         TenantContext::set($tenant);
 
         $channel = $this->channel($tenant, [
-            'type' => PublishingChannel::TYPE_GEOFLOW_AGENT,
+            'type' => PublishingChannel::TYPE_WORDPRESS_REST,
         ]);
 
         $secret = DistributionChannelSecret::generateFor($channel);

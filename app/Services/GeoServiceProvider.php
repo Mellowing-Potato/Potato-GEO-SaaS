@@ -6,6 +6,7 @@ use App\Services\AI\AiProviderServiceImpl;
 use App\Services\AI\MockAiProvider;
 use App\Services\Billing\ModelUsageRecorder;
 use App\Services\Billing\AssistUsageRecorder;
+use App\Services\Content\ArticleMarkdownRenderer;
 use App\Services\Content\ContentPipelineService;
 use App\Services\Contracts\AiProvider;
 use App\Services\Contracts\ContentPipeline;
@@ -25,17 +26,14 @@ use App\Services\SkillAgent\SkillAssetLoader;
 use App\Services\SkillAgent\SkillRegistryService;
 use App\Services\Workflow\ProgressBroadcastService;
 use App\Services\Workflow\TaskOrchestrationService;
-use App\Services\Distribution\DistributionHttpClient;
 use App\Services\Distribution\DistributionOrchestrator;
 use App\Services\Distribution\DistributionPayloadBuilder;
 use App\Services\Distribution\DistributionPublisherManager;
 use App\Services\Distribution\DistributionRetryPolicy;
 use App\Services\Distribution\DistributionSigningService;
 use App\Services\Distribution\RewriteRuleGenerator;
-use App\Services\Distribution\TargetSitePackageBuilder;
 use App\Services\Distribution\TaskDistributionChannelSelector;
 use App\Services\Distribution\Publishers\GenericHttpPublisher;
-use App\Services\Distribution\Publishers\GeoFlowAgentPublisher;
 use App\Services\Distribution\Publishers\WordPressRestPublisher;
 use App\Services\Workflow\ProjectWorkflowService;
 use App\Services\Workflow\ProjectCompletionEvidence;
@@ -62,6 +60,7 @@ class GeoServiceProvider extends ServiceProvider
         SkillRegistry::class => SkillRegistryService::class,
         KnowledgeRetrieval::class => KnowledgeRetrievalServiceImpl::class,
         PromptTemplateService::class => PromptTemplateService::class,
+        ArticleMarkdownRenderer::class => ArticleMarkdownRenderer::class,
     ];
 
     public function register(): void
@@ -136,27 +135,13 @@ class GeoServiceProvider extends ServiceProvider
         $this->app->singleton(DistributionRetryPolicy::class);
         $this->app->singleton(DistributionPayloadBuilder::class);
         $this->app->singleton(TaskDistributionChannelSelector::class);
-        $this->app->singleton(TargetSitePackageBuilder::class);
         $this->app->singleton(RewriteRuleGenerator::class);
 
-        $this->app->singleton(DistributionHttpClient::class, function ($app) {
-            return new DistributionHttpClient(
-                $app->make(DistributionSigningService::class),
-            );
-        });
-
-        $this->app->singleton(GeoFlowAgentPublisher::class, function ($app) {
-            return new GeoFlowAgentPublisher(
-                $app->make(DistributionHttpClient::class),
-                $app->make(DistributionPayloadBuilder::class),
-            );
-        });
         $this->app->singleton(WordPressRestPublisher::class);
         $this->app->singleton(GenericHttpPublisher::class);
 
         $this->app->singleton(DistributionPublisherManager::class, function ($app) {
             return new DistributionPublisherManager(
-                $app->make(GeoFlowAgentPublisher::class),
                 $app->make(WordPressRestPublisher::class),
                 $app->make(GenericHttpPublisher::class),
             );

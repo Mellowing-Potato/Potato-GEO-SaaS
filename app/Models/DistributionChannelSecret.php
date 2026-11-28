@@ -46,11 +46,8 @@ class DistributionChannelSecret extends Model
         $keyId = 'gfk_' . bin2hex(random_bytes(16));
         $secret = 'gfsec_' . bin2hex(random_bytes(32));
 
-        // 渠道类型决定 scope：WP 渠道的密钥只用于信标；Agent 包 1.1.0 起本就带 beacon 能力。
-        // 端点侧不强制校验 scopes（二期设计），故仅在此定默认值即可。
-        $scopes = $channel->type === PublishingChannel::TYPE_WORDPRESS_REST
-            ? ['beacon']
-            : ['article.publish', 'article.delete', 'health.check', 'beacon'];
+        // WP 渠道的密钥仅用于信标验签。
+        $scopes = ['beacon'];
 
         return self::query()->create([
             'publishing_channel_id' => $channel->id,

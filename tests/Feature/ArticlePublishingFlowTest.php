@@ -221,13 +221,8 @@ class ArticlePublishingFlowTest extends TestCase
 
         Sanctum::actingAs($admin, ['*']);
 
-        $this->forTenant($tenant)
-            ->getJson('/api/v1/publishing/robots-txt')
-            ->assertOk()
-            ->assertJsonPath('content', file_get_contents(public_path('robots.txt')))
-            ->assertJsonPath('live_check.state', 'mismatch');
-
-        $this->forTenant($tenant)->postJson('/api/v1/publishing/sitemap')->assertStatus(410);
+        $this->forTenant($tenant)->getJson('/api/v1/publishing/robots-txt')->assertNotFound();
+        $this->forTenant($tenant)->postJson('/api/v1/publishing/sitemap')->assertNotFound();
         $this->get('/sitemap.xml')->assertStatus(410)->assertHeader('X-Robots-Tag', 'noindex, nofollow');
         $this->get("/sitemaps/{$tenant->subdomain}.xml")->assertStatus(410);
         $this->get("/read/{$tenant->subdomain}/public-guide")
@@ -295,7 +290,7 @@ class ArticlePublishingFlowTest extends TestCase
         config(['app.url' => 'https://app.example.test']);
         Http::fake(['https://app.example.test/*' => Http::response('', 404)]);
 
-        $this->forTenant($tenant)->postJson('/api/v1/publishing/sitemap?project_id='.$projectA->id)->assertStatus(410);
+        $this->forTenant($tenant)->postJson('/api/v1/publishing/sitemap?project_id='.$projectA->id)->assertNotFound();
         $this->get("/sitemaps/{$tenant->subdomain}.xml")->assertStatus(410)->assertDontSee('/first');
         $this->get("/sitemaps/{$tenant->subdomain}/projects/{$projectA->id}.xml")
             ->assertStatus(410)->assertDontSee('/first');
@@ -398,11 +393,58 @@ class ArticlePublishingFlowTest extends TestCase
         $this->assertSame(0, PublishingChannel::withoutGlobalScopes()->count());
 
         // admin 建的渠道，编辑也不得铸造密钥
-        $channel = $this->channel($tenant, ['type' => PublishingChannel::TYPE_GEOFLOW_AGENT]);
+        $channel = $this->channel($tenant, ['type' => PublishingChannel::TYPE_WORDPRESS_REST]);
         $this
             ->forTenant($tenant)
             ->postJson("/api/v1/publishing/channels/{$channel->id}/secrets")
             ->assertForbidden();
+    }
+
+    public function test_geoflow_agent_channel_creation_package_and_dispatch_are_retired(): void
+    {
+        [$tenant, $admin, $project] = $this->tenantProject('retired-agent');
+        $article = $this->article($tenant, $project, $admin, ['status' => Article::STATUS_APPROVED]);
+        Sanctum::actingAs($admin, ['*']);
+        Http::fake();
+
+        $this->forTenant($tenant)->postJson('/api/v1/publishing/channels', [
+            'name' => 'Legacy Agent',
+            'type' => 'geoflow_agent',
+            'endpoint_url' => 'https://agent.example.test',
+        ])->assertStatus(422)->assertJsonValidationErrors('type');
+
+        $wpChannel = $this->channel($tenant, [
+            'type' => PublishingChannel::TYPE_WORDPRESS_REST,
+            'endpoint_url' => 'https://wp.example.test',
+        ]);
+        $this->forTenant($tenant)
+            ->getJson("/api/v1/publishing/channels/{$wpChannel->id}/agent-package")
+            ->assertNotFound();
+
+        $legacyAgent = $this->channel($tenant, [
+            'name' => 'Historical Agent Row',
+            'type' => 'geoflow_agent',
+            'endpoint_url' => 'https://agent.example.test',
+        ]);
+
+        $this->forTenant($tenant)
+            ->postJson("/api/v1/articles/{$article->id}/publish", ['channel_id' => $legacyAgent->id])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('channel_id');
+
+        $this->forTenant($tenant)
+            ->postJson('/api/v1/publishing/project-channels/bind', [
+                'project_id' => $project->id,
+                'channel_ids' => [$legacyAgent->id],
+            ])
+            ->assertStatus(422);
+
+        $this->expectException(\RuntimeException::class);
+        try {
+            app(\App\Services\Distribution\DistributionPublisherManager::class)->publisherFor($legacyAgent);
+        } finally {
+            Http::assertNothingSent();
+        }
     }
 
     public function test_channel_endpoint_cannot_target_internal_address(): void

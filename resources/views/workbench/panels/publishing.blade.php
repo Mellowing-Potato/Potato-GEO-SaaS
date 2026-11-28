@@ -24,7 +24,6 @@
                                 <select name="type" id="channelTypeSelect">
                                     <option value="wordpress_rest">WordPress REST</option>
                                     <option value="http_webhook">HTTP Webhook</option>
-                                    <option value="geoflow_agent">GEOFlow Agent</option>
                                 </select>
                             </label>
                             <label class="span-2" data-external-channel-field for="channel-endpoint_url">
@@ -103,10 +102,10 @@
                                 <button class="button secondary small" id="channelHealthButton" type="button">健康检查</button>
                                 <button class="button secondary small" id="channelLogsButton" type="button">分发日志</button>
                                 <button class="button secondary small" id="channelRewriteButton" type="button">伪静态规则</button>
-                                {{-- ⛔ 凭据入口（密钥管理 / Agent 包 / 信标插件）**不在租户侧出现**。
+                                {{-- ⛔ 凭据入口（密钥管理 / 信标插件）**不在租户侧出现**。
                                      2026-09-22 用户口径：租户只做积分展示，没有 key 与令牌的创建/删除；
                                      渠道密钥的生成、轮换、撤销属于运营动作（避免敏感操作落在客户界面上）。
-                                     后端三个端点原样保留，供运营台/API 以运营身份调用 ——
+                                     后端信标凭据端点原样保留，供运营台/API 以运营身份调用 ——
                                      本节只留不需要凭据的能力（健康检查/日志/伪静态/分类标签同步）。 --}}
                                 <button class="button secondary small" id="channelTaxonomyButton" type="button" hidden>同步分类标签</button>
                                 <button class="button danger small" id="channelDeleteButton" type="button">删除</button>

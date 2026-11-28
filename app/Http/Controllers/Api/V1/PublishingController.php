@@ -12,13 +12,11 @@ use App\Models\Project;
 use App\Rules\SafeChannelEndpoint;
 use App\Services\Distribution\DistributionOrchestrator;
 use App\Services\Distribution\RewriteRuleGenerator;
-use App\Services\Distribution\TargetSitePackageBuilder;
 use App\Services\Distribution\TaskDistributionChannelSelector;
 use App\Services\Distribution\WordPressBeaconPluginBuilder;
 use App\Services\Distribution\WordPressTaxonomySyncService;
 use App\Services\Publishing\ArticlePublicationService;
 use App\Services\Publishing\ProjectPublicationAccounts;
-use App\Services\Publishing\SitemapGeneratorService;
 use App\Support\OperationalTextRedactor;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -32,10 +30,8 @@ class PublishingController extends Controller
 
     public function __construct(
         private readonly ArticlePublicationService $publications,
-        private readonly SitemapGeneratorService $sitemap,
         private readonly DistributionOrchestrator $distribution,
         private readonly TaskDistributionChannelSelector $channelSelector,
-        private readonly TargetSitePackageBuilder $packageBuilder,
         private readonly WordPressBeaconPluginBuilder $beaconPluginBuilder,
         private readonly RewriteRuleGenerator $rewriteRules,
         private readonly WordPressTaxonomySyncService $taxonomy,
@@ -60,7 +56,7 @@ class PublishingController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'type' => ['required', 'string', 'in:wordpress_rest,http_webhook,geoflow_agent'],
+            'type' => ['required', 'string', 'in:wordpress_rest,http_webhook'],
             'endpoint_url' => ['required', 'url', 'max:2000', new SafeChannelEndpoint()],
             'auth_type' => ['nullable', 'string', 'in:none,bearer,basic,wordpress_application_password,hmac'],
             'username' => ['nullable', 'string', 'max:255'],
@@ -270,25 +266,6 @@ class PublishingController extends Controller
         ], $publication->status === ArticlePublication::STATUS_FAILED ? 502 : 200);
     }
 
-    public function generateSitemap(Request $request): JsonResponse
-    {
-        return response()->json(['message' => '站内托管已退役，不再生成平台文章 Sitemap。'], 410);
-    }
-
-    public function robotsTxt(Request $request): JsonResponse
-    {
-        $projectId = $request->query('project_id');
-        $content = $this->sitemap->robotsTxt($projectId ? (int) $projectId : null);
-
-        return response()->json([
-            'object' => 'robots_txt',
-            'content' => $content,
-            'source_url' => rtrim((string) config('app.url'), '/').'/robots.txt',
-            'live_check' => $this->sitemap->robotsStatus(),
-            'public_page_check' => $this->sitemap->publicPageStatus(),
-        ]);
-    }
-
     // ─── 分发引擎管理端点 ───
 
     public function channelHealth(PublishingChannel $channel): JsonResponse
@@ -365,13 +342,10 @@ class PublishingController extends Controller
     {
         $this->ensureCurrentTenantChannel($channel);
 
-        // W1：开放 WP 渠道密钥管理（仅用于信标）；http_webhook 仍 422。
-        if (! in_array($channel->type, [
-            PublishingChannel::TYPE_GEOFLOW_AGENT,
-            PublishingChannel::TYPE_WORDPRESS_REST,
-        ], true)) {
+        // W1：仅开放 WP 渠道密钥管理（仅用于信标）；http_webhook 等其他渠道 422。
+        if ($channel->type !== PublishingChannel::TYPE_WORDPRESS_REST) {
             return response()->json([
-                'error' => '仅 geoflow_agent / wordpress_rest 类型渠道支持密钥管理。',
+                'error' => '仅 wordpress_rest 类型渠道支持密钥管理。',
             ], 422);
         }
 
@@ -479,7 +453,7 @@ class PublishingController extends Controller
         Project::query()->whereKey((int) $validated['project_id'])->firstOrFail();
         $ids = array_values(array_unique(array_map('intval', $validated['channel_ids'])));
         if (PublishingChannel::query()->whereIn('id', $ids)
-            ->where('type', '!=', PublishingChannel::TYPE_HOSTED_PAGE)
+            ->whereIn('type', [PublishingChannel::TYPE_WORDPRESS_REST, PublishingChannel::TYPE_HTTP_WEBHOOK])
             ->count() !== count($ids)) {
             return response()->json(['message' => '所选渠道不存在、已退役或不属于当前租户。'], 422);
         }
@@ -526,39 +500,6 @@ class PublishingController extends Controller
             'project_id' => (int) $validated['project_id'],
             'mode' => 'none',
             'removed_count' => $deleted,
-        ]);
-    }
-
-    // ─── B4.2 Agent 包生成 ───
-
-    public function generateAgentPackage(PublishingChannel $channel): JsonResponse
-    {
-        $this->ensureCurrentTenantChannel($channel);
-
-        if ($channel->type !== PublishingChannel::TYPE_GEOFLOW_AGENT) {
-            return response()->json([
-                'error' => '仅 geoflow_agent 类型渠道支持 Agent 包生成。',
-            ], 422);
-        }
-
-        $secret = $channel->activeSecret;
-        if (! $secret) {
-            return response()->json([
-                'error' => '渠道尚未生成密钥，请先调用密钥生成接口。',
-            ], 422);
-        }
-
-        $package = $this->packageBuilder->build(
-            $channel->name,
-            $secret->key_id,
-            $secret->decryptSecret(),
-        );
-
-        return response()->json([
-            'object' => 'geoflow_agent_package',
-            'channel_id' => $channel->id,
-            'files' => $package['files'],
-            'instructions' => $package['instructions'],
         ]);
     }
 

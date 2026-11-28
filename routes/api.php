@@ -600,13 +600,6 @@ Route::prefix('v1')
         Route::delete('publishing/channels/{channel}', [PublishingController::class, 'deleteChannel'])
             ->middleware('can:channel:manage');
 
-        // ─── Sitemap 生成 ───
-        Route::post('publishing/sitemap', [PublishingController::class, 'generateSitemap'])
-            ->middleware('can:article:publish');
-
-        Route::get('publishing/robots-txt', [PublishingController::class, 'robotsTxt'])
-            ->middleware('can:article:publish');
-
         // ─── 分发引擎管理 ───
         Route::get('publishing/channels/{channel}/health', [PublishingController::class, 'channelHealth'])
             ->middleware('can:article:publish');
@@ -628,10 +621,6 @@ Route::prefix('v1')
             ->middleware('can:channel:manage');
 
         Route::post('publishing/project-channels/unbind', [PublishingController::class, 'unbindProjectChannels'])
-            ->middleware('can:channel:manage');
-
-        // ─── B4.2 Agent 包生成 ───
-        Route::get('publishing/channels/{channel}/agent-package', [PublishingController::class, 'generateAgentPackage'])
             ->middleware('can:channel:manage');
 
         // ─── W2 WordPress 信标插件生成 ───
