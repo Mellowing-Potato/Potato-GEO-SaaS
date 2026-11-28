@@ -166,4 +166,36 @@ class WorkspaceShellRenderTest extends TestCase
         $this->getJson('/api/v1/theme-packages/1')->assertStatus(404);
         $this->deleteJson('/api/v1/theme-packages/1')->assertStatus(404);
     }
+
+    public function test_legacy_workbench_route_is_unregistered_and_returns_404(): void
+    {
+        $this->assertNull(config('geo.workbench_v2_enabled'));
+
+        $registered = collect(Route::getRoutes()->getRoutes())
+            ->map(fn ($route): string => $route->uri())
+            ->all();
+        $leaked = array_values(array_filter(
+            $registered,
+            fn (string $uri): bool => $uri === 'workbench' || str_starts_with($uri, 'workbench/'),
+        ));
+        $this->assertSame([], $leaked);
+
+        $this->get('/workbench')->assertStatus(404);
+        $this->get('/workbench?view=aikeys')->assertStatus(404);
+
+        $this->enablePageLinks();
+        foreach (self::PAGES as $page) {
+            $xpath = $this->renderedPage($page);
+            $this->assertSame(
+                0,
+                $xpath->query("//a[contains(@href, '/workbench')]")->length,
+                "{$page} 不得残留指向已退役 /workbench 的链接",
+            );
+        }
+
+        $visibilityXpath = $this->renderedPage('/visibility');
+        $noticeLinks = $visibilityXpath->query("//*[@id='monitoringConfigNotice']//a");
+        $this->assertSame(1, $noticeLinks->length);
+        $this->assertStringEndsWith('/#aikeys', $noticeLinks->item(0)->getAttribute('href'));
+    }
 }

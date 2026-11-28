@@ -67,7 +67,6 @@ for (const file of [
   'public/geo-login.css',
   'public/geo-entry.css',
   'public/geo-analytics.js',
-  'public/geo-workbench.js',
 ]) {
   const source = fs.readFileSync(file, 'utf8');
   assert(!legacyHexPattern.test(source), `${file} must not retain legacy multi-hue palette literals`);

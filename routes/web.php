@@ -27,17 +27,6 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-/* 重构版工作台（独立模块，未并入 welcome.blade.php，待后端面板清单对齐后合并）
-   放量前收尾（T1）：默认隐藏，仅当 GEO_WORKBENCH_V2_ENABLED=true 才注册这两条路由，
-   防止客户直达 /workbench 看到 v2 未完成的假数据。关时路由不存在 → 匿名访问 404。
-   红线：不改动 v1 主路径 /（welcome/geo-entry.js）与 /platform/ops 运营台。 */
-if (config('geo.workbench_v2_enabled', false)) {
-    Route::get('/workbench', function () {
-        return view('workbench');
-    });
-
-}
-
 /* 站内文章托管已退役。旧链接返回 410，明确告知爬虫移除索引。 */
 $retiredPublicPage = static fn () => response('此页面已撤下。', 410, [
     'Cache-Control' => 'no-store, max-age=0',
@@ -49,12 +38,12 @@ Route::get('/sitemaps/{tenantSlug}.xml', $retiredPublicPage)->name('sitemap.tena
 Route::get('/sitemaps/{tenantSlug}/projects/{projectId}.xml', $retiredPublicPage)
     ->whereNumber('projectId')->name('sitemap.project');
 
-/* GEO 商业运营台（平台侧跨租户商业控制台，与 /workbench 完全隔离）
-   页面本身公开渲染空壳（与 /workbench 同构）：先渲染，前端 session-login 拿 Sanctum token 后客户端守卫。
+/* GEO 平台运营台（平台侧管理控制台，与租户侧工作台完全隔离）
+   页面本身公开渲染空壳：先渲染，前端 session-login 拿 Sanctum token 后客户端守卫。
    真实权限门在 API 层：routes/api.php 的 /v1/platform/* 已挂 auth:sanctum + can:platform:operations + log-admin-activity。 */
 Route::get('/platform/ops', [App\Http\Controllers\Web\PlatformOpsController::class, 'index']);
 
-/* Phase 1：AI 爬虫可见性面板（租户侧，与 /workbench 同构的净新增看板）
+/* Phase 1：AI 爬虫可见性面板（租户侧独立看板）
    默认隐藏，仅当 GEO_ANALYTICS_PANEL_ENABLED=true 才注册 /analytics 路由（防未接线前对客户露出）。
    红线：真实权限门在 API 层（routes/api.php 的 /v1/analytics/* 已挂 auth:sanctum + can:analytics:view）。 */
 if (config('geo.analytics_panel_enabled', false)) {

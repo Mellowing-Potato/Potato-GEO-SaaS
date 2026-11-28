@@ -12,7 +12,7 @@ const assert=require('node:assert/strict');
  const fontRequests=[];
  page.on('request',r=>{if(r.resourceType()==='font')fontRequests.push(r.url());});
  const results=[];
- const routes=['/#result/101','/#projects','/#skill','/#asset','/#usage','/visibility/','/manual-publish/','/analytics/','/platform-ops/','/workbench/','/lead-form/','/reading/'];
+ const routes=['/#result/101','/#projects','/#skill','/#asset','/#usage','/visibility/','/manual-publish/','/analytics/','/platform-ops/','/lead-form/','/reading/'];
  const reviewHtml=fs.readFileSync(process.env.TEMP+'/geo-workspace-ui-preview/review/index.html','utf8');
  // Standalone preview routes are taken from the generated review index.
  const available=[...reviewHtml.matchAll(/href="([^"]+)"/g)].map(m=>m[1]);

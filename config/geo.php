@@ -179,11 +179,7 @@ return [
         'lock_seconds' => max(600, (int) env('GEO_API_IDEMPOTENCY_LOCK_SECONDS', 600)),
         'wait_seconds' => max(0, (int) env('GEO_API_IDEMPOTENCY_WAIT_SECONDS', 5)),
     ],
-    // 放量前收尾（T1）：v2 工作台开关。默认关；置 true 即恢复 /workbench。
-    // 用 filter_var 防止把字符串 "false" 误判为真。
-    'workbench_v2_enabled' => filter_var(env('GEO_WORKBENCH_V2_ENABLED', false), FILTER_VALIDATE_BOOL),
-    // Phase 1：AI 爬虫可见性面板开关。默认关；真实接线复核通过前不对客户露出（守 workbench 翻车前车之鉴）。
-    // 用 filter_var 防止把字符串 "false" 误判为真。
+    // Phase 1：AI 爬虫可见性面板开关。用 filter_var 防止把字符串 "false" 误判为真。
     'analytics_panel_enabled' => filter_var(env('GEO_ANALYTICS_PANEL_ENABLED', true), FILTER_VALIDATE_BOOL),
     // 单 9：队列心跳看板
     // 面板开关（红线 8，第一道回滚）：默认 false，置 true 才在前端运营台露出「队列健康」页 + 端点放行。

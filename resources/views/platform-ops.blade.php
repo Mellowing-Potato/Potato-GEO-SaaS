@@ -1,6 +1,6 @@
 @php
     /* GEO 平台运营台 · 当前工作区运营与系统管理
-       复用 workbench.blade 的 filemtime 版本号 + IIFE 约定；与 /workbench（租户侧）完全隔离。
+       使用静态资源版本号 + IIFE 约定；与租户侧工作台完全隔离。
        红线：环境标签必须真实反映 config('app.env')；不渲染任何非 platform:operations 可见数据。 */
 @endphp
 <!DOCTYPE html>

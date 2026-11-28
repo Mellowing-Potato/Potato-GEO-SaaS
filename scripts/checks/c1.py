@@ -15,13 +15,8 @@ def scan(root=ROOT):
         if path.startswith(('database/migrations/', 'scripts/checks/')):
             continue
         for number, line in enumerate(text.splitlines(), 1):
-            for match in TERMS.finditer(line):
-                # The user explicitly chose to retain this unused stylesheet in
-                # C1. This exemption covers only its retired page's name.
-                if path == 'public/geo-checkout.css' and match.group() == 'checkout':
-                    continue
+            if TERMS.search(line):
                 findings.append({'file': path, 'line': number, 'category': 'billing-reference'})
-                break
     return findings
 
 

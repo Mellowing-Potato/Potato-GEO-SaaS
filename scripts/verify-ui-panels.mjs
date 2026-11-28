@@ -1333,7 +1333,6 @@ const standalonePages = [
     { name: 'analytics', path: '/analytics/', product: true },
     { name: 'visibility', path: '/visibility/?project_id=901', product: true },
     { name: 'manual-publish', path: '/manual-publish/', product: true },
-    { name: 'workbench', path: '/workbench/', product: true },
     { name: 'public-article', path: '/read-preview/', product: false },
     { name: 'public-form', path: '/form-preview/', product: false },
 ];
