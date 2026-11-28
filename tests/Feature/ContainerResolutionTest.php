@@ -10,7 +10,6 @@ use App\Services\Contracts\KnowledgeRetrieval;
 use App\Services\Contracts\ProjectWorkflow;
 use App\Services\Contracts\SkillAgentRunner;
 use App\Services\Contracts\SkillRegistry;
-use App\Services\Distribution\DistributionHttpClient;
 use App\Services\Distribution\DistributionOrchestrator;
 use App\Services\Distribution\DistributionPayloadBuilder;
 use App\Services\Distribution\DistributionPublisherManager;
@@ -61,7 +60,6 @@ class ContainerResolutionTest extends TestCase
             'DistributionSigning'   => [DistributionSigningService::class],
             'DistributionRetry'     => [DistributionRetryPolicy::class],
             'DistributionPayload'   => [DistributionPayloadBuilder::class],
-            'DistributionHttp'      => [DistributionHttpClient::class],
             'DistributionPublisher' => [DistributionPublisherManager::class],
             'DistributionOrchestrator' => [DistributionOrchestrator::class],
         ];

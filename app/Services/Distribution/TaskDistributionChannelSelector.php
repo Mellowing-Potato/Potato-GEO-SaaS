@@ -29,7 +29,7 @@ class TaskDistributionChannelSelector
         $boundChannelIds = $this->boundChannelIds($projectId);
 
         $query = PublishingChannel::query()->where('is_active', true)
-            ->where('type', '!=', PublishingChannel::TYPE_HOSTED_PAGE);
+            ->whereIn('type', [PublishingChannel::TYPE_WORDPRESS_REST, PublishingChannel::TYPE_HTTP_WEBHOOK]);
 
         $query->whereIn('id', $boundChannelIds);
 

@@ -14,7 +14,6 @@ class PublishingChannel extends Model
 
     public const TYPE_WORDPRESS_REST = 'wordpress_rest';
     public const TYPE_HTTP_WEBHOOK = 'http_webhook';
-    public const TYPE_GEOFLOW_AGENT = 'geoflow_agent';
     public const TYPE_HOSTED_PAGE = 'hosted_page';
 
     protected $fillable = [
@@ -90,10 +89,9 @@ class PublishingChannel extends Model
     {
         return match ($this->type) {
             self::TYPE_HOSTED_PAGE => 'hosted_page',
-            self::TYPE_GEOFLOW_AGENT => 'geoflow_agent',
             self::TYPE_WORDPRESS_REST => 'wordpress_rest',
-            self::TYPE_HTTP_WEBHOOK => 'generic_http_api',
-            default => 'generic_http_api',
+            self::TYPE_HTTP_WEBHOOK, 'generic_http_api' => 'generic_http_api',
+            default => (string) $this->type,
         };
     }
 

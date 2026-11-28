@@ -59,7 +59,7 @@ class DistributionOrchestrator
         } else {
             $channels = PublishingChannel::query()
                 ->where('is_active', true)
-                ->where('type', '!=', PublishingChannel::TYPE_HOSTED_PAGE)
+                ->whereIn('type', [PublishingChannel::TYPE_WORDPRESS_REST, PublishingChannel::TYPE_HTTP_WEBHOOK])
                 ->whereNotIn('id', $publishedChannelIds)
                 ->get();
         }
@@ -213,7 +213,10 @@ class DistributionOrchestrator
         $channel = $publication->channel;
         $article = $publication->article;
 
-        if (! $channel || ! $channel->is_active || $channel->type === PublishingChannel::TYPE_HOSTED_PAGE) {
+        if (! $channel || ! $channel->is_active || ! in_array($channel->type, [
+            PublishingChannel::TYPE_WORDPRESS_REST,
+            PublishingChannel::TYPE_HTTP_WEBHOOK,
+        ], true)) {
             $publication->update([
                 'status' => ArticlePublication::STATUS_FAILED,
                 'last_error' => 'Channel is inactive or deleted.',

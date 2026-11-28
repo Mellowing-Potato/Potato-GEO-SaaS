@@ -41,7 +41,6 @@
       hosted_page: "站内托管页（已退役）",
       wordpress_rest: "WordPress REST",
       http_webhook: "HTTP Webhook",
-      geoflow_agent: "GEOFlow Agent",
     };
     return labels[String(type || "")] || type || "-";
   }
@@ -147,10 +146,10 @@
     if (elements.channelTaxonomyResult) elements.channelTaxonomyResult.hidden = true;
     if (elements.channelHealthButton) elements.channelHealthButton.hidden = ch.type === "hosted_page";
     if (elements.channelRewriteButton) elements.channelRewriteButton.hidden = ch.type === "hosted_page";
-    // ⛔ 这里**不再**决定「密钥管理 / Agent 包 / 信标插件」的可见性：三个按钮已从租户模板移除。
+    // ⛔ 这里**不再**决定「密钥管理 / 信标插件」的可见性：凭据按钮已从租户模板移除。
     //    2026-09-22 用户口径：租户只做积分展示，没有 key 与令牌的创建/删除；
     //    渠道密钥（生成/轮换/撤销）是运营动作，凭据入口不得出现在租户界面。
-    //    端点仍在（PublishingController::generateSecret / generateAgentPackage /
+    //    WP 信标凭据端点仍在（PublishingController::generateSecret /
     //    generateBeaconPlugin），改由运营台或运营身份的 API 调用。
     const isWordPress = ch.type === "wordpress_rest";
     if (elements.channelTaxonomyButton) elements.channelTaxonomyButton.hidden = !isWordPress;

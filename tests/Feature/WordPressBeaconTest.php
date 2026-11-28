@@ -15,7 +15,7 @@ use Tests\TestCase;
 /**
  * GEO 三期 W1+W2 验收：
  *  W1：WP 渠道开放密钥管理（scopes=['beacon']）、http_webhook 仍 422、WP 新密钥通过信标端点验签入库。
- *  W2：WP 信标插件生成 200 且文件含插件头+key_id+信标 URL、不含明文 secret；http_webhook/geoflow_agent 渠道 422。
+ *  W2：WP 信标插件生成 200 且文件含插件头+key_id+信标 URL、不含明文 secret；非 wordpress_rest 渠道 422。
  */
 class WordPressBeaconTest extends TestCase
 {
@@ -74,7 +74,7 @@ class WordPressBeaconTest extends TestCase
         $this->forTenant($tenant)
             ->postJson("/api/v1/publishing/channels/{$channel->id}/secrets")
             ->assertStatus(422)
-            ->assertJson(['error' => '仅 geoflow_agent / wordpress_rest 类型渠道支持密钥管理。']);
+            ->assertJson(['error' => '仅 wordpress_rest 类型渠道支持密钥管理。']);
     }
 
     public function test_wp_channel_secret_passes_beacon_endpoint(): void
@@ -174,15 +174,15 @@ class WordPressBeaconTest extends TestCase
             ->assertJson(['error' => '仅 wordpress_rest 类型渠道支持 WP 信标插件生成。']);
     }
 
-    public function test_beacon_plugin_422_for_agent_channel(): void
+    public function test_beacon_plugin_422_for_hosted_page_channel(): void
     {
-        [$tenant, $admin] = $this->tenantAdmin('wp-plugin-agent');
+        [$tenant, $admin] = $this->tenantAdmin('wp-plugin-hosted');
         Sanctum::actingAs($admin, ['*']);
 
         $channel = $this->channel($tenant, [
-            'type' => PublishingChannel::TYPE_GEOFLOW_AGENT,
-            'endpoint_url' => 'https://agent.example.test',
-            'is_active' => true,
+            'type' => PublishingChannel::TYPE_HOSTED_PAGE,
+            'endpoint_url' => 'https://app.example.test/read',
+            'is_active' => false,
         ]);
 
         $this->forTenant($tenant)

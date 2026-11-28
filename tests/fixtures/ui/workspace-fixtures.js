@@ -323,7 +323,7 @@
     if (path === '/api/v1/publishing/channels') return response({ data: [
       { id: 951, name: '文旅内容托管页（本地样例）', type: 'hosted_page', is_active: true, created_at: '2026-09-09T01:00:00Z' },
       { id: 952, name: '文旅网站 WordPress（本地样例）', type: 'wordpress_rest', is_active: false, endpoint_url: 'https://example.invalid/wp-json/wp/v2', created_at: '2026-09-09T01:00:00Z' },
-      { id: 953, name: '内容分发 Agent（本地样例）', type: 'geoflow_agent', is_active: true, endpoint_url: 'https://example.invalid/agent', created_at: '2026-09-09T01:00:00Z' },
+      { id: 953, name: '内容接收 Webhook（本地样例）', type: 'http_webhook', is_active: true, endpoint_url: 'https://example.invalid/webhook', created_at: '2026-09-09T01:00:00Z' },
     ] });
     if (path === '/api/v1/publishing/project-channels') return response({ mode: 'bound', bound_channel_ids: [951] });
     if (/\/publishing\/channels\/95[1-3]\/logs$/.test(path)) return response({ data: [{ level: 'warning', event: 'preview', message: '仅用于检查日志版式，未执行真实分发。', created_at: '2026-09-09T01:00:00Z' }] });

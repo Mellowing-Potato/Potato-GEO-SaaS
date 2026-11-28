@@ -153,9 +153,10 @@ ok('租户前端源码不再调用凭据端点（令牌 / 渠道密钥 / Agent �
   && !entry.includes("/agent-package")
   && !entry.includes("/beacon-plugin")
   && !/api-tokens", loadApiTokens/.test(entry));
-ok('后端凭据端点原样保留（撤的是租户入口，不是能力）',
-  ['api-tokens', 'publishing/channels/{channel}/secrets', 'agent-package', 'beacon-plugin']
-    .every((marker) => routes.includes(marker)));
+ok('后端凭据端点原样保留（撤的是租户入口，不是能力；旧站点 Agent 包已随协议退役）',
+  ['api-tokens', 'publishing/channels/{channel}/secrets', 'beacon-plugin']
+    .every((marker) => routes.includes(marker))
+  && !routes.includes('agent-package'));
 
 /* ── 7. 平台运营台：审计日志 + 安全设置 ───────────────────────── */
 const opsBlade = readFileSync(resolve(ROOT, 'resources/views/platform-ops.blade.php'), 'utf8');

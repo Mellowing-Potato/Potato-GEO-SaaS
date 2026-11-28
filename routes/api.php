@@ -623,10 +623,6 @@ Route::prefix('v1')
         Route::post('publishing/project-channels/unbind', [PublishingController::class, 'unbindProjectChannels'])
             ->middleware('can:channel:manage');
 
-        // ─── B4.2 Agent 包生成 ───
-        Route::get('publishing/channels/{channel}/agent-package', [PublishingController::class, 'generateAgentPackage'])
-            ->middleware('can:channel:manage');
-
         // ─── W2 WordPress 信标插件生成 ───
         Route::get('publishing/channels/{channel}/beacon-plugin', [PublishingController::class, 'generateBeaconPlugin'])
             ->middleware('can:channel:manage');
