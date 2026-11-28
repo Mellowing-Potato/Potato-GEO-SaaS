@@ -143,7 +143,7 @@ class ArticleExportTest extends TestCase
         Sanctum::actingAs($admin, ['*']);
         $html = $this->forTenant($tenant)->getJson("/api/v1/articles/{$article->id}/preview")
             ->assertOk()->assertJsonPath('version', $article->fresh()->version)->json('html');
-        $this->assertSame(app(\App\Services\Publishing\SiteDeliveryService::class)->renderMarkdown($markdown), $html);
+        $this->assertSame(app(\App\Services\Content\ArticleMarkdownRenderer::class)->renderMarkdown($markdown), $html);
         $this->assertStringContainsString('<h2', $html);
         $this->assertStringContainsString('<li>', $html);
         $this->assertStringContainsString('href="https://example.com/geo"', $html);

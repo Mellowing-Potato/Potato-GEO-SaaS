@@ -106,7 +106,7 @@ for (const type of ['wordpress_rest', 'geoflow_agent', 'http_webhook', 'hosted_p
 
 const taxonomySource = sliceBetween(
   '  // WP 分类标签预同步（阶段 4）',
-  '  // 站点文件：robots.txt / sitemap',
+  '  // ─── 项目渠道绑定 (B6.4) ───',
 );
 
 /** 最小的结果槽替身：记 innerHTML。 */

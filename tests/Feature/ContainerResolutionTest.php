@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Services\Billing\ModelUsageRecorder;
+use App\Services\Content\ArticleMarkdownRenderer;
 use App\Services\Contracts\AiProvider;
 use App\Services\Contracts\ContentPipeline;
 use App\Services\Contracts\KnowledgeRetrieval;
@@ -53,6 +54,7 @@ class ContainerResolutionTest extends TestCase
             'SkillAgentRunner'    => [SkillAgentRunner::class],
             'ProjectWorkflow'     => [ProjectWorkflow::class],
             'ContentPipeline'     => [ContentPipeline::class],
+            'ArticleMarkdown'     => [ArticleMarkdownRenderer::class],
             'DocumentIngestion'   => [DocumentIngestionService::class],
             'ModelUsageRecorder'  => [ModelUsageRecorder::class],
             // 分发引擎

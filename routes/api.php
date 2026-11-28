@@ -600,13 +600,6 @@ Route::prefix('v1')
         Route::delete('publishing/channels/{channel}', [PublishingController::class, 'deleteChannel'])
             ->middleware('can:channel:manage');
 
-        // ─── Sitemap 生成 ───
-        Route::post('publishing/sitemap', [PublishingController::class, 'generateSitemap'])
-            ->middleware('can:article:publish');
-
-        Route::get('publishing/robots-txt', [PublishingController::class, 'robotsTxt'])
-            ->middleware('can:article:publish');
-
         // ─── 分发引擎管理 ───
         Route::get('publishing/channels/{channel}/health', [PublishingController::class, 'channelHealth'])
             ->middleware('can:article:publish');

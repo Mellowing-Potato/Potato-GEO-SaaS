@@ -18,7 +18,6 @@ use App\Services\Distribution\WordPressBeaconPluginBuilder;
 use App\Services\Distribution\WordPressTaxonomySyncService;
 use App\Services\Publishing\ArticlePublicationService;
 use App\Services\Publishing\ProjectPublicationAccounts;
-use App\Services\Publishing\SitemapGeneratorService;
 use App\Support\OperationalTextRedactor;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -32,7 +31,6 @@ class PublishingController extends Controller
 
     public function __construct(
         private readonly ArticlePublicationService $publications,
-        private readonly SitemapGeneratorService $sitemap,
         private readonly DistributionOrchestrator $distribution,
         private readonly TaskDistributionChannelSelector $channelSelector,
         private readonly TargetSitePackageBuilder $packageBuilder,
@@ -268,25 +266,6 @@ class PublishingController extends Controller
             'object' => 'article_publication',
             'publication' => $this->publicationPayload($publication),
         ], $publication->status === ArticlePublication::STATUS_FAILED ? 502 : 200);
-    }
-
-    public function generateSitemap(Request $request): JsonResponse
-    {
-        return response()->json(['message' => '站内托管已退役，不再生成平台文章 Sitemap。'], 410);
-    }
-
-    public function robotsTxt(Request $request): JsonResponse
-    {
-        $projectId = $request->query('project_id');
-        $content = $this->sitemap->robotsTxt($projectId ? (int) $projectId : null);
-
-        return response()->json([
-            'object' => 'robots_txt',
-            'content' => $content,
-            'source_url' => rtrim((string) config('app.url'), '/').'/robots.txt',
-            'live_check' => $this->sitemap->robotsStatus(),
-            'public_page_check' => $this->sitemap->publicPageStatus(),
-        ]);
     }
 
     // ─── 分发引擎管理端点 ───

@@ -33,7 +33,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * 为什么文章不就地删：它决定"能不能恢复"。真删了就只能恢复一个空壳项目。
  * 代价是进桶期间这些文章仍在本租户库里 —— 对外可见性由三处收口（文章列表 whereHas('project')、
- * 项目详情路由绑定、公读页 SiteDeliveryService::resolve 的守卫）各自挡住，见各自的注释。
+ * 项目详情路由绑定、旧公读页路由统一返回 410）各自挡住，见各自的注释。
  */
 final class ProjectTrashService
 {

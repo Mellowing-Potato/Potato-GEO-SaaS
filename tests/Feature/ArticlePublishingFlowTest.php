@@ -221,13 +221,8 @@ class ArticlePublishingFlowTest extends TestCase
 
         Sanctum::actingAs($admin, ['*']);
 
-        $this->forTenant($tenant)
-            ->getJson('/api/v1/publishing/robots-txt')
-            ->assertOk()
-            ->assertJsonPath('content', file_get_contents(public_path('robots.txt')))
-            ->assertJsonPath('live_check.state', 'mismatch');
-
-        $this->forTenant($tenant)->postJson('/api/v1/publishing/sitemap')->assertStatus(410);
+        $this->forTenant($tenant)->getJson('/api/v1/publishing/robots-txt')->assertNotFound();
+        $this->forTenant($tenant)->postJson('/api/v1/publishing/sitemap')->assertNotFound();
         $this->get('/sitemap.xml')->assertStatus(410)->assertHeader('X-Robots-Tag', 'noindex, nofollow');
         $this->get("/sitemaps/{$tenant->subdomain}.xml")->assertStatus(410);
         $this->get("/read/{$tenant->subdomain}/public-guide")
@@ -295,7 +290,7 @@ class ArticlePublishingFlowTest extends TestCase
         config(['app.url' => 'https://app.example.test']);
         Http::fake(['https://app.example.test/*' => Http::response('', 404)]);
 
-        $this->forTenant($tenant)->postJson('/api/v1/publishing/sitemap?project_id='.$projectA->id)->assertStatus(410);
+        $this->forTenant($tenant)->postJson('/api/v1/publishing/sitemap?project_id='.$projectA->id)->assertNotFound();
         $this->get("/sitemaps/{$tenant->subdomain}.xml")->assertStatus(410)->assertDontSee('/first');
         $this->get("/sitemaps/{$tenant->subdomain}/projects/{$projectA->id}.xml")
             ->assertStatus(410)->assertDontSee('/first');

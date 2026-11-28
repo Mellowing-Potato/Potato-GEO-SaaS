@@ -6,6 +6,7 @@ use App\Services\AI\AiProviderServiceImpl;
 use App\Services\AI\MockAiProvider;
 use App\Services\Billing\ModelUsageRecorder;
 use App\Services\Billing\AssistUsageRecorder;
+use App\Services\Content\ArticleMarkdownRenderer;
 use App\Services\Content\ContentPipelineService;
 use App\Services\Contracts\AiProvider;
 use App\Services\Contracts\ContentPipeline;
@@ -62,6 +63,7 @@ class GeoServiceProvider extends ServiceProvider
         SkillRegistry::class => SkillRegistryService::class,
         KnowledgeRetrieval::class => KnowledgeRetrievalServiceImpl::class,
         PromptTemplateService::class => PromptTemplateService::class,
+        ArticleMarkdownRenderer::class => ArticleMarkdownRenderer::class,
     ];
 
     public function register(): void
