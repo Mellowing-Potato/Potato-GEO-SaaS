@@ -13,8 +13,8 @@ Historical Apache-2.0 references used by this project:
 7a8f6ff2643222cadbfb9b2bbb4252284df6ea72
 v2.3.0 / 97119662325b1d6d88ff6a3f390567bcfa91eedd
 
-Yanji adapts outbound request protection, theme packaging, manual publication,
-leads, analytics, document export and knowledge components. Modifications
+Yanji adapts outbound request protection, manual publication, leads,
+analytics, document export and knowledge components. Modifications
 include namespaces, project workflows, independent workspace ownership,
 local accounts, model credentials, task execution and user interfaces.
 File-level provenance is listed in licenses/ported-files.json. Related theme
