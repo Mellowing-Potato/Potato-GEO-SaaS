@@ -8,7 +8,7 @@
  * 客户填错了 / 客户站点的问题 / 我们自己的问题。混在一起写，客户只会来问我们。
  *
  * ⚠️ 目录名是 en 但内容是中文：这个仓库的 APP_LOCALE 就是 en，
- *    resources/lang/en 下全是中文文案（见 theme_package.php），照此惯例。
+ *    resources/lang/en 下全是中文文案，照此惯例。
  */
 return [
     'fetch' => [

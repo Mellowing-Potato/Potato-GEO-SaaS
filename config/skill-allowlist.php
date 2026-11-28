@@ -18,6 +18,4 @@ return [
     'yao-geo-channel-publishing',
     'yao-geo-effect-monitor',
     'yao-geoflow-cli',
-    'yao-geoflow-template',
-    'yao-geoflow-design',
 ];

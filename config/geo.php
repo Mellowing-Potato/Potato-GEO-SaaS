@@ -42,7 +42,7 @@ return [
      */
     'security_headers' => [
         'enabled' => filter_var(env('GEO_SECURITY_HEADERS', true), FILTER_VALIDATE_BOOL),
-        // SAMEORIGIN：theme-package 预览是同源 iframe，跨站嵌入一律拒绝。
+        // SAMEORIGIN：默认只允许同源嵌入，跨站嵌入一律拒绝。
         'frame_options' => env('GEO_FRAME_OPTIONS', 'SAMEORIGIN'),
         'hsts_max_age' => (int) env('GEO_HSTS_MAX_AGE', 15552000), // 180 天
         'hsts_include_subdomains' => filter_var(env('GEO_HSTS_INCLUDE_SUBDOMAINS', true), FILTER_VALIDATE_BOOL),
@@ -283,31 +283,6 @@ return [
     // 是本模块第一道回滚（执行书 §七-8）。改 secrets/geo.env 的 GEO_LEAD_FORM_ENABLED
     // 重启即生效。命名与执行书 §五-3 / L10 逐字一致。
     'lead_form_enabled' => filter_var(env('GEO_LEAD_FORM_ENABLED', true), FILTER_VALIDATE_BOOL),
-
-    // ── 主题包生成模块（单 10）────────────────────────────────────────────
-    // 总开关：默认关。门控前端 /theme-package 页面与全部 /api/v1/theme-packages/*
-    // 端点（路由不注册 → 404）。置 false 是本模块第一道回滚。改 secrets/geo.env
-    // 的 GEO_THEME_PACKAGE_ENABLED 重启即生效。命名与执行书逐字一致。
-    'theme_package_enabled' => filter_var(env('GEO_THEME_PACKAGE_ENABLED', true), FILTER_VALIDATE_BOOL),
-
-    // 单租户磁盘配额（字节）。超过直接拒绝新建，不删旧的。默认 500MB。
-    // 三道闸之一（另两道：单 replication 版本数上限、保留天数清理）。
-    'theme_package' => [
-        // 单租户在 storage 下 theme-packages/{tenant_id} 累计字节上限。
-        'max_bytes_per_tenant' => (int) env('GEO_THEME_PACKAGE_MAX_BYTES', 500 * 1024 * 1024),
-        // 单 replication 版本数上限：超过删最老草稿版本。默认 10。
-        'max_versions' => (int) env('GEO_THEME_PACKAGE_MAX_VERSIONS', 10),
-        // 保留天数：N 天前的生成物与 zip 由 theme-packages:prune 清理。默认 14。
-        'retention_days' => (int) env('GEO_THEME_PACKAGE_RETENTION_DAYS', 14),
-
-        // 打包（zip）限制。上游放在 config/geoflow.php 的四个键，本仓没有那个配置文件，
-        // 归到这里。⚠️ 都必须 > 0：ThemeReplicationPackagePathGuard::positiveInteger()
-        // 收到 null / 0 会直接 reject（表现为「主题包创建失败」，且查不出原因）。
-        'package_max_files' => max(1, (int) env('GEO_THEME_PACKAGE_MAX_FILES', 500)),
-        'package_max_file_bytes' => max(1, (int) env('GEO_THEME_PACKAGE_MAX_FILE_BYTES', 5 * 1024 * 1024)),
-        'package_max_total_bytes' => max(1, (int) env('GEO_THEME_PACKAGE_MAX_TOTAL_BYTES', 25 * 1024 * 1024)),
-        'package_lock_timeout_ms' => max(1, (int) env('GEO_THEME_PACKAGE_LOCK_TIMEOUT_MS', 5000)),
-    ],
 
     'visibility' => [
         // 方舟 key 只进生产 secrets/geo.env（本地 .env 到不了生产，.dockerignore 已排除）。

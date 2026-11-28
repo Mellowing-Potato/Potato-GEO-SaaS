@@ -21,22 +21,17 @@ final class StorageInventoryService
         'enterprise_knowledge_revisions' => ['content'],
         'manual_publications' => ['content'],
         'ai_visibility_sources' => ['content_excerpt'],
-        'site_theme_replications' => ['analysis_json', 'generated_files_json', 'preview_snapshot_json', 'compliance_report_json'],
-        'site_theme_replication_versions' => ['feedback', 'blueprint_json', 'files_json', 'compliance_report_json'],
     ];
 
     private array $exactOwners = [];
 
     private array $executionOwners = [];
 
-    private array $themeOwners = [];
-
     public function inspect(): array
     {
         $started = now()->toIso8601String();
         $this->exactOwners = [];
         $this->executionOwners = [];
-        $this->themeOwners = [];
         $this->loadOwners();
         $report = [
             'schema' => 1,
@@ -170,12 +165,6 @@ final class StorageInventoryService
 
             return $tenant === null ? null : ['tenant_id' => $tenant, 'kind' => 'reports'];
         }
-        if (preg_match('~^private/theme-packages/([1-9][0-9]*)/([1-9][0-9]*)(?:/|$)~', $key, $match)) {
-            $tenant = $this->themeOwners[(int) $match[2]] ?? null;
-
-            return $tenant !== null && $tenant === (int) $match[1]
-                ? ['tenant_id' => $tenant, 'kind' => 'themes'] : null;
-        }
 
         return null;
     }
@@ -195,11 +184,6 @@ final class StorageInventoryService
         if (Schema::hasTable('skill_executions')) {
             foreach (DB::table('skill_executions')->select('id', 'tenant_id')->cursor() as $row) {
                 $this->executionOwners[(int) $row->id] = (int) $row->tenant_id;
-            }
-        }
-        if (Schema::hasTable('site_theme_replications')) {
-            foreach (DB::table('site_theme_replications')->select('id', 'tenant_id')->cursor() as $row) {
-                $this->themeOwners[(int) $row->id] = (int) $row->tenant_id;
             }
         }
     }

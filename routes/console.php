@@ -97,14 +97,6 @@ Schedule::command('article-risk-scans:prune')->dailyAt('03:25');
 // 「删指纹为空的历史 token」逻辑（fix A）在用户下次登录时各自清掉。此处只管增量。
 Schedule::command('sanctum:prune-expired')->dailyAt('03:30');
 
-// 主题包生成：清理超期产物（执行书 T8，红线 1）。
-// 先删文件、再删库行（复用 Service::deleteReplication）；另扫孤儿目录防磁盘泄漏。
-// 与 03:25 article-risk-scans / 03:30 sanctum 错峰，避免每日凌晨 IO 集中。
-// 与路由共用同一个总开关：关掉模块时定时任务也不该再跑（第一道回滚要能整个关干净）。
-if (config('geo.theme_package_enabled', false)) {
-    Schedule::command('theme-packages:prune')->dailyAt('03:35');
-}
-
 // Only recheck existing visibility attempt IDs and owner-scoped gateway
 // deliveries. Unknown or unconfirmed supplier state remains unresolved.
 Schedule::command('geo:reconcile-ai-visibility')->everyFiveMinutes()->withoutOverlapping();
@@ -116,7 +108,7 @@ Schedule::command('geo:reconcile-ai-visibility')->everyFiveMinutes()->withoutOve
  * 靠人记着删就成了"永远留着"（那也是合规问题）。
  *
  * 账户注销：申请后 15 天内登录即恢复；期间没登录的，到期清除身份信息。
- * 两条都排在凌晨那批清理之后、对账之前，避免与 03:20/03:25/03:30/03:35/04:10 挤在一起。
+ * 两条都排在凌晨那批清理之后、对账之前，避免与 03:20/03:25/03:30/04:10 挤在一起。
  */
 Schedule::command('geo:projects-purge --apply')->dailyAt('03:40');
 Schedule::command('geo:account-purge --apply')->dailyAt('03:45');
