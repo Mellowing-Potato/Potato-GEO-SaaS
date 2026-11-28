@@ -66,7 +66,6 @@ class SkillAvailabilityGateTest extends TestCase
         config([
             'app.tenant_domain' => 'geo.example.test',
             'geo.visibility_panel_enabled' => true,
-            'geo.theme_package_enabled' => true,
             'geo.manual_publish_enabled' => true,
         ]);
     }

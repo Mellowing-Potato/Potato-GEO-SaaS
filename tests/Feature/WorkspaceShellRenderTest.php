@@ -4,17 +4,17 @@ namespace Tests\Feature;
 
 use DOMDocument;
 use DOMXPath;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class WorkspaceShellRenderTest extends TestCase
 {
-    private const PAGES = ['/', '/visibility', '/analytics', '/manual-publish', '/theme-package'];
+    private const PAGES = ['/', '/visibility', '/analytics', '/manual-publish'];
 
     private const PAGE_FLAGS = [
         'visibility' => 'visibility_panel_enabled',
         'analytics' => 'analytics_panel_enabled',
         'manual-publish' => 'manual_publish_enabled',
-        'theme-package' => 'theme_package_enabled',
     ];
 
     public function createApplication()
@@ -143,5 +143,27 @@ class WorkspaceShellRenderTest extends TestCase
                 $this->assertSame(0, $xpath->query("//a[contains(@href, '{$marker}')]")->length, "{$page} 不允许出现凭据链接 {$marker}");
             }
         }
+    }
+
+    public function test_retired_theme_routes_are_unregistered_and_return_404(): void
+    {
+        // 明确保留退役路由 404 回归契约：已移除的主题包页面、预览与 API 端点均不得注册。
+        $registered = collect(Route::getRoutes()->getRoutes())
+            ->map(fn ($route): string => $route->uri())
+            ->all();
+        $leaked = array_values(array_filter(
+            $registered,
+            fn (string $uri): bool => str_starts_with($uri, 'api/v1/theme-packages')
+                || str_starts_with($uri, 'theme-package')
+                || str_starts_with($uri, 'theme-preview'),
+        ));
+        $this->assertSame([], $leaked);
+
+        $this->get('/theme-package')->assertStatus(404);
+        $this->get('/theme-preview/1/home')->assertStatus(404);
+        $this->getJson('/api/v1/theme-packages')->assertStatus(404);
+        $this->postJson('/api/v1/theme-packages', ['name' => 'x'])->assertStatus(404);
+        $this->getJson('/api/v1/theme-packages/1')->assertStatus(404);
+        $this->deleteJson('/api/v1/theme-packages/1')->assertStatus(404);
     }
 }

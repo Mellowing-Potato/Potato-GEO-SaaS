@@ -66,14 +66,6 @@
     {
       "id": "yao-geoflow-cli",
       "status": "active"
-    },
-    {
-      "id": "yao-geoflow-template",
-      "status": "active"
-    },
-    {
-      "id": "yao-geoflow-design",
-      "status": "active"
     }
   ]
 }

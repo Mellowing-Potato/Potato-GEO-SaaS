@@ -30,7 +30,6 @@ use App\Http\Controllers\Api\V1\GeoFlowBeaconController;
 use App\Http\Controllers\Api\V1\TeamController;
 use App\Http\Controllers\Api\V1\MagpieModelController;
 use App\Http\Controllers\Api\V1\TenantAiKeyController;
-use App\Http\Controllers\Api\V1\ThemePackageController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -770,24 +769,6 @@ Route::prefix('v1')
                     Route::get('settings/accounts/{id}/wechat-connection', [\App\Http\Controllers\Api\V1\WeChatDraftController::class, 'connection'])->whereNumber('id');
                     Route::post('settings/accounts/{id}/wechat-connection', [\App\Http\Controllers\Api\V1\WeChatDraftController::class, 'connect'])->whereNumber('id')->middleware('throttle:6,1');
                 });
-            });
-        }
-
-        // ─── 主题包生成模块（单 10）─────────────────────────────────────────
-        // 总开关：默认 false，关掉时不注册 → 请求 404（与单 7/单 8 同口径，第一道回滚）。
-        // 全部端点挂 can:theme_package:manage（admin + editor）；tenant 中间件已设上下文，
-        // BelongsToTenant 自动填 tenant_id；查询走 TenantScope。显式 {id}（不用隐式绑定，
-        // 避免 SubstituteBindings 先于 IdentifyTenant → fail-open 跨租户泄漏，见 visibility 段注释）。
-        if (config('geo.theme_package_enabled', false)) {
-            Route::prefix('theme-packages')->middleware('can:theme_package:manage')->group(function () {
-                Route::get('/', [ThemePackageController::class, 'index']);
-                Route::post('/', [ThemePackageController::class, 'store']);
-                Route::get('{id}', [ThemePackageController::class, 'show'])->whereNumber('id');
-                Route::get('{id}/status', [ThemePackageController::class, 'status'])->whereNumber('id');
-                Route::post('{id}/retry', [ThemePackageController::class, 'retry'])->whereNumber('id');
-                Route::post('{id}/iterate', [ThemePackageController::class, 'iterate'])->whereNumber('id');
-                Route::get('{id}/download', [ThemePackageController::class, 'download'])->whereNumber('id');
-                Route::delete('{id}', [ThemePackageController::class, 'destroy'])->whereNumber('id');
             });
         }
 

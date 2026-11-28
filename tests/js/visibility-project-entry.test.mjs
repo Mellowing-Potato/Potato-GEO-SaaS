@@ -58,8 +58,6 @@ assert('入口落在发起监测区', assigned[0]?.endsWith('#sec-new'));
 openSkillAction({ action_path: '/#knowledge' });
 assert('知识库技能进入真实企业知识库', assigned[1]?.includes('/?project_id=11#knowledge'));
 assert('独立入口自带的 hash 不被 sec-new 覆盖', !assigned[1]?.endsWith('#sec-new'));
-openSkillAction({ action_path: '/theme-package' });
-assert('站点模板技能进入真实主题包生成页', assigned[2] === 'https://app.example.test/theme-package?project_id=11#sec-new');
 const requestedKbProjectId = new Function(
   'window', 'URL',
   `${extractFunction(entry, 'requestedKbProjectId')}; return requestedKbProjectId;`,

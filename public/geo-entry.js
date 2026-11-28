@@ -559,8 +559,6 @@
     platformAdminSection: $("platformAdminSection"),
     // 单 7 手动发布：外链到自持 session 的独立壳页 /manual-publish。
     manualPublishMenuLink: $("manualPublishMenuLink"),
-    // 单 10 主题包生成：同构外链，壳页 /theme-package。
-    themePackageMenuLink: $("themePackageMenuLink"),
     // Content Library (CL0-CL5)
     contentLibraryPanel: $("contentLibraryPanel"),
     clTabs: $("clTabs"),

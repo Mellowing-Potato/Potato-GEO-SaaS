@@ -65,8 +65,6 @@ enum WorkflowStage: int
             self::Distribution => [
                 'yao-geo-channel-publishing',
                 'yao-geo-page-audit',       // 发布前校验
-                'yao-geoflow-template',
-                'yao-geoflow-design',
             ],
             self::Monitoring => ['yao-geo-effect-monitor'],
             self::Iteration => [

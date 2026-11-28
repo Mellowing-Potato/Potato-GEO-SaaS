@@ -2,10 +2,9 @@
    GEO 应用端共用零件层（geo-base.css）
    ----------------------------------------------------------------------------
    建立日期：2026-09-03
-   出处：design-specs/designs/geo-theme-package/（主题包页重做稿，B 稿选定）。
-         这一层不是新画的，是把那一稿里已经渲染、已经过审阅的共用零件
-         （按钮/表单/徽标/面板/表格/空态/提示/抽屉/对话框/菜单/toast）
-         从 .tp-* / .va-* 改名成 .md-* 提出来，供 9 个页面共用。
+   用途：集中存放已经过审阅的共用零件
+         （按钮/表单/徽标/面板/表格/空态/提示/抽屉/对话框/菜单/toast），
+         类名统一为 .md-*，供主工作台视图按需挂载共用。
 
    ── 为什么单独一个文件，而不是塞进 geo-tokens.css ─────────────────────
    geo-tokens.css 的规矩第 3 条写得对：那个文件只放自定义属性，
@@ -18,23 +17,18 @@
         <link rel="stylesheet" href="/geo-base.css?v=…">
         <link rel="stylesheet" href="/geo-<页面>.css?v=…">
       排错了取不到 var()（在 tokens 之前）或盖不掉基线（在页面样式之后）。
-   2. <body> 上加 class="md-app"。
+   2. 作用域容器上加 class="md-app"。
       **整份文件里所有规则都在 .md-app 之下**——包括 box-sizing、
       焦点环、动效降级。所以只挂 <link> 不加这个 class，页面纹样不变；
-      反过来，加了 class 就是整页采用这套基线，不能只采用一半。
+      反过来，加了 class 就是该作用域采用这套基线。
    3. 页面自己的样式表里只写这一页独有的东西，不要重抄这里已有的零件。
 
    ── 用它的规矩 ────────────────────────────────────────────────────────
    · 颜色、间距、字号、字重、行高一律 var(--md-*)，本文件里不出现字面色值
      （唯一例外是 rgba() 的透明度叠加，那是叠加不是取色）。
    · 某一页要不一样，在**那一页自己的样式表**里覆盖，不要回来改这里加变体。
-     这里加一个变体就是 9 个页面一起承担风险。
    · 断点只有 640 / 900 / 1200 / 1600（--md-bp-*）。CSS 变量在 @media 里
      用不了，所以下面 @media 里的字面量必须与令牌逐字一致。
-
-   ── 第一个消费方 ──────────────────────────────────────────────────────
-   主题包页重做（geo-theme-package）。其余 8 页在各自重做时逐页搬，
-   不搬的页面完全不受影响——这是「改一页碰不到别页」这个现有优点的保留办法。
    ============================================================================ */
 
 /* ══ 页面基线 ═══════════════════════════════════════════════════════════ */
@@ -55,20 +49,15 @@
    浏览器给 [hidden] 的 display:none 来自 UA 样式表，任何一条作者写的
    display 都盖得过它 —— 而这个文件里 40 多条零件都写了 display。
    于是 el.hidden = true 在这些零件上是**无声失效**的：属性设上了、
-   DOM 对、JS 对，元素照样显示。已经踩过的：
-     · geo-theme-package.css 为此手写了三条补丁
-       （.ops-state[hidden] / .ob-spinner[hidden],.ob-icon[hidden] / .tp-preview-load[hidden]）；
-     · 同一页的 #guardLink 是 .md-btn，没人给它补，至今 hidden 关不掉。
+   DOM 对、JS 对，元素照样显示。
    geo-entry.css / geo-workbench.css / geo-platform-ops.css 三张表早就各写了
-   一条通杀的 [hidden]{display:none!important}，这里只是把那条共识收到零件层，
-   让后搬过来的页面不必再各踩一次。
+   一条通杀的 [hidden]{display:none!important}，这里把那条共识收到零件层，
+   让搬过来的视图不必再各踩一次。
    作用域仍在 .md-app 之下，本文件「无一条裸选择器」的规矩不破。 */
 .md-app [hidden], .md-app[hidden] { display: none !important; }
 .md-app code, .md-app .md-code, .md-app .md-mono { font-family: var(--md-font-mono); }
 
-/* 焦点环 · 全站统一，键盘可见，对比度 ≥ 3:1。
-   实测：生产的 lead-form / theme-package 三张样式表里
-   :focus-visible 出现次数是 0，转化漏斗末端键盘用户没有任何焦点指示。 */
+/* 焦点环 · 全站统一，键盘可见，对比度 ≥ 3:1。 */
 .md-app :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--md-primary);
   outline-offset: 2px;
@@ -337,10 +326,7 @@
 .md-app .md-table tbody tr.is-sel { background: var(--md-primary-soft); }
 .md-app .md-col-act { width: 1%; }
 
-/* 骨架屏 · 列表首次加载。
-   ⚠️ 这一个零件不来自重做稿（那一稿数据是静态的），是把生产
-   geo-theme-package.css 的 .skeleton 换成暖色令牌搬过来的——
-   原实现的灰阶是冷灰 #eef0f3/#e2e6ea，在暖米白纸面上会发脏。 */
+/* 骨架屏 · 列表首次加载（使用共享底色令牌，避免冷灰在素白底面上发脏）。 */
 .md-app .md-skeleton { display: flex; flex-direction: column; gap: var(--md-space-2); padding: var(--md-space-4); }
 .md-app .md-sk {
   height: 10px; border-radius: var(--md-radius-xs);

@@ -325,35 +325,6 @@ class SkillWorkspaceFlowTest extends TestCase
         ]);
     }
 
-    public function test_site_template_routes_to_real_theme_package_panel_without_model_execution(): void
-    {
-        config(['geo.theme_package_enabled' => true]);
-        [$tenant, $admin] = $this->createTenantAdmin('tenant-a');
-        $project = $this->createProjectFor($tenant, $admin);
-        Sanctum::actingAs($admin, ['*']);
-
-        $response = $this->forTenant($tenant)->getJson('/api/v1/skills')->assertOk();
-        $skill = collect($response->json('data'))->firstWhere('id', 'yao-geoflow-template');
-
-        $this->assertSame('GEOFlow 真实主题包生成与预览', $skill['description']);
-        $this->assertSame([], $skill['brief_fields']);
-        $this->assertSame('/theme-package', $skill['action_path']);
-        $this->assertSame('进入主题包生成', $skill['action_label']);
-        $this->assertTrue($skill['available']);
-
-        $this->forTenant($tenant)->postJson('/api/v1/skills/execute-async', [
-            'skill_id' => 'yao-geoflow-template',
-            'project_id' => $project->id,
-        ])->assertStatus(422)
-            ->assertJsonPath('action', 'open_skill_action')
-            ->assertJsonPath('action_path', '/theme-package');
-
-        $this->assertDatabaseMissing('skill_executions', [
-            'skill_id' => 'yao-geoflow-template',
-            'project_id' => $project->id,
-        ]);
-    }
-
     public function test_execution_responses_summarize_usage_without_amounts(): void
     {
         [$tenant, $admin] = $this->createTenantAdmin('tenant-a');

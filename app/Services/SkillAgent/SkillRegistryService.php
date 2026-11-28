@@ -567,40 +567,6 @@ class SkillRegistryService implements SkillRegistryContract
                 sceneDescription: '用命令行批量管理文章、分发任务、知识库操作',
                 effectDescription: '提高批量操作效率，支持脚本自动化',
             ),
-            new SkillDefinition(
-                id: 'yao-geoflow-template',
-                name: '站点模板',
-                category: SkillCategory::GeoOperations,
-                maturity: 'beta',
-                requiresWeb: true,
-                stageIndex: 3,
-                description: 'GEOFlow 真实主题包生成与预览',
-                sceneDescription: '抓取首页、分类页和文章页参考站，生成可预览、迭代和下载的主题包',
-                effectDescription: '获得经过合规扫描的真实主题文件与三类页面预览',
-                briefFields: [],
-                actionPath: '/theme-package',
-                actionLabel: '进入主题包生成',
-                unavailableReason: config('geo.theme_package_enabled', false)
-                    ? null
-                    : '主题包生成当前未开放。',
-            ),
-            new SkillDefinition(
-                id: 'yao-geoflow-design',
-                name: '站点设计',
-                category: SkillCategory::GeoOperations,
-                maturity: 'beta',
-                requiresWeb: true,
-                stageIndex: 3,
-                description: '参考站风格提取、主题生成与安全预览',
-                sceneDescription: '进入主题包生成页，自动带入当前项目并用真实参考网站生成可预览主题',
-                effectDescription: '获得可预览、迭代和下载的定制主题包',
-                briefFields: [],
-                actionPath: '/theme-package',
-                actionLabel: '进入站点设计',
-                unavailableReason: config('geo.theme_package_enabled', false)
-                    ? null
-                    : '站点设计当前未开放。',
-            ),
         ];
     }
 }

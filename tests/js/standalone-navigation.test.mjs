@@ -9,7 +9,7 @@ const read = path => readFileSync(resolve(root, path), 'utf8');
 const navigation = workspaceNavigationSource({ mode: 'page' });
 const template = navigation.html;
 
-for (const page of ['visibility', 'analytics', 'manual-publish', 'theme-package']) {
+for (const page of ['visibility', 'analytics', 'manual-publish']) {
   const blade = read('resources/views/' + page + '.blade.php');
   assert.match(blade, /@include\('partials\.tenant-workspace-sidebar'/);
   assert.match(blade, /geo-page-navigation\.css/);
@@ -41,7 +41,7 @@ function node(dataset = {}) {
 
 const views = [...template.matchAll(/data-workspace-view="([^"]+)"/g)].map(match => node({ workspaceView: match[1] }));
 const pages = [...template.matchAll(/data-tenant-page="([^"]+)"/g)].map(match => node({ tenantPage: match[1] }));
-const publishers = pages.filter(link => ['manual-publish', 'theme-package'].includes(link.dataset.tenantPage));
+const publishers = pages.filter(link => ['manual-publish'].includes(link.dataset.tenantPage));
 const current = node();
 const toggle = node();
 const sidebar = node();

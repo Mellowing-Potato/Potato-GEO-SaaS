@@ -20,7 +20,7 @@ const workContract = [
   ['', ['projects', 'analytics']],
   ['分析诊断', ['skill', 'asset']],
   ['内容', ['content-library', 'materials', 'knowledge', 'url-imports']],
-  ['发布', ['publishing', '/manual-publish', 'automation', '/theme-package', 'leads']],
+  ['发布', ['publishing', '/manual-publish', 'automation', 'leads']],
   ['效果监测', ['/visibility', '/analytics']],
   ['平台管理', ['platform']],
 ];
@@ -55,12 +55,11 @@ assert.equal(byRoute('analytics').label, '项目总览');
 assert.equal(byRoute('categories'), undefined, 'Article categories are reached from the article page');
 for (const [value, flag] of [
   ['/manual-publish', 'manual_publish_enabled'],
-  ['/theme-package', 'theme_package_enabled'],
   ['/visibility', 'visibility_panel_enabled'],
   ['/analytics', 'analytics_panel_enabled'],
   ['leads', 'lead_form_enabled'],
 ]) assert.equal(byRoute(value).flag, flag, `${value}: retain its existing feature gate`);
-for (const value of ['/manual-publish', '/theme-package']) {
+for (const value of ['/manual-publish']) {
   assert.deepEqual(byRoute(value).roles, ['admin', 'platform_admin', 'editor'], `${value}: retain publisher roles`);
 }
 assert.equal(byRoute('team').id, 'teamMenuLink');
@@ -83,7 +82,7 @@ const mainSidebar = welcome.match(/<aside\b[^>]*id="workspaceSidebar"[^>]*>[\s\S
 assert(mainSidebar, 'Main workspace sidebar exists');
 assert.doesNotMatch(mainSidebar, /data-view-target\s*=/, 'The parent template has no hand-written view link list');
 assert.doesNotMatch(standalone, /data-tenant-page\s*=|\['(?:分析诊断|内容资产|发布与增长)'/, 'Standalone wrapper has no hand-written page link list');
-assert.doesNotMatch(nav, /href="(?:#|\/#|\/)(?:skill|asset|materials|content-library|publishing|automation|visibility|analytics|manual-publish|theme-package)"/, 'The shared renderer does not duplicate menu routes');
+assert.doesNotMatch(nav, /href="(?:#|\/#|\/)(?:skill|asset|materials|content-library|publishing|automation|visibility|analytics|manual-publish)"/, 'The shared renderer does not duplicate menu routes');
 assert.match(nav, /@continue\(\$mode\s*===\s*'page'\s*&&\s*\$menu\s*===\s*'settings'\)/, 'Standalone pages only render the work menu');
 assert.match(nav, /config\('geo\.'\.\$item\['flag'\]/, 'The shared renderer applies feature gates');
 assert.match(nav, /\$item\['roles'\][\s\S]*?data-role="publisher"\s+hidden/, 'Restricted entries are initially hidden');
@@ -110,7 +109,7 @@ assert.match(topbar, /<header\b[^>]*class="topbar workspace-topbar"[^>]*\binert\
 assert.match(topbar, /<x-yanji-logo\b[^>]*variant="compact"[^>]*class="topbar-logo"[^>]*width="128"[^>]*height="44"/);
 assert.doesNotMatch(topbar, /variant="symbol"/, 'The shared header keeps the compact brand mark');
 
-const pageNames = ['analytics', 'manual-publish', 'theme-package', 'visibility'];
+const pageNames = ['analytics', 'manual-publish', 'visibility'];
 const pageTemplates = pageNames.map(page => read(`resources/views/${page}.blade.php`));
 for (const [index, source] of pageTemplates.entries()) {
   const page = pageNames[index];
@@ -514,8 +513,8 @@ console.log('PASS B3 snippets: four label states, beacon needs zero visits for �
 }
 
 // B5: removed page identity nodes have no remaining JS writes or lookups.
-for (const file of ['public/geo-analytics.js', 'public/geo-visibility.js', 'public/geo-theme-package.js', 'public/geo-manual-publish.js']) {
-  assert.doesNotMatch(read(file), /gaWho|gvWho|tpWho|tpAvatar/);
+for (const file of ['public/geo-analytics.js', 'public/geo-visibility.js', 'public/geo-manual-publish.js']) {
+  assert.doesNotMatch(read(file), /gaWho|gvWho/);
 }
 console.log('B5 retired identity IDs are absent from standalone scripts.');
 

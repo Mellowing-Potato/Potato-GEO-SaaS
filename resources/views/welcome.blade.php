@@ -30,11 +30,9 @@
     <link rel="stylesheet" href="/geo-shell.css?v={{ \App\Support\PublicAssetVersion::for('geo-shell.css') }}">
     <link rel="stylesheet" href="/geo-components.css?v={{ \App\Support\PublicAssetVersion::for('geo-components.css') }}">
     <link rel="stylesheet" href="/geo-fonts.css?v={{ \App\Support\PublicAssetVersion::for('geo-fonts.css') }}">
-    {{-- 共用零件层。2026-09-03 内容库迁零件层时才第一次挂上来 —— 在此之前
-         geo-base.css 全站只有 theme-package.blade.php 一个消费者，本页够不着。
-         挂上是安全的：geo-base.css 里 136 条规则**全部**写在 .md-app 之下
-         （已核：无一条裸选择器，两个 @media 里也一样），所以不带 md-app 的
-         视图一条都吃不到。顺序必须夹在令牌与本页样式之间。 --}}
+    {{-- 共用零件层：geo-base.css 里全部规则写在 .md-app 之下（无裸选择器，
+         两个 @media 里也一样），所以不带 md-app 的视图一条都吃不到。
+         顺序必须夹在令牌与本页样式之间。 --}}
     <link rel="stylesheet" href="/geo-base.css?v={{ $geoBaseCssVersion }}">
     <link rel="stylesheet" href="/geo-entry.css?v={{ $geoEntryCssVersion }}">
     <link rel="stylesheet" href="/geo-workspace-ui.css?v={{ \App\Support\PublicAssetVersion::for('geo-workspace-ui.css') }}">
@@ -191,7 +189,7 @@
 
                 @include('workbench.panels.automation')
 
-                {{-- 文章详情抽屉 · 迁零件层 md-scrim + md-sheet（主题包页之后的第二个消费者）。
+                {{-- 文章详情抽屉 · 迁零件层 md-scrim + md-sheet。
                      ⚠️ 结构从「遮罩与抽屉两个平级兄弟」改成「遮罩包住抽屉」——零件层的
                         .md-scrim 是 position:fixed 的 flex 容器，抽屉必须是它的子元素。
                      ⚠️ 因此**开关挂在 #clDrawerMask（遮罩）上**，不再挂 #clDrawer。

@@ -253,18 +253,6 @@
         { id: 979, name: '待归类', slug: 'uncategorized', sort_order: 99, articles_count: null },
       ] });
     }
-    const themeSamples = ['ready', 'failed', 'archived'].map((status, i) => ({ id: 941 + i, name: ['文旅内容主题（本地样例）', '参考页面读取失败（本地样例）', '历史版本（归档样例）'][i], theme_id: 'preview-travel-' + (i + 1), status, current_version: i === 1 ? 0 : 2, creator: { name: '示例编辑' }, created_at: '2026-09-09T01:00:00Z', error_message: i === 1 ? '本地样例：无法读取参考页面。' : '', analysis_json: { tokens: { colors: ['#3f8069', '#f7f6f0'], font_families: ['Noto Sans SC'] } }, versions: [{ version: 1, feedback: '示例反馈：调整正文宽度，减轻标题字重。', created_at: '2026-09-09T01:00:00Z' }, { version: 2, feedback: '', created_at: '2026-09-10T01:00:00Z' }] }));
-    if (path === '/api/v1/theme-packages') return response({ data: themeSamples });
-    const themeId = path.match(/^\/api\/v1\/theme-packages\/(94[1-3])(?:\/status)?$/);
-    if (themeId) {
-      const theme = themeSamples.find(item => item.id === Number(themeId[1]));
-      return response({ data: theme, progress: { terminal: true, failed: theme.status === 'failed', status_label: { ready: '可下载（样例）', failed: '失败（样例）', archived: '已归档（样例）' }[theme.status], current_step_label: '参考读取（样例）', progress_percent: theme.status === 'failed' ? 20 : 100, last_updated: '2026-09-10T01:00:00Z', stages: [{ label: '参考读取（样例）', state: theme.status === 'failed' ? 'failed' : 'done', description: '仅用于检查进度展示，并非真实执行。' }] }, failure_advice: theme.status === 'failed' ? { title: '参考页面暂时无法读取', description: '这是本地失败状态样例。', actions: ['确认参考链接可访问后重试。'] } : null });
-    }
-    const themePreview = path.match(/^\/theme-preview\/941\/(home|category|article)$/);
-    if (themePreview) {
-      const label = { home: '首页', category: '分类页', article: '文章页' }[themePreview[1]];
-      return new Response('<!doctype html><html lang="zh"><meta charset="utf-8"><style>body{font:16px/1.75 sans-serif;margin:32px;color:#294238;background:#f7f6f0}h1{font-size:24px;font-weight:600}p{max-width:42em}</style><h1>' + label + ' · 本地占位样例</h1><p>这里用于核对预览容器、页型切换与加载状态，不代表已生成的主题效果。</p><p>正式主题内容继续由原接口返回。</p></html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-    }
     if (path === '/api/v1/manual-publications/settings/personas') return response({ data: manualPersonas });
     if (path === '/api/v1/manual-publications/settings/accounts') return response({ data: manualAccounts });
     if (path === '/api/v1/team/') return response({ data: [{ id: 901, name: '本地预览' }, { id: 902, name: '示例协作人' }] });

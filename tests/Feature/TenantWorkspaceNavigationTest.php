@@ -12,10 +12,9 @@ class TenantWorkspaceNavigationTest extends TestCase
             'geo.visibility_panel_enabled' => true,
             'geo.analytics_panel_enabled' => true,
             'geo.manual_publish_enabled' => true,
-            'geo.theme_package_enabled' => true,
         ]);
 
-        foreach (['visibility', 'analytics', 'manual-publish', 'theme-package'] as $page) {
+        foreach (['visibility', 'analytics', 'manual-publish'] as $page) {
             $html = view($page, ['cspNonce' => 'test-nonce'])->render();
             $this->assertStringContainsString('aria-label="言及工作台一级菜单"', $html, $page);
             $this->assertStringContainsString('href="/#projects/list"', $html, $page);
@@ -35,13 +34,11 @@ class TenantWorkspaceNavigationTest extends TestCase
             'geo.visibility_panel_enabled' => true,
             'geo.analytics_panel_enabled' => false,
             'geo.manual_publish_enabled' => false,
-            'geo.theme_package_enabled' => false,
         ]);
 
         $html = view('visibility', ['cspNonce' => 'test-nonce'])->render();
         $this->assertStringContainsString('data-tenant-page="visibility"', $html);
         $this->assertStringNotContainsString('data-tenant-page="analytics"', $html);
         $this->assertStringNotContainsString('data-tenant-page="manual-publish"', $html);
-        $this->assertStringNotContainsString('data-tenant-page="theme-package"', $html);
     }
 }

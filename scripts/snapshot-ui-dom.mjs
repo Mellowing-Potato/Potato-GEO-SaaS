@@ -47,7 +47,6 @@ const TARGETS = [
     { name: '可见性看板', url: `${base}/visibility/?project_id=901`, scope: 'body' },
     { name: '爬虫统计', url: `${base}/analytics/`, scope: 'body' },
     { name: '手动发布', url: `${base}/manual-publish/`, scope: 'body' },
-    { name: '主题包', url: `${base}/theme-package/`, scope: 'body' },
     { name: '公开文章', url: `${base}/read-preview/`, scope: 'body' },
     { name: '公开表单', url: `${base}/form-preview/`, scope: 'body' },
     { name: '运营台', url: `${base}/platform/ops/?preview-platform-admin`, scope: 'body' },

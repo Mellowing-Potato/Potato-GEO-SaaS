@@ -526,22 +526,6 @@
       "cspViolations": [],
       "errors": 0
     },
-    "主题包": {
-      "hash": "8a7056d1:1784",
-      "textHash": "d93428ca:494",
-      "elementCount": 114,
-      "tables": 0,
-      "buttons": 10,
-      "inputs": 1,
-      "requests": [
-        "GET /api/v1/theme-packages",
-        "GET /api/v1/theme-packages/941",
-        "GET /api/v1/theme-packages/942/status",
-        "GET /theme-preview/941/home"
-      ],
-      "cspViolations": [],
-      "errors": 0
-    },
     "结算页": {
       "hash": "12bb1895:764",
       "textHash": "82b234e1:324",

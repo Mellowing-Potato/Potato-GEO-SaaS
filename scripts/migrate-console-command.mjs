@@ -63,10 +63,10 @@ function findMatch(source, start, open, close) {
 /**
  * 去掉 PHP 源码里的注释与字符串字面量。
  *
- * 为什么要先剥：类引用检查会扫到注释。实测踩到三处假阳性 ——
+ * 为什么要先剥：类引用检查会扫到注释。实测踩到假阳性 ——
  * ReapStuckSkillExecutions 的头注释里写着 `SkillAgentRunnerService::execute()`、
- * RecordSchedulerHeartbeat 写着 `Queue::looping`、ThemePackagesPruneCommand 写着
- * `Service::deleteReplication()`。这些都不是代码，不该被当成"未 import 的类引用"。
+ * RecordSchedulerHeartbeat 写着 `Queue::looping`。这些都不是代码，
+ * 不该被当成"未 import 的类引用"。
  */
 export function stripCommentsAndStrings(source) {
   let out = '';

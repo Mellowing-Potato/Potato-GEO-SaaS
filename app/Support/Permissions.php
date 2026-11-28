@@ -93,11 +93,6 @@ class Permissions
         //            故与 channel:manage 同级收在 admin；「读」留在 manage 里，否则 editor 建不了单。
         'manual_publish:settings' => ['admin'],
 
-        // 主题包生成模块（单 10）——与 manual_publish 同构：本仓 «角色定能力、租户定边界»，
-        // 不看记录归属（记录级归属由 TenantScope 在查询层保证，跨租户 403/404 由控制器校验）。
-        // manage : 建 / 查 / 迭代 / 下载 / 删除自己的主题包（admin + editor 均可）。
-        'theme_package:manage'     => ['admin', 'editor'],
-
         // 线索表单模块（单 8）：表单 CRUD + 提交记录管理 + 转化统计。
         // admin 天然拥有（Permissions::allows 里 role==='admin' 直接 true），
         // 这里实际只约束 editor 与 member（editor 可管，member 不可）。

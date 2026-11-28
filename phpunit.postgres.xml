@@ -22,7 +22,6 @@
             <file>tests/Feature/KnowledgeDeletionLifecycleTest.php</file>
             <file>tests/Feature/KnowledgePaginationContractTest.php</file>
             <file>tests/Feature/AccountSessionBindingTest.php</file>
-            <file>tests/Feature/ThemePreviewAuthenticationTest.php</file>
             <file>tests/Feature/PrivateReportDownloadTest.php</file>
             <file>tests/Feature/LocalAccountFlowTest.php</file>
             <file>tests/Feature/ArticleExportTest.php</file>

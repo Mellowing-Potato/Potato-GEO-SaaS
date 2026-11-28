@@ -12,7 +12,7 @@ use Tests\TestCase;
  * 守四件事：
  *   1. HTML 页面必须带上 nosniff / X-Frame-Options / Referrer-Policy / Permissions-Policy；
  *   2. CSP 默认只 report-only（防白页），显式切 enforce 才真的拦；
- *   3. 业务自己设过的头**不被放宽**（theme-preview 用 DENY 渲染用户 HTML）；
+ *   3. 业务自己设过的头**不被放宽**（例如 /local-start 用 DENY 拒绝任何嵌入）；
  *   4. HSTS 只在请求确实是 https 时发（http 下浏览器本来就忽略，发了是误导）。
  */
 class SecurityHeadersTest extends TestCase
@@ -48,7 +48,7 @@ class SecurityHeadersTest extends TestCase
     public function test_existing_headers_are_not_loosened(): void
     {
         $middleware = new SecurityHeaders;
-        $request = Request::create('/theme-preview/1/home', 'GET');
+        $request = Request::create('/local-start', 'GET');
 
         $response = $middleware->handle($request, fn () => response('x', 200, [
             'X-Frame-Options' => 'DENY',

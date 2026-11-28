@@ -21,13 +21,6 @@
     "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
   },
   {
-    "file": "app/Jobs/IterateSiteThemeReplicationJob.php",
-    "upstream_file": "app/Jobs/IterateSiteThemeReplicationJob.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
-  },
-  {
     "file": "app/Models/AiVisibilitySource.php",
     "upstream_file": "app/Models/AiVisibilitySource.php",
     "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
@@ -86,27 +79,6 @@
   {
     "file": "app/Models/SensitiveWord.php",
     "upstream_file": "app/Models/SensitiveWord.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
-  },
-  {
-    "file": "app/Models/SiteThemeReplication.php",
-    "upstream_file": "app/Models/SiteThemeReplication.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
-  },
-  {
-    "file": "app/Models/SiteThemeReplicationLog.php",
-    "upstream_file": "app/Models/SiteThemeReplicationLog.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
-  },
-  {
-    "file": "app/Models/SiteThemeReplicationVersion.php",
-    "upstream_file": "app/Models/SiteThemeReplicationVersion.php",
     "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
     "license": "Apache-2.0",
     "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
@@ -292,83 +264,6 @@
     "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
     "license": "Apache-2.0",
     "modifications": "Adapted application interfaces, workspace ownership and execution behavior."
-  },
-  {
-    "file": "app/Services/ThemePackaging/SiteThemeReplicationService.php",
-    "upstream_file": "app/Services/Admin/SiteThemeReplicationService.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
-  },
-  {
-    "file": "app/Services/ThemePackaging/ThemeComplianceGuard.php",
-    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeComplianceGuard.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
-  },
-  {
-    "file": "app/Services/ThemePackaging/ThemeReferenceAnalyzer.php",
-    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReferenceAnalyzer.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
-  },
-  {
-    "file": "app/Services/ThemePackaging/ThemeReferenceFetcher.php",
-    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReferenceFetcher.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
-  },
-  {
-    "file": "app/Services/ThemePackaging/ThemeReplicationAgent.php",
-    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReplicationAgent.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
-  },
-  {
-    "file": "app/Services/ThemePackaging/ThemeReplicationPackagePathGuard.php",
-    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReplicationPackagePathGuard.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
-  },
-  {
-    "file": "app/Services/ThemePackaging/ThemeReplicationPackageService.php",
-    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReplicationPackageService.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
-  },
-  {
-    "file": "app/Services/ThemePackaging/ThemeReplicationPipelineService.php",
-    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReplicationPipelineService.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
-  },
-  {
-    "file": "app/Services/ThemePackaging/ThemeReplicationStorageGuard.php",
-    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReplicationStorageGuard.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
-  },
-  {
-    "file": "app/Services/ThemePackaging/ThemeReplicationStorageLock.php",
-    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeReplicationStorageLock.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
-  },
-  {
-    "file": "app/Services/ThemePackaging/ThemeScaffoldWriter.php",
-    "upstream_file": "app/Services/Admin/SiteThemeReplication/ThemeScaffoldWriter.php",
-    "reference": "97119662325b1d6d88ff6a3f390567bcfa91eedd",
-    "license": "Apache-2.0",
-    "modifications": "Adapted theme generation, packaging and storage for independent workspaces."
   },
   {
     "file": "app/Support/Analytics/TrafficClassifier.php",

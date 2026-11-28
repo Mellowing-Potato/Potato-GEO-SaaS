@@ -185,19 +185,18 @@ class SkillAssetAuditTest extends TestCase
         $this->assertStringNotContainsString(hash('sha256', 'must not be included'), json_encode($report));
     }
 
-    public function test_theme_editing_paths_are_unverified_not_missing_skill_dependencies(): void
+    public function test_external_target_paths_are_unverified_not_missing_skill_dependencies(): void
     {
-        $this->writeRegistry(['yao-geoflow-template', 'audit-demo']);
-        config(['geo.theme_package_enabled' => true]);
-        $template = $this->skillsRoot.'/yao-geoflow-template';
-        $design = $this->skillsRoot.'/audit-demo';
-        $this->write($template.'/SKILL.md', 'Edit the target site theme using references/theme-styles.md.');
-        $this->write($template.'/references/theme-styles.md', 'Update assets/css/style.css and assets/css/custom.css in the target theme.');
+        $this->writeRegistry(['yao-geo-knowledge-base-builder', 'audit-demo']);
+        $dedicated = $this->skillsRoot.'/yao-geo-knowledge-base-builder';
+        $runnable = $this->skillsRoot.'/audit-demo';
+        $this->write($dedicated.'/SKILL.md', 'Ingest documents using references/kb-guide.md.');
+        $this->write($dedicated.'/references/kb-guide.md', 'Optional external export paths: assets/docs/index.html and assets/docs/custom.css.');
         // A runnable fixture and three references repeat the same allowed
-        // target-theme file. It is not a dependency inside the skill package.
-        $this->write($design.'/SKILL.md', 'Edit only allowed theme files: assets/theme.css.');
+        // external target file. It is not a dependency inside the skill package.
+        $this->write($runnable.'/SKILL.md', 'Edit only allowed target files: assets/theme.css.');
         foreach (['workflow', 'style-rules', 'acceptance'] as $name) {
-            $this->write($design.'/references/'.$name.'.md', 'The target theme may be changed through assets/theme.css.');
+            $this->write($runnable.'/references/'.$name.'.md', 'The target site may be changed through assets/theme.css.');
         }
 
         $report = $this->audit();
@@ -205,8 +204,8 @@ class SkillAssetAuditTest extends TestCase
         $this->assertSame(0, $report['summary']['errors']);
         $this->assertNotContains('declared_file_missing', $this->codes($report, 'error'));
         $unverified = array_values(array_filter($report['findings'], fn ($finding) => $finding['code'] === 'declared_path_unverified'));
-        // 站点模板已改走本仓真实主题包面板，不再执行上游通用模型技能，
-        // 因此它文档里的编辑目标也不属于运行依赖；通用技能使用独立夹具，避免依赖业务入口的当前实现。
+        // 独立业务入口技能不执行通用模型资产，其文档里的外部目标路径也不属于运行依赖；
+        // 通用技能使用独立夹具验证重复外部路径去重且保留全部声明出处。
         $this->assertCount(1, $unverified);
         $this->assertSame(['assets/theme.css'], array_column($unverified, 'path'));
         $this->assertSame(['warning'], array_column($unverified, 'severity'));

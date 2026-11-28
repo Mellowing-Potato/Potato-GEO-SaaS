@@ -14,7 +14,7 @@
   .md-iconbtn, .md-link, .md-panel, .md-panel-body, .md-panel-body--flush, .md-panel-head, .md-panel-stat,
   .md-seg, .md-segmented, .md-stat, .md-stat-delta, .md-stat-label, .md-stat-value,
   .md-tab, .md-tab-count, .md-tabs, .segmented, .segmented-item, .skill-workspace-tabs,
-  .tp-safenotice, .usage-card)[hidden],
+  .usage-card)[hidden],
 .geo-app :is(.billing-metric, .billing-metric-label, .btn, .button, .callout, .cl-seg-tabs,
   .cl-state-empty, .empty, .filter-chip, .kb-seg-tab, .kb-seg-tabs, .lead-drawer-empty,
   .mat-seg-tabs, .md-alert, .md-alert--danger, .md-alert--info, .md-alert--success, .md-alert--warning,
@@ -24,7 +24,7 @@
   .md-iconbtn, .md-link, .md-panel, .md-panel-body, .md-panel-body--flush, .md-panel-head, .md-panel-stat,
   .md-seg, .md-segmented, .md-stat, .md-stat-delta, .md-stat-label, .md-stat-value,
   .md-tab, .md-tab-count, .md-tabs, .segmented, .segmented-item, .skill-workspace-tabs,
-  .tp-safenotice, .usage-card) [hidden] {
+  .usage-card) [hidden] {
   display: none !important;
 }
 
@@ -217,8 +217,8 @@
 
 /* A4 · BEGIN */
 /* Alerts: the bare md-alert is deliberately danger. Production's blocked
-   article and theme-package error/recovery views rely on that meaning. */
-.geo-app :is(.md-alert, .callout, .tp-safenotice) {
+   article error/recovery views rely on that meaning. */
+.geo-app :is(.md-alert, .callout) {
   display: flex;
   align-items: flex-start;
   gap: var(--md-space-2);
@@ -236,7 +236,6 @@
   color: var(--md-danger-ink);
 }
 .geo-app .callout,
-.geo-app .tp-safenotice,
 .geo-app .md-alert--info,
 .geo-app .callout[data-variant="info"],
 .geo-app .callout[data-variant="neutral"] {
